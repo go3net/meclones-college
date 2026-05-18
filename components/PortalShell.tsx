@@ -3,8 +3,8 @@
 import { ReactNode, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter, usePathname } from "next/navigation";
-import { currentUser, logout } from "@/lib/auth";
-import { Role, User } from "@/lib/mock-data";
+import { useSession, signOut } from "next-auth/react";
+import type { Role as MockRole } from "@/lib/mock-data";
 import { Logo } from "./Logo";
 import clsx from "clsx";
 import {
@@ -15,7 +15,20 @@ import {
 
 interface NavItem { href: string; label: string; icon: any; }
 
-const NAV_BY_ROLE: Record<Role, NavItem[]> = {
+// PortalShell takes the mock-data Role type (lowercase). NextAuth gives us
+// UPPER_CASE Prisma roles; the mapper below bridges the two so the existing
+// nav definitions don't need to change yet.
+const ROLE_FROM_AUTH: Record<string, MockRole> = {
+  SUPER_ADMIN: "director",
+  DIRECTOR: "director",
+  ADMIN: "school_admin",
+  ACCOUNTANT: "accountant",
+  TEACHER: "teacher",
+  STUDENT: "student",
+  PARENT: "parent",
+};
+
+const NAV_BY_ROLE: Record<MockRole, NavItem[]> = {
   director: [
     { href: "/portal/director", label: "Overview", icon: Home },
     { href: "/portal/director/performance", label: "Performance", icon: TrendingUp },
@@ -66,32 +79,53 @@ const NAV_BY_ROLE: Record<Role, NavItem[]> = {
   ],
 };
 
-const roleLabel: Record<Role, string> = {
+const roleLabel: Record<MockRole, string> = {
   director: "Director", school_admin: "School Admin", teacher: "Teacher",
   parent: "Parent", student: "Student", accountant: "Accountant",
 };
 
-export function PortalShell({ role, children }: { role: Role; children: ReactNode }) {
+export function PortalShell({ role, children }: { role: MockRole; children: ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
-  const [user, setUser] = useState<User | null>(null);
+  const { data: session, status } = useSession();
   const [open, setOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
 
   useEffect(() => {
-    const u = currentUser();
-    if (!u) { router.replace("/portal/login"); return; }
-    if (u.role !== role) { router.replace("/portal/login"); return; }
-    setUser(u);
-  }, [router, role]);
+    if (status === "loading") return;
+    if (status === "unauthenticated") {
+      router.replace("/portal/login");
+      return;
+    }
+    const authRole = (session?.user as { role?: string } | undefined)?.role;
+    if (!authRole) {
+      router.replace("/portal/login");
+      return;
+    }
+    const mapped = ROLE_FROM_AUTH[authRole];
+    if (!mapped || mapped !== role) {
+      // Role mismatch — bounce them to login (middleware will redirect to the
+      // correct dashboard on the next request, but a hard reload keeps the
+      // UX predictable here).
+      router.replace("/portal/login");
+    }
+  }, [status, session, role, router]);
 
-  const doLogout = () => { logout(); router.replace("/portal/login"); };
+  const doLogout = () => signOut({ callbackUrl: "/portal/login" });
 
   const nav = NAV_BY_ROLE[role];
 
-  if (!user) {
-    return <div className="min-h-screen flex items-center justify-center bg-slate-50"><p className="text-slate-500">Loading...</p></div>;
+  if (status !== "authenticated") {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-50">
+        <p className="text-slate-500">Loading...</p>
+      </div>
+    );
   }
+
+  const userName = session?.user?.name ?? "User";
+  const userEmail = session?.user?.email ?? "";
+  const initials = userName.split(" ").map(n => n[0]).slice(0, 2).join("");
 
   return (
     <div className="min-h-screen bg-slate-50 flex">
@@ -147,9 +181,9 @@ export function PortalShell({ role, children }: { role: Role; children: ReactNod
             </button>
             <div className="relative">
               <button onClick={() => setMenuOpen(!menuOpen)} className="flex items-center gap-2 p-1 pr-2 hover:bg-slate-100 rounded-lg">
-                <div className="h-8 w-8 rounded-full bg-brand-100 text-brand-700 flex items-center justify-center text-xs font-semibold">{user.name.split(" ").map(n => n[0]).slice(0, 2).join("")}</div>
+                <div className="h-8 w-8 rounded-full bg-brand-100 text-brand-700 flex items-center justify-center text-xs font-semibold">{initials}</div>
                 <div className="hidden sm:block text-left">
-                  <p className="text-xs font-medium text-slate-900 leading-tight">{user.name}</p>
+                  <p className="text-xs font-medium text-slate-900 leading-tight">{userName}</p>
                   <p className="text-[10px] text-slate-500 leading-tight">{roleLabel[role]}</p>
                 </div>
                 <ChevronDown className="h-4 w-4 text-slate-400" />
@@ -157,8 +191,8 @@ export function PortalShell({ role, children }: { role: Role; children: ReactNod
               {menuOpen && (
                 <div className="absolute right-0 mt-2 w-56 bg-white rounded-lg shadow-lift border border-slate-100 py-1 z-30" onMouseLeave={() => setMenuOpen(false)}>
                   <div className="px-3 py-2 border-b border-slate-100">
-                    <p className="text-sm font-medium text-slate-900">{user.name}</p>
-                    <p className="text-xs text-slate-500">{user.email}</p>
+                    <p className="text-sm font-medium text-slate-900">{userName}</p>
+                    <p className="text-xs text-slate-500">{userEmail}</p>
                   </div>
                   <Link href="/" className="block px-3 py-2 text-sm text-slate-700 hover:bg-slate-50">School website</Link>
                   <button onClick={doLogout} className="w-full text-left px-3 py-2 text-sm text-red-600 hover:bg-red-50">Sign out</button>
