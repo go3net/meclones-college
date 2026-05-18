@@ -114,7 +114,19 @@ Push to `main` triggers a deploy.
 
 **Part 2 — Portal**: scaffolded route shells with localStorage demo auth for design preview. Real NextAuth + Prisma-backed dashboards are the next milestone.
 
-**Part 3 — WhatsApp**: schema in place (`WhatsAppSession`, `WhatsAppMessage`), API routes still to come (`/api/whatsapp/verify-admission`, `/api/whatsapp/results`, etc).
+**Part 3 — WhatsApp automation**: API routes shipped. n8n calls Next.js with a shared `Authorization: Bearer <WHATSAPP_WEBHOOK_SECRET>` header. Endpoints:
+
+| Method | Path                              | Purpose                                                      |
+| ------ | --------------------------------- | ------------------------------------------------------------ |
+| POST   | `/api/whatsapp/verify-admission`  | Verify admission number, bootstrap session, return main menu |
+| GET    | `/api/whatsapp/results`           | Published results for a student/term                         |
+| GET    | `/api/whatsapp/attendance`        | Attendance summary for a student/term                        |
+| GET    | `/api/whatsapp/fees`              | Outstanding fees + status                                    |
+| GET    | `/api/whatsapp/announcements`     | Latest school announcements                                  |
+| POST   | `/api/whatsapp/escalate`          | Flag a conversation for human follow-up                      |
+| POST   | `/api/whatsapp/log`               | Log every inbound/outbound message                           |
+
+Each route returns both structured JSON and a pre-formatted `message` field that n8n can pipe straight back to WhatsApp. Admin views every conversation at **`/portal/whatsapp`**.
 
 ---
 
