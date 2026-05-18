@@ -1,94 +1,151 @@
-"use client";
-
-import { useEffect, useState } from "react";
 import Link from "next/link";
 import { PortalShell } from "@/components/PortalShell";
 import { Card, CardBody, CardHeader, CardTitle, StatCard, Badge, Button } from "@/components/ui";
-import { currentUser } from "@/lib/auth";
-import { loadStore } from "@/lib/store";
-import { TEACHERS, CLASSES, STUDENTS, teacherById, classById, studentsByClass, subjectById } from "@/lib/mock-data";
-import { Users, ClipboardList, CheckSquare, FileText, BookMarked, Calendar } from "lucide-react";
+import { prisma } from "@/lib/prisma";
+import { getCurrentTeacher, getActiveContext } from "@/lib/auth-helpers";
+import { Users, BookOpen, ClipboardList, CheckSquare, ArrowRight } from "lucide-react";
 
-export default function TeacherDashboard() {
-  const [user, setUser] = useState<any>(null);
-  useEffect(() => { setUser(currentUser()); }, []);
-  const store = loadStore();
-  if (!user) return null;
+export const dynamic = "force-dynamic";
 
-  const teacher = teacherById(user.linkedId);
-  const myClasses = teacher ? CLASSES.filter(c => teacher.classes.includes(c.id)) : [];
-  const totalStudents = myClasses.reduce((s, c) => s + studentsByClass(c.id).length, 0);
-  const myAssignments = store.assignments.filter(a => a.teacherId === teacher?.id);
-  const pendingSubmissions = myAssignments.reduce((s, a) => s + (a.submissions.length), 0);
+const dateFmt = new Intl.DateTimeFormat("en-NG", { dateStyle: "medium" });
 
-  const timetable = [
-    { time: "08:00 – 08:40", subject: "Mathematics", class: "JSS 2A", room: "Block A-12" },
-    { time: "08:45 – 09:25", subject: "Mathematics", class: "SS 1A", room: "Block B-04" },
-    { time: "10:00 – 10:40", subject: "Mathematics", class: "SS 1A", room: "Block B-04" },
-    { time: "11:30 – 12:10", subject: "Mathematics", class: "JSS 2A", room: "Block A-12" },
-    { time: "13:00 – 13:40", subject: "Mathematics", class: "SS 1A", room: "Block B-04" },
-  ];
+export default async function TeacherDashboard() {
+  const teacher = await getCurrentTeacher();
+  const { term } = await getActiveContext();
+
+  const classIds = Array.from(new Set([
+    ...teacher.classes.map(c => c.classId),
+    ...teacher.classTeacherOf.map(c => c.id),
+  ]));
+  const subjectIds = teacher.subjects.map(s => s.subjectId);
+
+  // Student head-count across the classes they teach.
+  const studentCount = classIds.length === 0 ? 0 : await prisma.student.count({
+    where: { classId: { in: classIds } },
+  });
+
+  // Today's attendance marks they've already entered (for the active term).
+  const todayStart = new Date();
+  todayStart.setHours(0, 0, 0, 0);
+
+  const todaysMarks = term ? await prisma.attendance.count({
+    where: { markedById: teacher.id, date: { gte: todayStart } },
+  }) : 0;
+
+  // Recent attendance batches they've recorded.
+  const recentMarks = await prisma.attendance.findMany({
+    where: { markedById: teacher.id },
+    orderBy: { date: "desc" },
+    take: 8,
+    include: { student: { include: { user: { select: { name: true } } } }, class: { select: { name: true, arm: true } } },
+  });
+
+  // Recent announcements
+  const announcements = await prisma.announcement.findMany({
+    where: { OR: [{ audience: "ALL" }, { audience: "STAFF" }], publishedAt: { not: null } },
+    orderBy: { publishedAt: "desc" },
+    take: 3,
+  });
 
   return (
     <PortalShell role="teacher">
-      <h1 className="text-2xl font-bold text-brand-900 mb-1">Welcome, {user.name.split(" ").slice(0, 2).join(" ")}</h1>
-      <p className="text-sm text-slate-500 mb-6">{teacher?.subjects.map(s => subjectById(s)?.name).join(" · ")} · Today is {new Date().toLocaleDateString("en-NG", { weekday: "long", month: "short", day: "numeric" })}</p>
-
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
-        <StatCard label="My classes" value={myClasses.length} icon={<Users className="h-5 w-5" />} accent="brand" />
-        <StatCard label="My students" value={totalStudents} icon={<Users className="h-5 w-5" />} accent="emerald" />
-        <StatCard label="Open assignments" value={myAssignments.length} icon={<ClipboardList className="h-5 w-5" />} accent="amber" />
-        <StatCard label="Submissions" value={pendingSubmissions} hint="to grade" icon={<FileText className="h-5 w-5" />} accent="sky" />
+      <div className="mb-6">
+        <h1 className="text-2xl md:text-3xl font-bold text-brand-900">Welcome, {teacher.user.name.split(" ")[0]} 👋</h1>
+        <p className="text-sm text-slate-500">
+          {teacher.classTeacherOf.length > 0 && (
+            <>Form teacher of <Badge tone="gold" className="ml-1">{teacher.classTeacherOf.map(c => `${c.name}${c.arm}`).join(", ")}</Badge> · </>
+          )}
+          {term ? `${term.name.charAt(0) + term.name.slice(1).toLowerCase()} term` : "no active term"}
+        </p>
       </div>
 
-      <div className="grid lg:grid-cols-3 gap-4 mb-6">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+        <StatCard label="Classes" value={classIds.length} hint="assigned" icon={<BookOpen className="h-5 w-5" />} accent="brand" />
+        <StatCard label="Subjects" value={subjectIds.length} hint="teaching" icon={<ClipboardList className="h-5 w-5" />} accent="sky" />
+        <StatCard label="Students" value={studentCount} hint="across classes" icon={<Users className="h-5 w-5" />} accent="emerald" />
+        <StatCard label="Marked today" value={todaysMarks} hint="attendance entries" icon={<CheckSquare className="h-5 w-5" />} accent="gold" />
+      </div>
+
+      <div className="grid lg:grid-cols-3 gap-6">
         <Card className="lg:col-span-2">
-          <CardHeader><CardTitle>My Classes</CardTitle></CardHeader>
-          <CardBody className="space-y-3">
-            {myClasses.map(c => (
-              <div key={c.id} className="flex items-center justify-between p-3 border border-slate-200 rounded-lg hover:bg-slate-50">
+          <CardHeader>
+            <CardTitle>Your classes & subjects</CardTitle>
+          </CardHeader>
+          <CardBody>
+            {classIds.length === 0 && subjectIds.length === 0 ? (
+              <p className="text-sm text-slate-500 py-6 text-center">You haven't been assigned any classes or subjects yet. Contact the admin office.</p>
+            ) : (
+              <div className="grid sm:grid-cols-2 gap-4">
                 <div>
-                  <p className="font-semibold text-brand-900">{c.name}</p>
-                  <p className="text-xs text-slate-500">{studentsByClass(c.id).length} students · {c.level}</p>
+                  <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">Classes</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {teacher.classTeacherOf.map(c => (
+                      <Badge key={`form-${c.name}-${c.arm}`} tone="gold">{c.name}{c.arm} (form)</Badge>
+                    ))}
+                    {teacher.classes.filter(ct => !teacher.classTeacherOf.some(f => f.id === ct.classId)).map(ct => (
+                      <Badge key={ct.classId} tone="neutral">{ct.class.name}{ct.class.arm}</Badge>
+                    ))}
+                    {classIds.length === 0 && <span className="text-xs text-slate-400">None yet</span>}
+                  </div>
                 </div>
-                <div className="flex gap-2">
-                  <Link href="/portal/teacher/attendance"><Button variant="outline">Mark Attendance</Button></Link>
-                  <Link href="/portal/teacher/results"><Button variant="ghost">Scores</Button></Link>
+                <div>
+                  <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">Subjects</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {teacher.subjects.map(s => (
+                      <Badge key={s.subjectId} tone="info">{s.subject.code} — {s.subject.name}</Badge>
+                    ))}
+                    {subjectIds.length === 0 && <span className="text-xs text-slate-400">None yet</span>}
+                  </div>
                 </div>
               </div>
-            ))}
+            )}
+            <div className="mt-6 flex gap-2 flex-wrap">
+              <Link href="/portal/teacher/attendance"><Button><CheckSquare className="h-4 w-4" /> Mark Attendance</Button></Link>
+              <Link href="/portal/teacher/results"><Button variant="outline">Enter Scores <ArrowRight className="h-4 w-4" /></Button></Link>
+            </div>
           </CardBody>
         </Card>
 
         <Card>
-          <CardHeader><CardTitle>Quick Actions</CardTitle></CardHeader>
+          <CardHeader>
+            <CardTitle>Recent attendance marks</CardTitle>
+          </CardHeader>
           <CardBody className="space-y-2">
-            <Link href="/portal/teacher/attendance"><Button variant="outline" className="w-full justify-start"><CheckSquare className="h-4 w-4" /> Mark Attendance</Button></Link>
-            <Link href="/portal/teacher/assignments"><Button variant="outline" className="w-full justify-start"><ClipboardList className="h-4 w-4" /> Create Assignment</Button></Link>
-            <Link href="/portal/teacher/results"><Button variant="outline" className="w-full justify-start"><FileText className="h-4 w-4" /> Enter Scores</Button></Link>
-            <Link href="/portal/teacher/cbt"><Button variant="outline" className="w-full justify-start"><BookMarked className="h-4 w-4" /> CBT Questions</Button></Link>
+            {recentMarks.length === 0 ? (
+              <p className="text-sm text-slate-500 py-4 text-center">No attendance recorded yet.</p>
+            ) : (
+              recentMarks.map(m => (
+                <div key={m.id} className="flex items-center justify-between gap-3 text-sm border-b border-slate-100 pb-2 last:border-0">
+                  <div className="min-w-0">
+                    <p className="font-medium text-slate-900 truncate">{m.student.user.name}</p>
+                    <p className="text-[11px] text-slate-500">{m.class.name}{m.class.arm} · {dateFmt.format(m.date)}</p>
+                  </div>
+                  <Badge tone={m.status === "PRESENT" ? "success" : m.status === "LATE" ? "warning" : "danger"}>{m.status}</Badge>
+                </div>
+              ))
+            )}
           </CardBody>
         </Card>
       </div>
 
-      <Card>
-        <CardHeader><CardTitle><Calendar className="h-4 w-4 inline mr-2 text-brand-700" />Today's Timetable</CardTitle></CardHeader>
-        <CardBody className="p-0">
-          <table className="w-full text-sm">
-            <thead className="bg-slate-50 text-xs uppercase text-slate-500"><tr>
-              <th className="text-left px-5 py-2.5">Time</th>
-              <th className="text-left px-5 py-2.5">Class</th>
-              <th className="text-left px-5 py-2.5">Subject</th>
-              <th className="text-left px-5 py-2.5">Room</th>
-            </tr></thead>
-            <tbody className="divide-y divide-slate-100">
-              {timetable.map((t, i) => (
-                <tr key={i}><td className="px-5 py-3 font-medium">{t.time}</td><td className="px-5 py-3"><Badge tone="info">{t.class}</Badge></td><td className="px-5 py-3">{t.subject}</td><td className="px-5 py-3 text-slate-500">{t.room}</td></tr>
-              ))}
-            </tbody>
-          </table>
-        </CardBody>
-      </Card>
+      {announcements.length > 0 && (
+        <Card className="mt-6">
+          <CardHeader>
+            <CardTitle>Announcements</CardTitle>
+          </CardHeader>
+          <CardBody className="space-y-3">
+            {announcements.map(a => (
+              <div key={a.id} className="border-b border-slate-100 last:border-0 pb-3 last:pb-0">
+                <div className="flex items-center justify-between gap-2">
+                  <p className="font-semibold text-brand-900">{a.title}</p>
+                  <span className="text-[11px] text-slate-500">{a.publishedAt && dateFmt.format(a.publishedAt)}</span>
+                </div>
+                <p className="mt-1 text-sm text-slate-600 line-clamp-2">{a.body}</p>
+              </div>
+            ))}
+          </CardBody>
+        </Card>
+      )}
     </PortalShell>
   );
 }

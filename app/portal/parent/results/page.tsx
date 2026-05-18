@@ -1,84 +1,180 @@
-"use client";
-import { useEffect, useState } from "react";
+import Link from "next/link";
 import { PortalShell } from "@/components/PortalShell";
-import { Card, CardBody, CardHeader, CardTitle, Badge, Button, Empty } from "@/components/ui";
-import { currentUser } from "@/lib/auth";
-import { loadStore } from "@/lib/store";
-import { studentsByParent, classById, subjectById } from "@/lib/mock-data";
-import { Download, Printer } from "lucide-react";
+import { Card, CardBody, CardHeader, CardTitle, Badge } from "@/components/ui";
+import { prisma } from "@/lib/prisma";
+import { getCurrentParentWithChildren, getActiveContext } from "@/lib/auth-helpers";
+import { FileText, AlertCircle } from "lucide-react";
 
-export default function ParentResults() {
-  const [user, setUser] = useState<any>(null);
-  useEffect(() => { setUser(currentUser()); }, []);
-  const store = loadStore();
-  if (!user) return null;
-  const children = studentsByParent(user.linkedId);
-  const results = store.results.filter(r => children.some(c => c.id === r.studentId) && r.status === "published");
+export const dynamic = "force-dynamic";
+
+type SearchParams = { student?: string; term?: string };
+
+const termOrder = ["FIRST", "SECOND", "THIRD"] as const;
+
+export default async function ParentResultsPage({ searchParams }: { searchParams: SearchParams }) {
+  const parent = await getCurrentParentWithChildren();
+  const { session: activeSession, term: activeTerm } = await getActiveContext();
+
+  // Pick a target child — query param wins, otherwise default to first child.
+  const selectedStudentId = searchParams.student ?? parent.children[0]?.student.id;
+  const selected = parent.children.find(c => c.student.id === selectedStudentId);
+
+  if (parent.children.length === 0 || !selected) {
+    return (
+      <PortalShell role="parent">
+        <div className="mb-6">
+          <h1 className="text-2xl font-bold text-brand-900">Results</h1>
+        </div>
+        <Card><CardBody className="text-center py-12">
+          <AlertCircle className="h-10 w-10 mx-auto text-slate-300 mb-3" />
+          <p className="font-medium text-slate-700">No children linked to your account</p>
+          <p className="text-sm text-slate-500 mt-1">Contact the school office to link your child's account.</p>
+        </CardBody></Card>
+      </PortalShell>
+    );
+  }
+
+  const targetTermId = searchParams.term ?? activeTerm?.id;
+
+  const results = targetTermId ? await prisma.result.findMany({
+    where: {
+      studentId: selected.student.id,
+      termId: targetTermId,
+      isPublished: true,
+    },
+    include: { subject: true, term: true, session: true },
+    orderBy: { subject: { name: "asc" } },
+  }) : [];
+
+  const avg = results.length > 0 ? Math.round(results.reduce((s, r) => s + r.total, 0) / results.length) : null;
+  const position = results[0]?.position ?? null;
+
+  const availableTerms = await prisma.term.findMany({
+    where: results.length > 0 ? { results: { some: { studentId: selected.student.id, isPublished: true } } } : {},
+    include: { session: true },
+    orderBy: [{ session: { name: "desc" } }, { name: "asc" }],
+  });
 
   return (
     <PortalShell role="parent">
-      <h1 className="text-2xl font-bold text-brand-900 mb-1">Academic Results</h1>
-      <p className="text-sm text-slate-500 mb-6">Published results for your child(ren). Download or print as PDF.</p>
+      <div className="mb-6 flex items-center justify-between flex-wrap gap-3">
+        <div>
+          <h1 className="text-2xl font-bold text-brand-900">Results</h1>
+          <p className="text-sm text-slate-500">
+            {selected.student.user.name}
+            {selected.student.classRef && <> · {selected.student.classRef.name}{selected.student.classRef.arm}</>}
+          </p>
+        </div>
 
-      {results.length === 0 ? <Empty title="No published results yet" /> : results.map(r => {
-        const child = children.find(c => c.id === r.studentId);
-        const total = r.subjects.reduce((s, x) => s + x.total, 0);
-        const avg = Math.round(total / r.subjects.length);
-        return (
-          <Card key={r.id} className="mb-4">
+        {parent.children.length > 1 && (
+          <div className="flex gap-1.5 flex-wrap">
+            {parent.children.map(c => (
+              <Link
+                key={c.student.id}
+                href={`/portal/parent/results?student=${c.student.id}${targetTermId ? `&term=${targetTermId}` : ""}`}
+                className={
+                  c.student.id === selected.student.id
+                    ? "px-3 py-1.5 rounded-full text-xs font-medium bg-brand-700 text-white"
+                    : "px-3 py-1.5 rounded-full text-xs font-medium bg-slate-100 text-slate-700 hover:bg-slate-200"
+                }
+              >
+                {c.student.user.name.split(" ")[0]}
+              </Link>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {results.length === 0 ? (
+        <Card>
+          <CardBody className="text-center py-12">
+            <FileText className="h-10 w-10 mx-auto text-slate-300 mb-3" />
+            <p className="font-medium text-slate-700">No published results yet</p>
+            <p className="text-sm text-slate-500 mt-1">
+              {activeTerm
+                ? `Results for ${activeTerm.name.charAt(0) + activeTerm.name.slice(1).toLowerCase()} term will appear here once published.`
+                : "Results will appear here once the school publishes them."}
+            </p>
+          </CardBody>
+        </Card>
+      ) : (
+        <>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+            <Card><CardBody className="p-4">
+              <p className="text-xs text-slate-500 uppercase tracking-wide">Subjects</p>
+              <p className="mt-1 text-2xl font-bold text-brand-900">{results.length}</p>
+            </CardBody></Card>
+            <Card><CardBody className="p-4">
+              <p className="text-xs text-slate-500 uppercase tracking-wide">Average</p>
+              <p className="mt-1 text-2xl font-bold text-brand-900">{avg !== null ? `${avg}%` : "—"}</p>
+            </CardBody></Card>
+            <Card><CardBody className="p-4">
+              <p className="text-xs text-slate-500 uppercase tracking-wide">Position</p>
+              <p className="mt-1 text-2xl font-bold text-brand-900">{position ?? "—"}</p>
+            </CardBody></Card>
+            <Card><CardBody className="p-4">
+              <p className="text-xs text-slate-500 uppercase tracking-wide">Term</p>
+              <p className="mt-1 text-lg font-bold text-brand-900">
+                {results[0].term.name.charAt(0) + results[0].term.name.slice(1).toLowerCase()}
+              </p>
+              <p className="text-xs text-slate-400">{results[0].session.name}</p>
+            </CardBody></Card>
+          </div>
+
+          <Card>
             <CardHeader>
-              <div>
-                <CardTitle>{child?.name} · {classById(child?.classId || "")?.name}</CardTitle>
-                <p className="text-xs text-slate-500">{r.term} · {r.subjects.length} subjects</p>
-              </div>
-              <Button variant="outline" onClick={() => window.print()}><Printer className="h-4 w-4" /> Print</Button>
+              <CardTitle>Subject breakdown</CardTitle>
             </CardHeader>
-            <CardBody>
-              <div className="grid grid-cols-3 gap-3 mb-4 text-center">
-                <div className="rounded-lg bg-brand-50 p-3"><p className="text-xs text-slate-500">Position</p><p className="text-xl font-bold text-brand-900">{r.position}</p></div>
-                <div className="rounded-lg bg-emerald-50 p-3"><p className="text-xs text-slate-500">Average</p><p className="text-xl font-bold text-emerald-700">{avg}%</p></div>
-                <div className="rounded-lg bg-gold-50 p-3"><p className="text-xs text-slate-500">Total</p><p className="text-xl font-bold text-gold-700">{total}</p></div>
-              </div>
+            <CardBody className="p-0">
               <div className="overflow-x-auto">
-                <table className="w-full text-sm border border-slate-200 rounded">
-                  <thead className="bg-slate-50 text-xs uppercase text-slate-500">
+                <table className="min-w-full text-sm">
+                  <thead className="bg-slate-50 text-slate-500 text-xs uppercase tracking-wide">
                     <tr>
-                      <th className="text-left px-3 py-2">Subject</th>
-                      <th className="text-center px-3 py-2">CA /40</th>
-                      <th className="text-center px-3 py-2">Exam /60</th>
-                      <th className="text-center px-3 py-2">Total /100</th>
-                      <th className="text-center px-3 py-2">Grade</th>
-                      <th className="text-left px-3 py-2">Comment</th>
+                      <th className="text-left px-4 py-2.5 font-medium">Subject</th>
+                      <th className="text-right px-4 py-2.5 font-medium">CA1 /20</th>
+                      <th className="text-right px-4 py-2.5 font-medium">CA2 /20</th>
+                      <th className="text-right px-4 py-2.5 font-medium">Exam /60</th>
+                      <th className="text-right px-4 py-2.5 font-medium">Total /100</th>
+                      <th className="text-center px-4 py-2.5 font-medium">Grade</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {r.subjects.map((s, i) => (
-                      <tr key={i} className="border-t border-slate-100">
-                        <td className="px-3 py-2 font-medium">{subjectById(s.subjectId)?.name}</td>
-                        <td className="px-3 py-2 text-center">{s.ca}</td>
-                        <td className="px-3 py-2 text-center">{s.exam}</td>
-                        <td className="px-3 py-2 text-center font-semibold">{s.total}</td>
-                        <td className="px-3 py-2 text-center"><Badge tone={s.grade === "A" ? "success" : s.grade === "B" ? "info" : s.grade === "C" ? "warning" : "danger"}>{s.grade}</Badge></td>
-                        <td className="px-3 py-2 text-slate-600">{s.comment}</td>
+                    {results.map(r => (
+                      <tr key={r.id} className="border-t border-slate-100">
+                        <td className="px-4 py-2.5 font-medium text-slate-900">{r.subject.name}</td>
+                        <td className="px-4 py-2.5 text-right tabular-nums">{r.ca1}</td>
+                        <td className="px-4 py-2.5 text-right tabular-nums">{r.ca2}</td>
+                        <td className="px-4 py-2.5 text-right tabular-nums">{r.exam}</td>
+                        <td className="px-4 py-2.5 text-right font-semibold tabular-nums">{r.total}</td>
+                        <td className="px-4 py-2.5 text-center">
+                          {r.grade && <Badge tone={r.grade.startsWith("A") ? "success" : r.grade.startsWith("F") ? "danger" : "neutral"}>{r.grade}</Badge>}
+                        </td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
               </div>
-              <div className="mt-4 grid sm:grid-cols-2 gap-3 text-sm">
-                <div className="rounded-lg bg-slate-50 p-3">
-                  <p className="font-semibold text-slate-700 text-xs uppercase mb-1">Teacher's Comment</p>
-                  <p className="text-slate-700">{r.teacherComment}</p>
-                </div>
-                <div className="rounded-lg bg-slate-50 p-3">
-                  <p className="font-semibold text-slate-700 text-xs uppercase mb-1">Principal's Comment</p>
-                  <p className="text-slate-700">{r.principalComment || <em>Pending</em>}</p>
-                </div>
-              </div>
             </CardBody>
           </Card>
-        );
-      })}
+        </>
+      )}
+
+      {availableTerms.length > 1 && (
+        <div className="mt-6">
+          <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">Other terms</p>
+          <div className="flex gap-2 flex-wrap">
+            {availableTerms.map(t => (
+              <Link
+                key={t.id}
+                href={`/portal/parent/results?student=${selected.student.id}&term=${t.id}`}
+                className={t.id === targetTermId ? "px-3 py-1.5 rounded-full text-xs font-medium bg-brand-700 text-white" : "px-3 py-1.5 rounded-full text-xs font-medium bg-slate-100 text-slate-700 hover:bg-slate-200"}
+              >
+                {t.name.charAt(0) + t.name.slice(1).toLowerCase()} · {t.session.name}
+              </Link>
+            ))}
+          </div>
+        </div>
+      )}
     </PortalShell>
   );
 }
