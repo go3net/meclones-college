@@ -1,15 +1,19 @@
+import Image from "next/image";
 import { Card, CardBody, SectionHeading, Badge } from "@/components/ui";
 import { Target, Eye, Heart, Award, Users, ShieldCheck, GraduationCap } from "lucide-react";
 import { SCHOOL, STATS } from "@/lib/constants";
+import { PLACE } from "@/lib/images";
 
 export default function AboutPage() {
   return (
     <>
-      <section className="bg-brand-900 text-white py-20">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <section className="relative bg-brand-900 text-white py-20 overflow-hidden">
+        <Image src={PLACE.aboutHero} alt="Meclones College students" fill priority sizes="100vw" className="object-cover -z-10" />
+        <div className="absolute inset-0 bg-gradient-to-r from-brand-900/95 via-brand-900/80 to-brand-900/50" />
+        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <Badge tone="gold" className="mb-3">About Us</Badge>
           <h1 className="text-4xl md:text-5xl font-bold leading-tight max-w-3xl">A culture of excellence, anchored in character.</h1>
-          <p className="mt-5 text-slate-300 max-w-2xl text-lg">For over {STATS.yearsExperience} years, {SCHOOL.name} has been a quiet force in Lagos secondary education — known for academic rigour, warm community, and graduates who carry themselves with grace.</p>
+          <p className="mt-5 text-slate-200 max-w-2xl text-lg">For over {STATS.yearsExperience} years, {SCHOOL.name} has been a quiet force in Lagos secondary education — known for academic rigour, warm community, and graduates who carry themselves with grace.</p>
         </div>
       </section>
 

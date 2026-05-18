@@ -1,6 +1,8 @@
 import Link from "next/link";
+import Image from "next/image";
 import { Button, Card, CardBody, SectionHeading, Badge } from "@/components/ui";
 import { SCHOOL, STATS, EXAMS } from "@/lib/constants";
+import { PLACE } from "@/lib/images";
 import { FadeUp, HeroEnter } from "@/components/Animate";
 import {
   GraduationCap, BookOpen, Trophy, Users, ShieldCheck, Brain, Sparkles,
@@ -13,11 +15,18 @@ export default function HomePage() {
     <>
       {/* ===== HERO ===== */}
       <section className="relative overflow-hidden bg-brand-900">
+        {/* Background image with navy overlay for legibility */}
         <div className="absolute inset-0">
-          <div className="absolute inset-0 bg-gradient-to-br from-brand-900 via-brand-800 to-brand-700" />
-          <div className="absolute inset-0 opacity-20" style={{
-            backgroundImage: "radial-gradient(circle at 20% 30%, rgba(212,148,20,0.4), transparent 50%), radial-gradient(circle at 80% 70%, rgba(255,255,255,0.2), transparent 50%)"
-          }} />
+          <Image
+            src={PLACE.homeHero}
+            alt="Meclones College students on campus"
+            fill
+            priority
+            sizes="100vw"
+            className="object-cover object-center"
+          />
+          <div className="absolute inset-0 bg-gradient-to-r from-brand-900/95 via-brand-900/85 to-brand-900/40" />
+          <div className="absolute inset-0 lg:hidden bg-brand-900/70" />
         </div>
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20 lg:py-28">
           <div className="grid lg:grid-cols-2 gap-12 items-center">
@@ -48,35 +57,10 @@ export default function HomePage() {
                 ))}
               </div>
             </HeroEnter>
-            <HeroEnter delay={0.15} className="relative hidden lg:block">
-              <div className="absolute -inset-4 bg-gold-400/20 rounded-2xl blur-2xl" />
-              <Card className="relative bg-white/95 backdrop-blur border-0 shadow-lift">
-                <CardBody className="p-6">
-                  <div className="flex items-center gap-3 mb-4">
-                    <div className="h-10 w-10 rounded-full bg-brand-100 flex items-center justify-center"><Brain className="h-5 w-5 text-brand-700" /></div>
-                    <div>
-                      <p className="text-xs text-slate-500">AI School Assistant</p>
-                      <p className="text-sm font-semibold text-slate-900">Live demo</p>
-                    </div>
-                    <Badge tone="success" className="ml-auto">Active</Badge>
-                  </div>
-                  <div className="space-y-3 text-sm">
-                    <div className="bg-slate-50 rounded-lg p-3">
-                      <p className="text-slate-500 text-xs mb-1">Director asked:</p>
-                      <p className="text-slate-900 font-medium">"Summarise this week's performance."</p>
-                    </div>
-                    <div className="bg-brand-50 rounded-lg p-3 border-l-2 border-brand-500">
-                      <p className="text-xs text-brand-700 font-medium mb-1">AI replied</p>
-                      <p className="text-slate-800 leading-relaxed">Attendance is at <b>94%</b>. Avg score across all classes rose <b>+3.2%</b>. SS3A leads with <b>87%</b> avg. <b>2 students</b> flagged for academic risk.</p>
-                    </div>
-                  </div>
-                  <div className="mt-4 flex items-center justify-between text-xs text-slate-500">
-                    <span className="flex items-center gap-1"><CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" /> Real-time data</span>
-                    <Link href="/portal/login" className="text-brand-700 font-medium hover:underline">Try in portal →</Link>
-                  </div>
-                </CardBody>
-              </Card>
-            </HeroEnter>
+            {/* The right column is intentionally empty on desktop so the hero
+                photo behind shows through. On mobile the photo is the
+                background of the whole hero section. */}
+            <div className="hidden lg:block" aria-hidden />
           </div>
         </div>
       </section>
@@ -109,19 +93,19 @@ export default function HomePage() {
             <div className="relative">
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-4">
-                  <div className="h-48 rounded-xl bg-gradient-to-br from-brand-700 to-brand-900 flex items-center justify-center text-white text-center p-6">
-                    <div><GraduationCap className="h-10 w-10 mx-auto mb-2 text-gold-300" /><p className="font-semibold">Excellence</p></div>
+                  <div className="relative h-48 rounded-xl overflow-hidden">
+                    <Image src={PLACE.aboutHistory} alt="Students reading in the library" fill sizes="(max-width: 1024px) 50vw, 280px" className="object-cover" />
                   </div>
                   <div className="h-32 rounded-xl bg-gold-100 flex items-center justify-center p-6">
-                    <div className="text-center"><Trophy className="h-8 w-8 mx-auto mb-1 text-gold-700" /><p className="text-sm font-semibold text-gold-900">15+ awards</p></div>
+                    <div className="text-center"><Trophy className="h-8 w-8 mx-auto mb-1 text-gold-700" /><p className="text-sm font-semibold text-gold-900">{STATS.alumni}+ alumni</p></div>
                   </div>
                 </div>
                 <div className="space-y-4 mt-8">
                   <div className="h-32 rounded-xl bg-emerald-100 flex items-center justify-center p-6">
-                    <div className="text-center"><Users className="h-8 w-8 mx-auto mb-1 text-emerald-700" /><p className="text-sm font-semibold text-emerald-900">800+ alumni</p></div>
+                    <div className="text-center"><Users className="h-8 w-8 mx-auto mb-1 text-emerald-700" /><p className="text-sm font-semibold text-emerald-900">{STATS.teachers} teachers</p></div>
                   </div>
-                  <div className="h-48 rounded-xl bg-gradient-to-br from-slate-100 to-slate-200 flex items-center justify-center text-center p-6">
-                    <div><BookOpen className="h-10 w-10 mx-auto mb-2 text-brand-700" /><p className="font-semibold text-brand-900">Innovation</p></div>
+                  <div className="relative h-48 rounded-xl overflow-hidden">
+                    <Image src={PLACE.aboutValues} alt="Students collaborating in study group" fill sizes="(max-width: 1024px) 50vw, 280px" className="object-cover" />
                   </div>
                 </div>
               </div>
@@ -136,16 +120,21 @@ export default function HomePage() {
           <SectionHeading eyebrow="Academy" title="Built on rigour. Designed for the world." lead="From Junior Secondary through Senior Secondary and beyond, our programs are mapped to the national curriculum and complemented by top-tier exam preparation." center />
           <div className="mt-12 grid md:grid-cols-2 lg:grid-cols-4 gap-6">
             {[
-              { icon: BookOpen, title: "Junior Secondary School", desc: "Strong foundations across core subjects with a focus on critical thinking and personal development.", href: "/academics/jss", tag: "JSS 1–3" },
-              { icon: GraduationCap, title: "Senior Secondary School", desc: "Broad subject choices and expert teaching tailored for academic and career success.", href: "/academics/sss", tag: "SS 1–3" },
-              { icon: Trophy, title: "Exam Preparation", desc: "Specialised coaching for JAMB, WAEC, NECO, IELTS, SAT & TOEFL to help students excel.", href: "/academics/exam-prep", tag: "JAMB · WAEC · NECO · IELTS · SAT · TOEFL" },
-              { icon: Award, title: "Admissions", desc: "Join a community of learners. Discover our admission process and requirements.", href: "/admission", tag: "Now Open" },
+              { icon: BookOpen, title: "Junior Secondary School", desc: "Strong foundations across core subjects with a focus on critical thinking and personal development.", href: "/academics/jss", tag: "JSS 1–3", img: PLACE.programs.jss },
+              { icon: GraduationCap, title: "Senior Secondary School", desc: "Broad subject choices and expert teaching tailored for academic and career success.", href: "/academics/sss", tag: "SS 1–3", img: PLACE.programs.sss },
+              { icon: Trophy, title: "Exam Preparation", desc: "Specialised coaching for JAMB, WAEC, NECO, IELTS, SAT & TOEFL to help students excel.", href: "/academics/exam-prep", tag: "Local + International", img: PLACE.programs.examPrep },
+              { icon: Award, title: "Admissions", desc: "Join a community of learners. Discover our admission process and requirements.", href: "/admission", tag: "Now Open", img: PLACE.programs.admissions },
             ].map(p => (
-              <Card key={p.title} className="hover:shadow-lift transition-shadow">
+              <Card key={p.title} className="hover:shadow-lift transition-shadow overflow-hidden">
+                <div className="relative aspect-[4/3] bg-slate-100">
+                  <Image src={p.img} alt={p.title} fill sizes="(max-width: 768px) 100vw, (max-width: 1024px) 50vw, 25vw" className="object-cover" />
+                  <div className="absolute top-3 left-3 h-9 w-9 rounded-lg bg-white/95 backdrop-blur flex items-center justify-center shadow-sm">
+                    <p.icon className="h-5 w-5 text-brand-700" />
+                  </div>
+                </div>
                 <CardBody>
-                  <div className="h-12 w-12 rounded-lg bg-brand-100 flex items-center justify-center mb-4"><p.icon className="h-6 w-6 text-brand-700" /></div>
                   <Badge tone="gold" className="mb-2">{p.tag}</Badge>
-                  <h3 className="text-xl font-semibold text-brand-900">{p.title}</h3>
+                  <h3 className="text-lg font-semibold text-brand-900">{p.title}</h3>
                   <p className="mt-2 text-slate-600 text-sm leading-relaxed">{p.desc}</p>
                   <Link href={p.href} className="mt-4 inline-flex items-center gap-1 text-brand-700 font-medium text-sm hover:gap-2 transition-all">Learn more <ChevronRight className="h-4 w-4" /></Link>
                 </CardBody>
@@ -248,17 +237,31 @@ export default function HomePage() {
       {/* ===== TESTIMONIALS ===== */}
       <section className="section">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <SectionHeading eyebrow="What parents say" title="Trusted by Lagos families." center />
+          <SectionHeading eyebrow="What parents & students say" title="Trusted by Lagos families." center />
           <div className="mt-12 grid md:grid-cols-3 gap-6">
             {[
-              { name: "Mrs. Adunni Bello", role: "Parent, SS2", q: "What I love most is that I always know what's happening with my child. The WhatsApp alerts and portal access give me real peace of mind.", stars: 5 },
-              { name: "Mr. Chidi Okonkwo", role: "Parent, JSS1 & SS1", q: "Both my children have flourished here. The teachers are exceptional, and the values they reinforce at home are reinforced at school.", stars: 5 },
-              { name: "Dr. Bisi Adeyemi", role: "Old student (2019)", q: "Meclones gave me a foundation I'm still building on at university. The character training was as serious as the academics.", stars: 5 },
+              { name: "Mrs. Adebola Johnson", role: "Parent", q: "Meclones College Lekki has been a blessing to our family. The teachers are dedicated and my child has grown in confidence and knowledge.", stars: 5, avatar: PLACE.testimonialAvatars.adebola },
+              { name: "Daniel Oladipo", role: "SS 2 Student", q: "The school has helped me discover my strengths and prepared me well for my exams. I am proud to be a Meclonian.", stars: 5, avatar: PLACE.testimonialAvatars.daniel },
+              { name: "Dr. Bisi Adeyemi", role: "Alumni (2019)", q: "Meclones gave me a foundation I'm still building on at university. The character training was as serious as the academics.", stars: 5, avatar: null },
             ].map(t => (
               <Card key={t.name}>
                 <CardBody>
-                  <div className="flex gap-0.5 mb-3">
-                    {Array.from({ length: t.stars }).map((_, i) => <Star key={i} className="h-4 w-4 fill-gold-400 text-gold-400" />)}
+                  <div className="flex items-center gap-3 mb-3">
+                    {t.avatar ? (
+                      <div className="relative h-12 w-12 rounded-full overflow-hidden ring-2 ring-gold-200 shrink-0">
+                        <Image src={t.avatar} alt={t.name} fill sizes="48px" className="object-cover" />
+                      </div>
+                    ) : (
+                      <div className="h-12 w-12 rounded-full bg-brand-100 text-brand-700 font-semibold flex items-center justify-center text-sm shrink-0">
+                        {t.name.split(" ").map(n => n[0]).slice(0, 2).join("")}
+                      </div>
+                    )}
+                    <div className="flex flex-col">
+                      <div className="flex gap-0.5">
+                        {Array.from({ length: t.stars }).map((_, i) => <Star key={i} className="h-3.5 w-3.5 fill-gold-400 text-gold-400" />)}
+                      </div>
+                      <p className="text-[11px] text-slate-500 mt-0.5">Verified</p>
+                    </div>
                   </div>
                   <p className="text-slate-700 leading-relaxed">"{t.q}"</p>
                   <div className="mt-5 pt-4 border-t border-slate-100">
@@ -282,19 +285,10 @@ export default function HomePage() {
             </a>
           </div>
           <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-            {[
-              { label: "Classroom", from: "from-brand-700", to: "to-brand-900" },
-              { label: "Campus front", from: "from-amber-500", to: "to-amber-700" },
-              { label: "Sports day", from: "from-emerald-500", to: "to-emerald-700" },
-              { label: "Science lab", from: "from-sky-500", to: "to-sky-700" },
-              { label: "Library", from: "from-rose-500", to: "to-rose-700" },
-              { label: "Graduation", from: "from-gold-500", to: "to-gold-700" },
-            ].map(g => (
-              <div key={g.label} className={`aspect-[4/3] rounded-xl bg-gradient-to-br ${g.from} ${g.to} relative overflow-hidden group cursor-pointer`}>
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <Heart className="h-10 w-10 text-white/30" />
-                </div>
-                <div className="absolute inset-x-0 bottom-0 p-3 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity">
+            {PLACE.lifeAtMeclones.map(g => (
+              <div key={g.label} className="aspect-[4/3] rounded-xl relative overflow-hidden group cursor-pointer">
+                <Image src={g.src} alt={g.label} fill sizes="(max-width: 768px) 50vw, 33vw" className="object-cover group-hover:scale-105 transition-transform duration-300" />
+                <div className="absolute inset-x-0 bottom-0 p-3 bg-gradient-to-t from-black/70 via-black/30 to-transparent opacity-0 group-hover:opacity-100 transition-opacity">
                   <p className="text-white text-sm font-medium">{g.label}</p>
                 </div>
               </div>
@@ -307,8 +301,9 @@ export default function HomePage() {
       <section className="section bg-slate-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid lg:grid-cols-5 gap-8 items-stretch">
-            <div className="lg:col-span-2 rounded-2xl bg-gradient-to-br from-brand-800 to-brand-900 text-white p-8 flex flex-col justify-between min-h-[280px] relative overflow-hidden">
-              <div className="absolute -top-12 -right-12 h-44 w-44 rounded-full bg-gold-400/10 blur-2xl" />
+            <div className="lg:col-span-2 rounded-2xl text-white p-8 flex flex-col justify-between min-h-[280px] relative overflow-hidden">
+              <Image src={PLACE.aboutHero} alt="Meclones College campus" fill sizes="(max-width: 1024px) 100vw, 40vw" className="object-cover -z-10" />
+              <div className="absolute inset-0 bg-gradient-to-br from-brand-900/95 via-brand-900/85 to-brand-800/80" />
               <div className="relative">
                 <Badge tone="gold" className="mb-3">Get in Touch</Badge>
                 <h3 className="font-display text-2xl md:text-3xl font-bold leading-tight">Have questions or want to learn more? We'd love to hear from you.</h3>
@@ -363,13 +358,13 @@ export default function HomePage() {
           </div>
           <div className="grid md:grid-cols-3 gap-6">
             {[
-              { tag: "Event", title: "Inter-house Sports 2026", date: "May 22, 2026", body: "All students compete in athletics, swimming, and team events across our four houses." },
-              { tag: "Achievement", title: "Mock WAEC: 100% credits in Maths", date: "May 8, 2026", body: "Every SS3 student scored a credit or better in Mathematics in our final mock WAEC." },
-              { tag: "Notice", title: "PTA Meeting — May 30", date: "May 14, 2026", body: "Quarterly PTA meeting holds 10am in the school hall. Parents are warmly invited." },
+              { tag: "Event", title: "Inter-house Sports 2026", date: "May 22, 2026", body: "All students compete in athletics, swimming, and team events across our four houses.", img: PLACE.news.interhouse },
+              { tag: "Achievement", title: "Mock WAEC: 100% credits in Maths", date: "May 8, 2026", body: "Every SS3 student scored a credit or better in Mathematics in our final mock WAEC.", img: PLACE.news.mockWAEC },
+              { tag: "Notice", title: "PTA Meeting — May 30", date: "May 14, 2026", body: "Quarterly PTA meeting holds 10am in the school hall. Parents are warmly invited.", img: PLACE.news.ptaMeeting },
             ].map(n => (
-              <Card key={n.title} className="hover:shadow-lift transition-shadow">
-                <div className="h-44 bg-gradient-to-br from-brand-700 to-brand-900 flex items-center justify-center">
-                  <CalendarCheck className="h-12 w-12 text-gold-300" />
+              <Card key={n.title} className="hover:shadow-lift transition-shadow overflow-hidden">
+                <div className="relative h-44 bg-slate-100">
+                  <Image src={n.img} alt={n.title} fill sizes="(max-width: 768px) 100vw, 33vw" className="object-cover" />
                 </div>
                 <CardBody>
                   <div className="flex items-center justify-between mb-2">

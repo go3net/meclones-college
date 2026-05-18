@@ -1,15 +1,19 @@
 import Link from "next/link";
+import Image from "next/image";
 import { Card, CardBody, Button, Badge, SectionHeading } from "@/components/ui";
 import { CheckCircle2, FileText, Calendar, Award, MessageCircle } from "lucide-react";
+import { PLACE } from "@/lib/images";
 
 export default function AdmissionPage() {
   return (
     <>
-      <section className="bg-brand-900 text-white py-20">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <section className="relative bg-brand-900 text-white py-20 overflow-hidden">
+        <Image src={PLACE.admissionHero} alt="Meclones students" fill priority sizes="100vw" className="object-cover -z-10" />
+        <div className="absolute inset-0 bg-gradient-to-r from-brand-900/95 via-brand-900/85 to-brand-900/50" />
+        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <Badge tone="gold" className="mb-3">Admissions</Badge>
           <h1 className="text-4xl md:text-5xl font-bold">Begin your child's Meclones journey.</h1>
-          <p className="mt-4 text-slate-300 max-w-2xl text-lg">Applications for the 2026/2027 session are open. The process is digital, simple, and you'll hear from us on WhatsApp every step of the way.</p>
+          <p className="mt-4 text-slate-200 max-w-2xl text-lg">Applications for the 2026/2027 session are open. The process is digital, simple, and you'll hear from us on WhatsApp every step of the way.</p>
           <div className="mt-8 flex flex-wrap gap-3">
             <Link href="/apply"><Button variant="gold" className="px-5 py-3">Start Application</Button></Link>
             <Link href="/book-visit"><Button variant="outline" className="px-5 py-3 bg-white/5 text-white border-white/30 hover:bg-white/10">Book a Campus Visit</Button></Link>
