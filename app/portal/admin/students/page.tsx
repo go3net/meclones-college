@@ -3,16 +3,41 @@ import { PortalShell } from "@/components/PortalShell";
 import { Card, CardBody, CardHeader, CardTitle, Badge } from "@/components/ui";
 import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/auth-helpers";
-import { Users, Search, Plus } from "lucide-react";
+import { Users, Plus, Search, CheckCircle2 } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
 const dateFmt = new Intl.DateTimeFormat("en-NG", { dateStyle: "medium" });
 
-export default async function AdminStudentsPage() {
+type SearchParams = { q?: string; classId?: string; added?: string };
+
+export default async function AdminStudentsPage({ searchParams }: { searchParams: SearchParams }) {
   await requireRole(["ADMIN", "SUPER_ADMIN", "DIRECTOR"]);
 
+  const q = (searchParams.q ?? "").trim();
+  const classFilter = (searchParams.classId ?? "").trim();
+
+  const [classes, totalStudents] = await Promise.all([
+    prisma.class.findMany({
+      orderBy: [{ name: "asc" }, { arm: "asc" }],
+      include: { _count: { select: { students: true } } },
+    }),
+    prisma.student.count(),
+  ]);
+
+  const where = {
+    ...(classFilter ? { classId: classFilter } : {}),
+    ...(q ? {
+      OR: [
+        { admissionNumber: { contains: q, mode: "insensitive" as const } },
+        { user: { name: { contains: q, mode: "insensitive" as const } } },
+        { user: { email: { contains: q, mode: "insensitive" as const } } },
+      ],
+    } : {}),
+  };
+
   const students = await prisma.student.findMany({
+    where,
     orderBy: { createdAt: "desc" },
     include: {
       user: { select: { name: true, email: true } },
@@ -21,41 +46,85 @@ export default async function AdminStudentsPage() {
     take: 200,
   });
 
-  const totalByLevel = students.reduce(
-    (acc, s) => {
-      const lvl = s.classRef?.name?.startsWith("JSS") ? "jss" : s.classRef?.name?.startsWith("SS") ? "sss" : "unassigned";
-      acc[lvl] = (acc[lvl] ?? 0) + 1;
-      return acc;
-    },
-    {} as Record<string, number>,
-  );
-
   return (
     <PortalShell role="school_admin">
       <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
         <div>
           <h1 className="text-2xl font-bold text-brand-900">Students</h1>
-          <p className="text-sm text-slate-500">{students.length} enrolled · JSS {totalByLevel.jss ?? 0} · SS {totalByLevel.sss ?? 0}</p>
+          <p className="text-sm text-slate-500">{totalStudents} enrolled across {classes.length} classes.</p>
         </div>
         <Link href="/portal/admin/students/new" className="inline-flex items-center gap-2 bg-brand-700 hover:bg-brand-800 text-white text-sm font-medium px-4 py-2 rounded-lg">
           <Plus className="h-4 w-4" /> Add Student
         </Link>
       </div>
 
+      {searchParams.added && (
+        <div className="mb-4 rounded-lg bg-emerald-50 border border-emerald-200 px-4 py-2.5 text-sm text-emerald-800 flex items-center gap-2">
+          <CheckCircle2 className="h-4 w-4" /> Student {searchParams.added} registered.
+        </div>
+      )}
+
+      {/* Class-by-class card grid */}
+      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3 mb-6">
+        <Link href="/portal/admin/students" className={`rounded-xl border p-3 transition ${!classFilter ? "border-brand-500 bg-brand-50" : "border-slate-200 hover:border-brand-300"}`}>
+          <p className="text-[11px] uppercase tracking-wide text-slate-500">All</p>
+          <p className="text-2xl font-bold text-brand-900 mt-0.5">{totalStudents}</p>
+          <p className="text-[11px] text-slate-500 mt-0.5">All students</p>
+        </Link>
+        {classes.map(c => {
+          const active = classFilter === c.id;
+          return (
+            <Link
+              key={c.id}
+              href={`/portal/admin/students?classId=${c.id}${q ? `&q=${encodeURIComponent(q)}` : ""}`}
+              className={`rounded-xl border p-3 transition ${active ? "border-brand-500 bg-brand-50" : "border-slate-200 hover:border-brand-300"}`}
+            >
+              <p className="text-[11px] uppercase tracking-wide text-slate-500">{c.level}</p>
+              <p className="text-lg font-semibold text-brand-900 mt-0.5">{c.name}{c.arm}</p>
+              <p className="text-[11px] text-slate-500 mt-0.5">{c._count.students} student{c._count.students === 1 ? "" : "s"}</p>
+            </Link>
+          );
+        })}
+      </div>
+
+      {/* Search */}
+      <Card className="mb-4">
+        <CardBody className="py-3">
+          <form action="/portal/admin/students" method="GET" className="flex items-center gap-2">
+            {classFilter && <input type="hidden" name="classId" value={classFilter} />}
+            <div className="relative flex-1">
+              <Search className="h-4 w-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+              <input
+                name="q"
+                defaultValue={q}
+                placeholder="Search by name, admission number or email..."
+                className="w-full pl-9 pr-3 py-2 rounded-lg border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-brand-300"
+              />
+            </div>
+            <button type="submit" className="bg-brand-700 hover:bg-brand-800 text-white text-sm font-medium px-4 py-2 rounded-lg">Search</button>
+            {(q || classFilter) && (
+              <Link href="/portal/admin/students" className="text-sm font-medium text-slate-600 hover:text-slate-900 px-3 py-2">Clear</Link>
+            )}
+          </form>
+        </CardBody>
+      </Card>
+
       <Card>
         <CardHeader>
-          <CardTitle>All students</CardTitle>
-          <div className="flex items-center gap-2 text-sm text-slate-400">
-            <Search className="h-4 w-4" />
-            <span className="text-xs">Search coming soon</span>
-          </div>
+          <CardTitle>
+            {(() => {
+              const selected = classFilter ? classes.find(c => c.id === classFilter) : null;
+              return selected ? `${selected.name}${selected.arm}` : "All students";
+            })()}
+          </CardTitle>
+          <Badge tone="neutral">{students.length} shown</Badge>
         </CardHeader>
         <CardBody className="p-0">
           {students.length === 0 ? (
             <div className="py-16 text-center">
               <Users className="h-10 w-10 mx-auto text-slate-300 mb-3" />
-              <p className="font-medium text-slate-700">No students yet</p>
-              <p className="text-sm text-slate-500 mt-1">Use the "Add Student" button to register the first one.</p>
+              <p className="font-medium text-slate-700">No students match</p>
+              <p className="text-sm text-slate-500 mt-1">Try clearing the search or filter, or click "Add Student" to register a new one.</p>
             </div>
           ) : (
             <div className="overflow-x-auto">

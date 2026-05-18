@@ -22,7 +22,7 @@ export const ROLE_HOME: Record<string, string> = {
 export const PORTAL_ACL: { prefix: string; roles: string[] }[] = [
   { prefix: "/portal/director", roles: ["SUPER_ADMIN", "DIRECTOR"] },
   { prefix: "/portal/admin", roles: ["SUPER_ADMIN", "DIRECTOR", "ADMIN"] },
-  { prefix: "/portal/accountant", roles: ["SUPER_ADMIN", "DIRECTOR", "ACCOUNTANT"] },
+  { prefix: "/portal/accountant", roles: ["SUPER_ADMIN", "DIRECTOR", "ADMIN", "ACCOUNTANT"] },
   { prefix: "/portal/teacher", roles: ["SUPER_ADMIN", "TEACHER"] },
   { prefix: "/portal/student", roles: ["SUPER_ADMIN", "STUDENT"] },
   { prefix: "/portal/parent", roles: ["SUPER_ADMIN", "PARENT"] },

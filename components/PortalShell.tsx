@@ -32,9 +32,11 @@ const NAV_BY_ROLE: Record<MockRole, NavItem[]> = {
   director: [
     { href: "/portal/director", label: "Overview", icon: Home },
     { href: "/portal/director/performance", label: "Performance", icon: TrendingUp },
-    { href: "/portal/ai-assistant", label: "AI Assistant", icon: Brain },
+    { href: "/portal/admin/students", label: "Students", icon: Users },
+    { href: "/portal/admin/teachers", label: "Teachers", icon: GraduationCap },
+    { href: "/portal/admin/applications", label: "Admissions", icon: ClipboardList },
+    { href: "/portal/admin/announcements", label: "Announcements", icon: Megaphone },
     { href: "/portal/whatsapp", label: "WhatsApp Logs", icon: Smartphone },
-    { href: "/portal/director/announcements", label: "Announcements", icon: Megaphone },
     { href: "/portal/director/settings", label: "Settings", icon: Settings },
   ],
   school_admin: [
@@ -49,18 +51,13 @@ const NAV_BY_ROLE: Record<MockRole, NavItem[]> = {
   teacher: [
     { href: "/portal/teacher", label: "Dashboard", icon: Home },
     { href: "/portal/teacher/attendance", label: "Attendance", icon: CheckSquare },
-    { href: "/portal/teacher/assignments", label: "Assignments", icon: ClipboardList },
     { href: "/portal/teacher/results", label: "Score Entry", icon: FileText },
-    { href: "/portal/teacher/cbt", label: "CBT Questions", icon: BookMarked },
-    { href: "/portal/ai-assistant", label: "AI Assistant", icon: Brain },
   ],
   parent: [
     { href: "/portal/parent", label: "Dashboard", icon: Home },
-    { href: "/portal/parent/attendance", label: "Attendance", icon: CheckSquare },
     { href: "/portal/parent/results", label: "Results", icon: FileText },
+    { href: "/portal/parent/attendance", label: "Attendance", icon: CheckSquare },
     { href: "/portal/parent/fees", label: "Fees & Payments", icon: CreditCard },
-    { href: "/portal/parent/chatbot", label: "AI Chatbot", icon: Brain },
-    { href: "/portal/whatsapp", label: "WhatsApp", icon: Smartphone },
   ],
   student: [
     { href: "/portal/student", label: "Dashboard", icon: Home },
@@ -70,9 +67,8 @@ const NAV_BY_ROLE: Record<MockRole, NavItem[]> = {
   ],
   accountant: [
     { href: "/portal/accountant", label: "Dashboard", icon: Home },
-    { href: "/portal/accountant/invoices", label: "Invoices", icon: FileText },
     { href: "/portal/accountant/debtors", label: "Debtors", icon: Banknote },
-    { href: "/portal/whatsapp", label: "Send Reminders", icon: Smartphone },
+    { href: "/portal/whatsapp", label: "WhatsApp Logs", icon: Smartphone },
   ],
 };
 
@@ -89,28 +85,21 @@ export function PortalShell({ role, children }: { role: MockRole; children: Reac
   const [menuOpen, setMenuOpen] = useState(false);
 
   useEffect(() => {
-    if (status === "loading") return;
     if (status === "unauthenticated") {
       router.replace("/portal/login");
-      return;
     }
-    const authRole = (session?.user as { role?: string } | undefined)?.role;
-    if (!authRole) {
-      router.replace("/portal/login");
-      return;
-    }
-    const mapped = ROLE_FROM_AUTH[authRole];
-    if (!mapped || mapped !== role) {
-      // Role mismatch — bounce them to login (middleware will redirect to the
-      // correct dashboard on the next request, but a hard reload keeps the
-      // UX predictable here).
-      router.replace("/portal/login");
-    }
-  }, [status, session, role, router]);
+  }, [status, router]);
+
+  // Pick the sidebar nav from the user's actual auth role so e.g. a DIRECTOR
+  // walking into /portal/admin/* still sees the director nav. The `role` prop
+  // is the fallback (used during unauthenticated render). Route gating lives
+  // entirely in `middleware.ts`.
+  const authRole = (session?.user as { role?: string } | undefined)?.role;
+  const effectiveRole: MockRole = authRole && ROLE_FROM_AUTH[authRole] ? ROLE_FROM_AUTH[authRole] : role;
 
   const doLogout = () => signOut({ callbackUrl: "/portal/login" });
 
-  const nav = NAV_BY_ROLE[role];
+  const nav = NAV_BY_ROLE[effectiveRole];
 
   if (status !== "authenticated") {
     return (
@@ -169,7 +158,7 @@ export function PortalShell({ role, children }: { role: MockRole; children: Reac
         <header className="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-4 lg:px-6 sticky top-0 z-20">
           <button className="lg:hidden text-slate-700" onClick={() => setOpen(true)}><Menu className="h-5 w-5" /></button>
           <div className="hidden lg:block">
-            <p className="text-xs text-slate-500">Portal · {roleLabel[role]}</p>
+            <p className="text-xs text-slate-500">Portal · {roleLabel[effectiveRole]}</p>
           </div>
           <div className="flex items-center gap-3">
             <button className="relative p-2 rounded-lg hover:bg-slate-100">
@@ -181,7 +170,7 @@ export function PortalShell({ role, children }: { role: MockRole; children: Reac
                 <div className="h-8 w-8 rounded-full bg-brand-100 text-brand-700 flex items-center justify-center text-xs font-semibold">{initials}</div>
                 <div className="hidden sm:block text-left">
                   <p className="text-xs font-medium text-slate-900 leading-tight">{userName}</p>
-                  <p className="text-[10px] text-slate-500 leading-tight">{roleLabel[role]}</p>
+                  <p className="text-[10px] text-slate-500 leading-tight">{roleLabel[effectiveRole]}</p>
                 </div>
                 <ChevronDown className="h-4 w-4 text-slate-400" />
               </button>
