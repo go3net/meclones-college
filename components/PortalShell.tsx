@@ -1,0 +1,174 @@
+"use client";
+
+import { ReactNode, useEffect, useState } from "react";
+import Link from "next/link";
+import { useRouter, usePathname } from "next/navigation";
+import { currentUser, logout } from "@/lib/auth";
+import { Role, User } from "@/lib/mock-data";
+import { Logo } from "./Logo";
+import clsx from "clsx";
+import {
+  Home, Users, GraduationCap, BookOpen, Calendar, FileText, MessageCircle,
+  CreditCard, Brain, Smartphone, Settings, LogOut, Menu, X, Bell, ChevronDown,
+  CheckSquare, BookMarked, Banknote, TrendingUp, ClipboardList, Megaphone,
+} from "lucide-react";
+
+interface NavItem { href: string; label: string; icon: any; }
+
+const NAV_BY_ROLE: Record<Role, NavItem[]> = {
+  director: [
+    { href: "/portal/director", label: "Overview", icon: Home },
+    { href: "/portal/director/performance", label: "Performance", icon: TrendingUp },
+    { href: "/portal/ai-assistant", label: "AI Assistant", icon: Brain },
+    { href: "/portal/whatsapp", label: "WhatsApp Logs", icon: Smartphone },
+    { href: "/portal/director/announcements", label: "Announcements", icon: Megaphone },
+    { href: "/portal/director/settings", label: "Settings", icon: Settings },
+  ],
+  school_admin: [
+    { href: "/portal/admin", label: "Overview", icon: Home },
+    { href: "/portal/admin/students", label: "Students", icon: Users },
+    { href: "/portal/admin/teachers", label: "Teachers", icon: GraduationCap },
+    { href: "/portal/admin/applications", label: "Admissions", icon: ClipboardList },
+    { href: "/portal/admin/announcements", label: "Announcements", icon: Megaphone },
+    { href: "/portal/admin/complaints", label: "Complaints", icon: MessageCircle },
+    { href: "/portal/whatsapp", label: "WhatsApp Logs", icon: Smartphone },
+  ],
+  teacher: [
+    { href: "/portal/teacher", label: "Dashboard", icon: Home },
+    { href: "/portal/teacher/attendance", label: "Attendance", icon: CheckSquare },
+    { href: "/portal/teacher/assignments", label: "Assignments", icon: ClipboardList },
+    { href: "/portal/teacher/results", label: "Score Entry", icon: FileText },
+    { href: "/portal/teacher/cbt", label: "CBT Questions", icon: BookMarked },
+    { href: "/portal/ai-assistant", label: "AI Assistant", icon: Brain },
+  ],
+  parent: [
+    { href: "/portal/parent", label: "Dashboard", icon: Home },
+    { href: "/portal/parent/attendance", label: "Attendance", icon: CheckSquare },
+    { href: "/portal/parent/results", label: "Results", icon: FileText },
+    { href: "/portal/parent/fees", label: "Fees & Payments", icon: CreditCard },
+    { href: "/portal/parent/chatbot", label: "AI Chatbot", icon: Brain },
+    { href: "/portal/whatsapp", label: "WhatsApp", icon: Smartphone },
+  ],
+  student: [
+    { href: "/portal/student", label: "Dashboard", icon: Home },
+    { href: "/portal/student/timetable", label: "Timetable", icon: Calendar },
+    { href: "/portal/student/assignments", label: "Assignments", icon: ClipboardList },
+    { href: "/portal/student/results", label: "Results", icon: FileText },
+    { href: "/portal/student/elibrary", label: "E-Library", icon: BookOpen },
+    { href: "/portal/student/cbt", label: "CBT", icon: BookMarked },
+    { href: "/portal/student/study-ai", label: "Study AI", icon: Brain },
+  ],
+  accountant: [
+    { href: "/portal/accountant", label: "Dashboard", icon: Home },
+    { href: "/portal/accountant/invoices", label: "Invoices", icon: FileText },
+    { href: "/portal/accountant/debtors", label: "Debtors", icon: Banknote },
+    { href: "/portal/whatsapp", label: "Send Reminders", icon: Smartphone },
+  ],
+};
+
+const roleLabel: Record<Role, string> = {
+  director: "Director", school_admin: "School Admin", teacher: "Teacher",
+  parent: "Parent", student: "Student", accountant: "Accountant",
+};
+
+export function PortalShell({ role, children }: { role: Role; children: ReactNode }) {
+  const router = useRouter();
+  const pathname = usePathname();
+  const [user, setUser] = useState<User | null>(null);
+  const [open, setOpen] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+
+  useEffect(() => {
+    const u = currentUser();
+    if (!u) { router.replace("/portal/login"); return; }
+    if (u.role !== role) { router.replace("/portal/login"); return; }
+    setUser(u);
+  }, [router, role]);
+
+  const doLogout = () => { logout(); router.replace("/portal/login"); };
+
+  const nav = NAV_BY_ROLE[role];
+
+  if (!user) {
+    return <div className="min-h-screen flex items-center justify-center bg-slate-50"><p className="text-slate-500">Loading...</p></div>;
+  }
+
+  return (
+    <div className="min-h-screen bg-slate-50 flex">
+      {/* Sidebar */}
+      <aside className={clsx(
+        "fixed inset-y-0 left-0 z-40 w-64 bg-brand-900 text-slate-100 transform transition-transform lg:translate-x-0 lg:relative lg:flex flex-col",
+        open ? "translate-x-0" : "-translate-x-full"
+      )}>
+        <div className="h-16 flex items-center justify-between px-4 border-b border-white/10">
+          <Logo variant="light" />
+          <button className="lg:hidden text-white" onClick={() => setOpen(false)}><X className="h-5 w-5" /></button>
+        </div>
+        <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
+          {nav.map(item => {
+            const active = pathname === item.href || pathname.startsWith(item.href + "/");
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                onClick={() => setOpen(false)}
+                className={clsx(
+                  "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors",
+                  active ? "bg-white/15 text-white font-medium" : "text-slate-300 hover:bg-white/10 hover:text-white"
+                )}
+              >
+                <item.icon className="h-4.5 w-4.5" />
+                {item.label}
+              </Link>
+            );
+          })}
+        </nav>
+        <div className="p-3 border-t border-white/10">
+          <button onClick={doLogout} className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-slate-300 hover:bg-white/10 hover:text-white">
+            <LogOut className="h-4 w-4" /> Sign out
+          </button>
+        </div>
+      </aside>
+
+      {/* Mobile backdrop */}
+      {open && <div className="fixed inset-0 z-30 bg-black/40 lg:hidden" onClick={() => setOpen(false)} />}
+
+      {/* Main */}
+      <div className="flex-1 flex flex-col min-w-0">
+        <header className="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-4 lg:px-6 sticky top-0 z-20">
+          <button className="lg:hidden text-slate-700" onClick={() => setOpen(true)}><Menu className="h-5 w-5" /></button>
+          <div className="hidden lg:block">
+            <p className="text-xs text-slate-500">Portal · {roleLabel[role]}</p>
+          </div>
+          <div className="flex items-center gap-3">
+            <button className="relative p-2 rounded-lg hover:bg-slate-100">
+              <Bell className="h-5 w-5 text-slate-600" />
+              <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-red-500 ring-2 ring-white"></span>
+            </button>
+            <div className="relative">
+              <button onClick={() => setMenuOpen(!menuOpen)} className="flex items-center gap-2 p-1 pr-2 hover:bg-slate-100 rounded-lg">
+                <div className="h-8 w-8 rounded-full bg-brand-100 text-brand-700 flex items-center justify-center text-xs font-semibold">{user.name.split(" ").map(n => n[0]).slice(0, 2).join("")}</div>
+                <div className="hidden sm:block text-left">
+                  <p className="text-xs font-medium text-slate-900 leading-tight">{user.name}</p>
+                  <p className="text-[10px] text-slate-500 leading-tight">{roleLabel[role]}</p>
+                </div>
+                <ChevronDown className="h-4 w-4 text-slate-400" />
+              </button>
+              {menuOpen && (
+                <div className="absolute right-0 mt-2 w-56 bg-white rounded-lg shadow-lift border border-slate-100 py-1 z-30" onMouseLeave={() => setMenuOpen(false)}>
+                  <div className="px-3 py-2 border-b border-slate-100">
+                    <p className="text-sm font-medium text-slate-900">{user.name}</p>
+                    <p className="text-xs text-slate-500">{user.email}</p>
+                  </div>
+                  <Link href="/" className="block px-3 py-2 text-sm text-slate-700 hover:bg-slate-50">School website</Link>
+                  <button onClick={doLogout} className="w-full text-left px-3 py-2 text-sm text-red-600 hover:bg-red-50">Sign out</button>
+                </div>
+              )}
+            </div>
+          </div>
+        </header>
+        <main className="flex-1 p-4 lg:p-6 max-w-full overflow-x-auto">{children}</main>
+      </div>
+    </div>
+  );
+}

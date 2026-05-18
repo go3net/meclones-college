@@ -1,0 +1,59 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: light;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  @apply bg-slate-50 text-slate-900 antialiased font-sans;
+  font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+}
+
+h1, h2, h3, h4, h5, .font-display {
+  font-family: var(--font-serif), Georgia, serif;
+  letter-spacing: -0.01em;
+}
+
+/* Subtle scrollbar */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-thumb {
+  @apply bg-slate-300 rounded-full;
+}
+::-webkit-scrollbar-thumb:hover {
+  @apply bg-slate-400;
+}
+
+/* Utility: section padding */
+.section {
+  @apply py-16 md:py-24;
+}
+
+/* WhatsApp chat bubbles */
+.wa-bg {
+  background-color: #e5ddd5;
+  background-image: radial-gradient(circle at 1px 1px, rgba(0, 0, 0, 0.05) 1px, transparent 0);
+  background-size: 24px 24px;
+}
+.wa-bubble-in {
+  @apply bg-white text-slate-900 rounded-lg rounded-tl-sm px-3 py-2 shadow-sm;
+}
+.wa-bubble-out {
+  @apply text-slate-900 rounded-lg rounded-tr-sm px-3 py-2 shadow-sm;
+  background-color: #dcf8c6;
+}
+
+/* Print-friendly result/receipt */
+@media print {
+  .no-print { display: none !important; }
+  body { background: white; }
+}
