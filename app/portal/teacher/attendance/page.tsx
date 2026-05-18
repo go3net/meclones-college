@@ -1,133 +1,173 @@
-"use client";
-
-import { useEffect, useState } from "react";
+import Link from "next/link";
 import { PortalShell } from "@/components/PortalShell";
-import { Card, CardBody, CardHeader, CardTitle, Button, Badge, Select, Toast, Label } from "@/components/ui";
-import { currentUser } from "@/lib/auth";
-import { updateStore, loadStore, pushWhatsApp } from "@/lib/store";
-import { CLASSES, STUDENTS, teacherById, studentsByClass, parentById } from "@/lib/mock-data";
-import { CheckSquare, Save } from "lucide-react";
+import { Card, CardBody, CardHeader, CardTitle, Button, Badge } from "@/components/ui";
+import { prisma } from "@/lib/prisma";
+import { getCurrentTeacher, getActiveContext } from "@/lib/auth-helpers";
+import { CheckSquare, Save, AlertCircle } from "lucide-react";
+import { markAttendance } from "./actions";
 
-type Status = "present" | "absent" | "late";
+export const dynamic = "force-dynamic";
 
-export default function TeacherAttendance() {
-  const [user, setUser] = useState<any>(null);
-  const [classId, setClassId] = useState("");
-  const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
-  const [marks, setMarks] = useState<Record<string, Status>>({});
-  const [toast, setToast] = useState("");
+const dateFmt = new Intl.DateTimeFormat("en-NG", { weekday: "short", year: "numeric", month: "short", day: "numeric" });
 
-  useEffect(() => {
-    const u = currentUser();
-    setUser(u);
-    const t = u?.linkedId ? teacherById(u.linkedId) : null;
-    if (t?.classes[0]) setClassId(t.classes[0]);
-  }, []);
+type SearchParams = { classId?: string; date?: string };
 
-  if (!user) return null;
-  const teacher = user.linkedId ? teacherById(user.linkedId) : undefined;
-  const teacherClasses = teacher ? CLASSES.filter(c => teacher.classes.includes(c.id)) : [];
-  const students = classId ? studentsByClass(classId) : [];
+function todayISO() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
 
-  const setStatus = (sid: string, s: Status) => setMarks(prev => ({ ...prev, [sid]: s }));
-  const setAll = (s: Status) => setMarks(students.reduce((acc, st) => ({ ...acc, [st.id]: s }), {} as Record<string, Status>));
+export default async function TeacherAttendancePage({ searchParams }: { searchParams: SearchParams }) {
+  const teacher = await getCurrentTeacher();
+  const { term } = await getActiveContext();
 
-  const save = () => {
-    let alertsSent = 0;
-    updateStore(s => {
-      for (const st of students) {
-        const status = marks[st.id] || "present";
-        s.attendance.unshift({
-          id: "att-" + Date.now() + "-" + st.id,
-          studentId: st.id,
-          classId,
-          date,
-          status,
-          markedBy: teacher!.id,
-        });
-        if (status === "absent" || status === "late") {
-          const parent = parentById(st.parentId);
-          if (parent) {
-            s.whatsappLogs.unshift({
-              id: "wa-" + Date.now() + "-" + st.id,
-              to: parent.phone,
-              recipientName: parent.name,
-              trigger: status === "absent" ? "Student Absent" : "Student Late",
-              message: `Dear ${parent.name}, ${st.name} was marked ${status.toUpperCase()} today (${date}). Please ensure ${st.gender === "M" ? "he" : "she"} attends regularly and on time. — Meclones College`,
-              status: "sent",
-              timestamp: new Date().toISOString().slice(0, 16).replace("T", " "),
-            });
-            alertsSent++;
-          }
-        }
-      }
-      return s;
-    });
-    setToast(`Attendance saved · ${alertsSent} WhatsApp alert${alertsSent === 1 ? "" : "s"} sent to parents.`);
-    setMarks({});
-  };
+  // All classes this teacher can mark for: form-teacher of + assigned to.
+  const myClassIds = Array.from(new Set([
+    ...teacher.classTeacherOf.map(c => c.id),
+    ...teacher.classes.map(c => c.class.id),
+  ]));
+  const myClasses = await prisma.class.findMany({
+    where: { id: { in: myClassIds } },
+    orderBy: [{ name: "asc" }, { arm: "asc" }],
+  });
+
+  if (myClasses.length === 0) {
+    return (
+      <PortalShell role="teacher">
+        <Card><CardBody className="text-center py-12">
+          <AlertCircle className="h-10 w-10 mx-auto text-slate-300 mb-3" />
+          <p className="font-medium text-slate-700">No classes assigned</p>
+          <p className="text-sm text-slate-500 mt-1">Ask the school admin to assign you to a class.</p>
+        </CardBody></Card>
+      </PortalShell>
+    );
+  }
+
+  const selectedClassId = searchParams.classId && myClasses.some(c => c.id === searchParams.classId)
+    ? searchParams.classId
+    : myClasses[0].id;
+  const selectedClass = myClasses.find(c => c.id === selectedClassId)!;
+  const date = searchParams.date ?? todayISO();
+  const dateObj = new Date(date + "T00:00:00.000Z");
+
+  const [students, existingRecords] = await Promise.all([
+    prisma.student.findMany({
+      where: { classId: selectedClassId },
+      include: { user: { select: { name: true } } },
+      orderBy: { admissionNumber: "asc" },
+    }),
+    prisma.attendance.findMany({
+      where: { classId: selectedClassId, date: dateObj },
+      select: { studentId: true, status: true },
+    }),
+  ]);
+
+  const existingByStudent = new Map(existingRecords.map(r => [r.studentId, r.status]));
 
   return (
     <PortalShell role="teacher">
-      <Toast message={toast} onClose={() => setToast("")} />
-      <h1 className="text-2xl font-bold text-brand-900 mb-1">Mark Attendance</h1>
-      <p className="text-sm text-slate-500 mb-6">Mark each student. Parents of absent/late students get automatic WhatsApp alerts.</p>
+      <div className="mb-6">
+        <h1 className="text-2xl font-bold text-brand-900">Mark Attendance</h1>
+        <p className="text-sm text-slate-500">
+          {term ? `${term.name.charAt(0)}${term.name.slice(1).toLowerCase()} Term · ` : ""}
+          Welcome, {teacher.user.name}
+        </p>
+      </div>
 
-      <Card className="mb-4">
-        <CardBody>
-          <div className="grid sm:grid-cols-3 gap-4 items-end">
-            <div><Label>Class</Label>
-              <Select value={classId} onChange={e => setClassId(e.target.value)}>
-                {teacherClasses.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-              </Select>
-            </div>
-            <div><Label>Date</Label>
-              <input type="date" value={date} onChange={e => setDate(e.target.value)} className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm" />
-            </div>
-            <div className="flex gap-2">
-              <Button variant="outline" onClick={() => setAll("present")}>Mark all present</Button>
-            </div>
-          </div>
-        </CardBody>
-      </Card>
+      <form className="mb-5 flex flex-wrap items-end gap-3" action="">
+        <div>
+          <label className="block text-xs font-medium text-slate-600 mb-1">Class</label>
+          <select
+            name="classId"
+            defaultValue={selectedClassId}
+            className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
+          >
+            {myClasses.map(c => (
+              <option key={c.id} value={c.id}>{c.name}{c.arm}</option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label className="block text-xs font-medium text-slate-600 mb-1">Date</label>
+          <input
+            type="date"
+            name="date"
+            defaultValue={date}
+            className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
+          />
+        </div>
+        <button type="submit" className="bg-slate-100 hover:bg-slate-200 text-slate-800 px-4 py-2 rounded-lg text-sm font-medium">Load</button>
+      </form>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>{students.length} students</CardTitle>
-          <Button variant="gold" onClick={save} disabled={students.length === 0}><Save className="h-4 w-4" /> Save Attendance</Button>
-        </CardHeader>
-        <CardBody className="p-0">
-          <table className="w-full text-sm">
-            <thead className="bg-slate-50 text-xs uppercase text-slate-500">
-              <tr>
-                <th className="text-left px-5 py-2.5">Student</th>
-                <th className="text-left px-5 py-2.5">Adm No.</th>
-                <th className="text-left px-5 py-2.5">Status</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {students.map(s => {
-                const status = marks[s.id] || "present";
-                return (
-                  <tr key={s.id}>
-                    <td className="px-5 py-3"><div className="flex items-center gap-3"><div className="h-8 w-8 rounded-full bg-brand-100 text-brand-700 text-xs font-semibold flex items-center justify-center">{s.name.split(" ").map(n => n[0]).join("")}</div><p className="font-medium">{s.name}</p></div></td>
-                    <td className="px-5 py-3 text-slate-500">{s.admissionNo}</td>
-                    <td className="px-5 py-3">
-                      <div className="inline-flex rounded-lg border border-slate-200 p-0.5">
-                        {(["present", "late", "absent"] as Status[]).map(opt => (
-                          <button key={opt} onClick={() => setStatus(s.id, opt)} className={`px-3 py-1 text-xs font-medium rounded ${status === opt ? (opt === "present" ? "bg-emerald-600 text-white" : opt === "late" ? "bg-amber-500 text-white" : "bg-red-600 text-white") : "text-slate-600 hover:bg-slate-50"}`}>
-                            {opt.charAt(0).toUpperCase() + opt.slice(1)}
-                          </button>
-                        ))}
-                      </div>
-                    </td>
+      <form action={markAttendance}>
+        <input type="hidden" name="classId" value={selectedClassId} />
+        <input type="hidden" name="date" value={date} />
+
+        <Card>
+          <CardHeader>
+            <CardTitle>{selectedClass.name}{selectedClass.arm} · {dateFmt.format(dateObj)}</CardTitle>
+            <Badge tone="neutral">{students.length} students</Badge>
+          </CardHeader>
+          <CardBody className="p-0">
+            {students.length === 0 ? (
+              <div className="py-12 text-center text-sm text-slate-500">No students in this class yet.</div>
+            ) : (
+              <table className="min-w-full text-sm">
+                <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
+                  <tr>
+                    <th className="text-left px-4 py-2.5 font-medium">Student</th>
+                    <th className="text-left px-4 py-2.5 font-medium">Adm #</th>
+                    <th className="text-center px-4 py-2.5 font-medium">Status</th>
                   </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </CardBody>
-      </Card>
+                </thead>
+                <tbody>
+                  {students.map(s => {
+                    const current = existingByStudent.get(s.id) ?? "PRESENT";
+                    return (
+                      <tr key={s.id} className="border-t border-slate-100">
+                        <td className="px-4 py-2.5 font-medium text-slate-900">{s.user.name}</td>
+                        <td className="px-4 py-2.5 font-mono text-[12px] text-slate-500">{s.admissionNumber}</td>
+                        <td className="px-4 py-2.5">
+                          <div className="flex gap-1 justify-center">
+                            {[
+                              { value: "PRESENT", label: "P", tone: "bg-emerald-100 text-emerald-700 ring-emerald-300" },
+                              { value: "LATE", label: "L", tone: "bg-amber-100 text-amber-700 ring-amber-300" },
+                              { value: "ABSENT", label: "A", tone: "bg-rose-100 text-rose-700 ring-rose-300" },
+                            ].map(opt => (
+                              <label key={opt.value} className="cursor-pointer">
+                                <input
+                                  type="radio"
+                                  name={`status:${s.id}`}
+                                  value={opt.value}
+                                  defaultChecked={current === opt.value}
+                                  className="peer sr-only"
+                                />
+                                <span className={`inline-flex items-center justify-center h-8 w-8 rounded-lg text-xs font-bold ${opt.tone} peer-checked:ring-2 opacity-50 peer-checked:opacity-100 transition`}>
+                                  {opt.label}
+                                </span>
+                              </label>
+                            ))}
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            )}
+          </CardBody>
+        </Card>
+
+        <div className="mt-6 flex items-center justify-between gap-3">
+          <p className="text-xs text-slate-500">
+            <CheckSquare className="h-3.5 w-3.5 inline mr-1 align-text-bottom" />
+            P = Present · L = Late · A = Absent. Existing marks are pre-filled.
+          </p>
+          <button type="submit" className="inline-flex items-center gap-2 bg-brand-700 hover:bg-brand-800 text-white px-5 py-2.5 rounded-lg text-sm font-semibold">
+            <Save className="h-4 w-4" /> Save attendance
+          </button>
+        </div>
+      </form>
     </PortalShell>
   );
 }

@@ -1,40 +1,20 @@
 import { PortalShell } from "@/components/PortalShell";
 import { Card, CardBody, CardHeader, CardTitle, Badge, StatCard } from "@/components/ui";
 import { prisma } from "@/lib/prisma";
-import { getCurrentParentWithChildren, getActiveContext } from "@/lib/auth-helpers";
-import { CalendarCheck, AlertCircle } from "lucide-react";
-import Link from "next/link";
+import { getCurrentStudent, getActiveContext } from "@/lib/auth-helpers";
+import { CalendarCheck } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
 const dateFmt = new Intl.DateTimeFormat("en-NG", { weekday: "short", year: "numeric", month: "short", day: "numeric" });
 
-type SearchParams = { student?: string };
-
-export default async function ParentAttendancePage({ searchParams }: { searchParams: SearchParams }) {
-  const parent = await getCurrentParentWithChildren();
-  const { term } = await getActiveContext();
-
-  const children = parent.children.map(c => c.student);
-  if (children.length === 0) {
-    return (
-      <PortalShell role="parent">
-        <Card><CardBody className="text-center py-12">
-          <AlertCircle className="h-10 w-10 mx-auto text-slate-300 mb-3" />
-          <p className="font-medium text-slate-700">No children linked yet</p>
-          <p className="text-sm text-slate-500 mt-1">Contact the school office to link your child's account to yours.</p>
-        </CardBody></Card>
-      </PortalShell>
-    );
-  }
-
-  const selectedStudent = searchParams.student
-    ? children.find(c => c.id === searchParams.student) ?? children[0]
-    : children[0];
+export default async function StudentAttendancePage() {
+  const student = await getCurrentStudent();
+  const { term, session } = await getActiveContext();
 
   const where = term
-    ? { studentId: selectedStudent.id, termId: term.id }
-    : { studentId: selectedStudent.id };
+    ? { studentId: student.id, termId: term.id }
+    : { studentId: student.id };
 
   const records = await prisma.attendance.findMany({
     where,
@@ -55,28 +35,15 @@ export default async function ParentAttendancePage({ searchParams }: { searchPar
   const pct = total > 0 ? Math.round((counts.present / total) * 100) : 0;
 
   return (
-    <PortalShell role="parent">
+    <PortalShell role="student">
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-brand-900">Attendance</h1>
+        <h1 className="text-2xl font-bold text-brand-900">My Attendance</h1>
         <p className="text-sm text-slate-500">
-          {term ? `${term.name.charAt(0)}${term.name.slice(1).toLowerCase()} Term records` : "Daily attendance records"} · {selectedStudent.user.name}
-          {selectedStudent.classRef && ` · ${selectedStudent.classRef.name}${selectedStudent.classRef.arm}`}
+          {term ? `${term.name.charAt(0)}${term.name.slice(1).toLowerCase()} Term` : ""}
+          {session ? ` · Session ${session.name}` : ""}
+          {student.classRef && ` · ${student.classRef.name}${student.classRef.arm}`}
         </p>
       </div>
-
-      {children.length > 1 && (
-        <div className="flex flex-wrap gap-2 mb-6">
-          {children.map(c => (
-            <Link
-              key={c.id}
-              href={`/portal/parent/attendance?student=${c.id}`}
-              className={`px-3 py-1.5 rounded-lg text-sm font-medium ${c.id === selectedStudent.id ? "bg-brand-700 text-white" : "bg-white border border-slate-200 text-slate-700 hover:border-brand-300"}`}
-            >
-              {c.user.name}
-            </Link>
-          ))}
-        </div>
-      )}
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
         <StatCard label="Overall" value={`${pct}%`} hint={`${total} days recorded`} icon={<CalendarCheck className="h-5 w-5" />} accent="emerald" />

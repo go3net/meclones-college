@@ -1,8 +1,7 @@
-import Link from "next/link";
 import { PortalShell } from "@/components/PortalShell";
 import { Card, CardBody, CardHeader, CardTitle, Badge, StatCard } from "@/components/ui";
 import { prisma } from "@/lib/prisma";
-import { getCurrentParentWithChildren, getActiveContext } from "@/lib/auth-helpers";
+import { getCurrentStudent, getActiveContext } from "@/lib/auth-helpers";
 import { CreditCard, Wallet, AlertCircle, Phone } from "lucide-react";
 import { SCHOOL } from "@/lib/constants";
 
@@ -11,39 +10,18 @@ export const dynamic = "force-dynamic";
 const nairaFmt = new Intl.NumberFormat("en-NG", { style: "currency", currency: "NGN", maximumFractionDigits: 0 });
 const dateFmt = new Intl.DateTimeFormat("en-NG", { dateStyle: "medium" });
 
-type SearchParams = { student?: string };
-
 const feeTone: Record<string, "success" | "warning" | "danger"> = {
   PAID: "success",
   PARTIAL: "warning",
   UNPAID: "danger",
 };
 
-export default async function ParentFeesPage({ searchParams }: { searchParams: SearchParams }) {
-  const parent = await getCurrentParentWithChildren();
+export default async function StudentFeesPage() {
+  const student = await getCurrentStudent();
   const { term, session } = await getActiveContext();
 
-  const children = parent.children.map(c => c.student);
-  if (children.length === 0) {
-    return (
-      <PortalShell role="parent">
-        <Card><CardBody className="text-center py-12">
-          <AlertCircle className="h-10 w-10 mx-auto text-slate-300 mb-3" />
-          <p className="font-medium text-slate-700">No children linked yet</p>
-          <p className="text-sm text-slate-500 mt-1">Contact the school office to link your child's account.</p>
-        </CardBody></Card>
-      </PortalShell>
-    );
-  }
-
-  const selectedStudent = searchParams.student
-    ? children.find(c => c.id === searchParams.student) ?? children[0]
-    : children[0];
-
   const fees = await prisma.fee.findMany({
-    where: term
-      ? { studentId: selectedStudent.id, termId: term.id }
-      : { studentId: selectedStudent.id },
+    where: term ? { studentId: student.id, termId: term.id } : { studentId: student.id },
     orderBy: { createdAt: "asc" },
   });
 
@@ -57,29 +35,15 @@ export default async function ParentFeesPage({ searchParams }: { searchParams: S
   );
 
   return (
-    <PortalShell role="parent">
+    <PortalShell role="student">
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-brand-900">Fees & Payments</h1>
+        <h1 className="text-2xl font-bold text-brand-900">My Fees</h1>
         <p className="text-sm text-slate-500">
           {term ? `${term.name.charAt(0)}${term.name.slice(1).toLowerCase()} Term` : ""}
-          {session ? ` · Session ${session.name}` : ""} · {selectedStudent.user.name}
-          {selectedStudent.classRef && ` · ${selectedStudent.classRef.name}${selectedStudent.classRef.arm}`}
+          {session ? ` · Session ${session.name}` : ""}
+          {student.classRef && ` · ${student.classRef.name}${student.classRef.arm}`}
         </p>
       </div>
-
-      {children.length > 1 && (
-        <div className="flex flex-wrap gap-2 mb-6">
-          {children.map(c => (
-            <Link
-              key={c.id}
-              href={`/portal/parent/fees?student=${c.id}`}
-              className={`px-3 py-1.5 rounded-lg text-sm font-medium ${c.id === selectedStudent.id ? "bg-brand-700 text-white" : "bg-white border border-slate-200 text-slate-700 hover:border-brand-300"}`}
-            >
-              {c.user.name}
-            </Link>
-          ))}
-        </div>
-      )}
 
       <div className="grid grid-cols-3 gap-3 mb-6">
         <StatCard label="Total billed" value={nairaFmt.format(totals.billed)} icon={<Wallet className="h-5 w-5" />} accent="brand" />
@@ -90,17 +54,10 @@ export default async function ParentFeesPage({ searchParams }: { searchParams: S
       <Card>
         <CardHeader>
           <CardTitle>Fee statement</CardTitle>
-          {totals.balance > 0 && (
-            <Badge tone="warning">{nairaFmt.format(totals.balance)} outstanding</Badge>
-          )}
         </CardHeader>
         <CardBody className="p-0">
           {fees.length === 0 ? (
-            <div className="py-12 text-center">
-              <Wallet className="h-10 w-10 mx-auto text-slate-300 mb-3" />
-              <p className="font-medium text-slate-700">No fees charged yet</p>
-              <p className="text-sm text-slate-500 mt-1">Fee charges for this term haven't been published.</p>
-            </div>
+            <div className="py-12 text-center text-sm text-slate-500">No fees charged yet for this term.</div>
           ) : (
             <div className="overflow-x-auto">
               <table className="min-w-full text-sm">
@@ -120,7 +77,7 @@ export default async function ParentFeesPage({ searchParams }: { searchParams: S
                       <td className="px-4 py-2.5 font-medium text-slate-900">{f.feeType}</td>
                       <td className="px-4 py-2.5 text-right text-slate-700">{nairaFmt.format(Number(f.amount))}</td>
                       <td className="px-4 py-2.5 text-right text-emerald-700">{nairaFmt.format(Number(f.amountPaid))}</td>
-                      <td className="px-4 py-2.5 text-right text-slate-900 font-medium">{nairaFmt.format(Number(f.balance))}</td>
+                      <td className="px-4 py-2.5 text-right font-medium text-slate-900">{nairaFmt.format(Number(f.balance))}</td>
                       <td className="px-4 py-2.5">
                         <Badge tone={feeTone[f.status] ?? "neutral"}>{f.status.toLowerCase()}</Badge>
                       </td>
@@ -144,16 +101,16 @@ export default async function ParentFeesPage({ searchParams }: { searchParams: S
       </Card>
 
       {totals.balance > 0 && (
-        <Card className="mt-6 bg-gradient-to-br from-brand-900 to-brand-700 text-white border-0">
+        <Card className="mt-6 bg-amber-50 border border-amber-200">
           <CardBody>
             <div className="flex items-start justify-between gap-4 flex-wrap">
               <div>
-                <p className="font-semibold">Pay outstanding balance</p>
-                <p className="mt-1 text-sm text-slate-200">Online payments via Paystack will be enabled once the school connects its subaccount. For now please call the school accountant.</p>
+                <p className="font-semibold text-amber-900">You have an outstanding balance</p>
+                <p className="mt-1 text-sm text-amber-800">Please ask your parent/guardian to pay, or contact the school accountant.</p>
               </div>
               <a
                 href={`tel:${SCHOOL.phoneIntl}`}
-                className="inline-flex items-center gap-2 bg-gold-400 hover:bg-gold-300 text-brand-900 font-semibold px-4 py-2 rounded-lg text-sm"
+                className="inline-flex items-center gap-2 bg-amber-700 hover:bg-amber-800 text-white font-semibold px-4 py-2 rounded-lg text-sm"
               >
                 <Phone className="h-4 w-4" /> Call {SCHOOL.phone}
               </a>

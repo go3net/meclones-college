@@ -2,7 +2,8 @@ import { PortalShell } from "@/components/PortalShell";
 import { Card, CardBody, CardHeader, CardTitle, Badge } from "@/components/ui";
 import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/auth-helpers";
-import { ClipboardList, Phone, Mail } from "lucide-react";
+import { ClipboardList, Phone, Mail, Check, X, Clock, FileCheck } from "lucide-react";
+import { updateAdmissionStatus } from "./actions";
 
 export const dynamic = "force-dynamic";
 
@@ -81,6 +82,7 @@ export default async function AdminApplicationsPage() {
                     <th className="text-left px-4 py-2.5 font-medium">Parent / Guardian</th>
                     <th className="text-left px-4 py-2.5 font-medium">Status</th>
                     <th className="text-left px-4 py-2.5 font-medium">Submitted</th>
+                    <th className="text-left px-4 py-2.5 font-medium">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -103,6 +105,46 @@ export default async function AdminApplicationsPage() {
                         <Badge tone={statusTone[a.status] ?? "neutral"}>{a.status.replace("_", " ")}</Badge>
                       </td>
                       <td className="px-4 py-2.5 text-slate-500 text-[12px]">{dateFmt.format(a.createdAt)}</td>
+                      <td className="px-4 py-2.5">
+                        <div className="flex items-center gap-1">
+                          {a.status !== "UNDER_REVIEW" && a.status !== "ADMITTED" && a.status !== "REJECTED" && (
+                            <form action={updateAdmissionStatus}>
+                              <input type="hidden" name="id" value={a.id} />
+                              <input type="hidden" name="status" value="UNDER_REVIEW" />
+                              <button type="submit" className="inline-flex items-center gap-1 text-[11px] font-medium text-amber-700 hover:bg-amber-50 px-2 py-1 rounded" title="Mark as reviewing">
+                                <Clock className="h-3.5 w-3.5" /> Review
+                              </button>
+                            </form>
+                          )}
+                          {a.status !== "EXAM_SCHEDULED" && a.status !== "ADMITTED" && a.status !== "REJECTED" && (
+                            <form action={updateAdmissionStatus}>
+                              <input type="hidden" name="id" value={a.id} />
+                              <input type="hidden" name="status" value="EXAM_SCHEDULED" />
+                              <button type="submit" className="inline-flex items-center gap-1 text-[11px] font-medium text-sky-700 hover:bg-sky-50 px-2 py-1 rounded" title="Mark as exam scheduled">
+                                <FileCheck className="h-3.5 w-3.5" /> Exam
+                              </button>
+                            </form>
+                          )}
+                          {a.status !== "ADMITTED" && (
+                            <form action={updateAdmissionStatus}>
+                              <input type="hidden" name="id" value={a.id} />
+                              <input type="hidden" name="status" value="ADMITTED" />
+                              <button type="submit" className="inline-flex items-center gap-1 text-[11px] font-medium text-emerald-700 hover:bg-emerald-50 px-2 py-1 rounded" title="Admit">
+                                <Check className="h-3.5 w-3.5" /> Admit
+                              </button>
+                            </form>
+                          )}
+                          {a.status !== "REJECTED" && (
+                            <form action={updateAdmissionStatus}>
+                              <input type="hidden" name="id" value={a.id} />
+                              <input type="hidden" name="status" value="REJECTED" />
+                              <button type="submit" className="inline-flex items-center gap-1 text-[11px] font-medium text-rose-700 hover:bg-rose-50 px-2 py-1 rounded" title="Reject">
+                                <X className="h-3.5 w-3.5" /> Reject
+                              </button>
+                            </form>
+                          )}
+                        </div>
+                      </td>
                     </tr>
                   ))}
                 </tbody>

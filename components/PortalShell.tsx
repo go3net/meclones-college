@@ -64,12 +64,9 @@ const NAV_BY_ROLE: Record<MockRole, NavItem[]> = {
   ],
   student: [
     { href: "/portal/student", label: "Dashboard", icon: Home },
-    { href: "/portal/student/timetable", label: "Timetable", icon: Calendar },
-    { href: "/portal/student/assignments", label: "Assignments", icon: ClipboardList },
     { href: "/portal/student/results", label: "Results", icon: FileText },
-    { href: "/portal/student/elibrary", label: "E-Library", icon: BookOpen },
-    { href: "/portal/student/cbt", label: "CBT", icon: BookMarked },
-    { href: "/portal/student/study-ai", label: "Study AI", icon: Brain },
+    { href: "/portal/student/attendance", label: "Attendance", icon: CheckSquare },
+    { href: "/portal/student/fees", label: "Fees", icon: CreditCard },
   ],
   accountant: [
     { href: "/portal/accountant", label: "Dashboard", icon: Home },
