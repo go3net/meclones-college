@@ -179,6 +179,10 @@ model Student {
   dob             DateTime?
   gender          Gender?
   address         String?
+  /// Set when the student graduates (passes SS 3 / leaves the school).
+  /// Graduated students hide from active class lists but their full
+  /// history (results, attendance, fees, payments) is retained.
+  graduatedAt     DateTime?
 
   results        Result[]
   attendance     Attendance[]

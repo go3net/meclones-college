@@ -20,12 +20,15 @@ export default async function AdminStudentsPage({ searchParams }: { searchParams
   const [classes, totalStudents] = await Promise.all([
     prisma.class.findMany({
       orderBy: [{ name: "asc" }, { arm: "asc" }],
-      include: { _count: { select: { students: true } } },
+      include: { _count: { select: { students: { where: { graduatedAt: null } } } } },
     }),
-    prisma.student.count(),
+    prisma.student.count({ where: { graduatedAt: null } }),
   ]);
 
+  // Hide graduated alumni from the active students list by default.
+  // Manage them under Director → Promotions.
   const where = {
+    graduatedAt: null,
     ...(classFilter ? { classId: classFilter } : {}),
     ...(q ? {
       OR: [

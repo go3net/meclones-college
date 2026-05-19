@@ -51,6 +51,7 @@ const NAV_BY_ROLE: Record<MockRole, NavItem[]> = {
     { href: "/portal/admin/library", label: "Library", icon: BookOpen },
     { href: "/portal/director/permissions", label: "Permissions", icon: ShieldCheck },
     { href: "/portal/director/sessions", label: "Sessions", icon: Calendar },
+    { href: "/portal/director/promotions", label: "Promotions", icon: TrendingUp },
     { href: "/portal/director/audit", label: "Audit Log", icon: ScrollText },
     { href: "/portal/whatsapp", label: "WhatsApp Logs", icon: Smartphone },
     { href: "/portal/director/settings", label: "Settings", icon: Settings },
