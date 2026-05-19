@@ -30,7 +30,7 @@ export default async function AdminParentsPage({ searchParams }: { searchParams:
       where,
       orderBy: { createdAt: "desc" },
       include: {
-        user: { select: { name: true, email: true, phone: true, createdAt: true } },
+        user: { select: { name: true, email: true, phone: true, image: true, createdAt: true } },
         children: {
           include: { student: { include: { user: { select: { name: true } }, classRef: { select: { name: true, arm: true } } } } },
         },
@@ -112,7 +112,18 @@ export default async function AdminParentsPage({ searchParams }: { searchParams:
                   {parents.map(p => (
                     <tr key={p.id} className="border-t border-slate-100 hover:bg-slate-50">
                       <td className="px-4 py-2.5 font-medium text-slate-900">
-                        <Link href={`/portal/admin/parents/${p.id}/edit`} className="hover:text-brand-700">{p.user.name}</Link>
+                        <Link href={`/portal/admin/parents/${p.id}/edit`} className="hover:text-brand-700 flex items-center gap-2">
+                          {(() => {
+                            const url = p.user.image ?? null;
+                            const initials = p.user.name.split(" ").map(n => n[0]).slice(0, 2).join("").toUpperCase();
+                            return (
+                              <span className="relative h-7 w-7 rounded-full overflow-hidden bg-brand-100 text-brand-700 flex items-center justify-center text-[10px] font-bold shrink-0">
+                                {url ? <img src={url} alt={p.user.name} className="absolute inset-0 h-full w-full object-cover" /> : initials || "?"}
+                              </span>
+                            );
+                          })()}
+                          <span>{p.user.name}</span>
+                        </Link>
                       </td>
                       <td className="px-4 py-2.5 text-slate-600 text-[12px]">
                         <div>{p.user.email}</div>

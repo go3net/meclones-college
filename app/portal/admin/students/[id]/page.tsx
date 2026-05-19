@@ -27,7 +27,7 @@ export default async function StudentDetailPage({ params }: { params: { id: stri
   const student = await prisma.student.findUnique({
     where: { id: params.id },
     include: {
-      user: { select: { name: true, email: true, phone: true, isActive: true, createdAt: true } },
+      user: { select: { name: true, email: true, phone: true, isActive: true, image: true, createdAt: true } },
       classRef: true,
       parentLinks: {
         include: { parent: { include: { user: { select: { name: true, email: true, phone: true } } } } },
@@ -81,10 +81,19 @@ export default async function StudentDetailPage({ params }: { params: { id: stri
   return (
     <PortalShell role="school_admin">
       <div className="mb-6 flex items-center justify-between gap-3 flex-wrap">
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-4">
           <Link href="/portal/admin/students" className="text-slate-500 hover:text-brand-700">
             <ArrowLeft className="h-5 w-5" />
           </Link>
+          {(() => {
+            const photoUrl = student.photoUrl ?? student.user.image ?? null;
+            const initials = student.user.name.split(" ").map(n => n[0]).slice(0, 2).join("").toUpperCase();
+            return (
+              <div className="relative h-16 w-16 rounded-full overflow-hidden ring-2 ring-gold-200 bg-brand-100 text-brand-700 flex items-center justify-center font-bold text-xl shrink-0">
+                {photoUrl ? <img src={photoUrl} alt={student.user.name} className="absolute inset-0 h-full w-full object-cover" /> : initials || "?"}
+              </div>
+            );
+          })()}
           <div>
             <h1 className="text-2xl font-bold text-brand-900">{student.user.name}</h1>
             <p className="text-sm text-slate-500 font-mono">

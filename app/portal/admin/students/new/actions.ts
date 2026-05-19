@@ -20,6 +20,7 @@ export async function createStudent(formData: FormData) {
   const dob = String(formData.get("dob") ?? "").trim();
   const gender = String(formData.get("gender") ?? "").trim().toUpperCase();
   const classId = String(formData.get("classId") ?? "").trim();
+  const photoUrl = String(formData.get("photoUrl") ?? "").trim() || null;
   const parentEmail = String(formData.get("parentEmail") ?? "").trim().toLowerCase();
   const parentName = String(formData.get("parentName") ?? "").trim();
   const parentPhone = String(formData.get("parentPhone") ?? "").trim();
@@ -47,25 +48,32 @@ export async function createStudent(formData: FormData) {
 
   const studentUser = await prisma.user.upsert({
     where: { email: studentEmail },
-    update: { name: fullName, isActive: true, role: "STUDENT" as never },
+    update: { name: fullName, isActive: true, role: "STUDENT" as never, image: photoUrl ?? undefined },
     create: {
       name: fullName,
       email: studentEmail,
       role: "STUDENT" as never,
       passwordHash,
       isActive: true,
+      image: photoUrl,
     },
   });
 
   const student = await prisma.student.upsert({
     where: { userId: studentUser.id },
-    update: { admissionNumber, classId: cls.id, gender: (gender === "MALE" || gender === "FEMALE") ? gender : undefined, dob: dob ? new Date(dob) : null },
+    update: {
+      admissionNumber, classId: cls.id,
+      gender: (gender === "MALE" || gender === "FEMALE") ? gender : undefined,
+      dob: dob ? new Date(dob) : null,
+      photoUrl: photoUrl ?? undefined,
+    },
     create: {
       admissionNumber,
       userId: studentUser.id,
       classId: cls.id,
       gender: (gender === "MALE" || gender === "FEMALE") ? gender : undefined,
       dob: dob ? new Date(dob) : null,
+      photoUrl,
     },
   });
 

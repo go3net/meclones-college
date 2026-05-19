@@ -6,6 +6,7 @@ import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/auth-helpers";
 import { updateParent, deactivateParent } from "./actions";
 import { ArrowLeft, AlertCircle, Save, UserX } from "lucide-react";
+import { PhotoUpload } from "@/components/PhotoUpload";
 
 export const dynamic = "force-dynamic";
 
@@ -18,7 +19,7 @@ export default async function EditParentPage({ params, searchParams }: Props) {
     prisma.parent.findUnique({
       where: { id: params.id },
       include: {
-        user: { select: { name: true, email: true, phone: true, isActive: true } },
+        user: { select: { name: true, email: true, phone: true, isActive: true, image: true } },
         children: { select: { studentId: true } },
       },
     }),
@@ -50,6 +51,10 @@ export default async function EditParentPage({ params, searchParams }: Props) {
         <CardBody>
           <form action={updateParent} className="grid sm:grid-cols-2 gap-4">
             <input type="hidden" name="id" value={parent.id} />
+            <div className="sm:col-span-2">
+              <Label>Photo</Label>
+              <PhotoUpload name="photoUrl" defaultUrl={parent.user.image} alt={parent.user.name} />
+            </div>
             <div><Label>Full name *</Label><Input name="name" defaultValue={parent.user.name} required /></div>
             <div><Label>Email *</Label><Input name="email" type="email" defaultValue={parent.user.email} required /></div>
             <div><Label>Phone (WhatsApp)</Label><Input name="phone" defaultValue={parent.user.phone ?? ""} /></div>

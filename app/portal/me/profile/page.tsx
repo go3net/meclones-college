@@ -7,6 +7,7 @@ import { prisma } from "@/lib/prisma";
 import { getSessionUser } from "@/lib/auth-helpers";
 import { updateOwnProfile, changeOwnPassword } from "./actions";
 import { ArrowLeft, AlertCircle, CheckCircle2, KeyRound, User as UserIcon, Save } from "lucide-react";
+import { PhotoUpload } from "@/components/PhotoUpload";
 
 export const dynamic = "force-dynamic";
 
@@ -128,14 +129,13 @@ export default async function MyProfilePage({ searchParams }: { searchParams: Se
           <CardHeader><CardTitle>Update profile</CardTitle></CardHeader>
           <CardBody>
             <form action={updateOwnProfile} className="grid sm:grid-cols-2 gap-4">
+              <div className="sm:col-span-2">
+                <Label>Profile photo</Label>
+                <PhotoUpload name="image" defaultUrl={user.image} alt={user.name} />
+              </div>
               <div><Label>Full name *</Label><Input name="name" defaultValue={user.name} required minLength={2} /></div>
               <div><Label>Email</Label><Input value={user.email} disabled readOnly className="bg-slate-50" /></div>
-              <div><Label>Phone (WhatsApp)</Label><Input name="phone" defaultValue={user.phone ?? ""} placeholder="+234..." /></div>
-              <div>
-                <Label>Profile photo URL</Label>
-                <Input name="image" defaultValue={user.image ?? ""} placeholder="https://res.cloudinary.com/..." />
-                <p className="text-[11px] text-slate-500 mt-1">Paste a Cloudinary URL or other image link. Native upload coming soon.</p>
-              </div>
+              <div className="sm:col-span-2"><Label>Phone (WhatsApp)</Label><Input name="phone" defaultValue={user.phone ?? ""} placeholder="+234..." /></div>
               <div className="sm:col-span-2 flex justify-end">
                 <Button type="submit" variant="gold"><Save className="h-4 w-4" /> Save profile</Button>
               </div>

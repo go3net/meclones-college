@@ -13,6 +13,7 @@ const Schema = z.object({
   phone: z.string().min(7).optional().or(z.literal("")),
   studentIds: z.union([z.string(), z.array(z.string())]).optional(),
   password: z.string().min(8).optional().or(z.literal("")),
+  photoUrl: z.string().optional().or(z.literal("")),
   whatsappOptIn: z.coerce.boolean().optional(),
 });
 
@@ -26,6 +27,7 @@ export async function createParent(formData: FormData) {
     name: formData.get("name"),
     email: formData.get("email"),
     phone: formData.get("phone") || undefined,
+    photoUrl: formData.get("photoUrl") || undefined,
     studentIds,
     password: formData.get("password") || undefined,
     whatsappOptIn: formData.get("whatsappOptIn") === "on",
@@ -52,6 +54,7 @@ export async function createParent(formData: FormData) {
       role: "PARENT",
       passwordHash,
       isActive: true,
+      image: d.photoUrl || null,
     },
   });
 

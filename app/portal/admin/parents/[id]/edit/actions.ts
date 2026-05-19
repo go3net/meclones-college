@@ -11,6 +11,7 @@ const Schema = z.object({
   name: z.string().min(2),
   email: z.string().email(),
   phone: z.string().optional().or(z.literal("")),
+  photoUrl: z.string().optional().or(z.literal("")),
   whatsappOptIn: z.coerce.boolean().optional(),
   isActive: z.coerce.boolean().optional(),
 });
@@ -25,6 +26,7 @@ export async function updateParent(formData: FormData) {
     name: formData.get("name"),
     email: formData.get("email"),
     phone: formData.get("phone") || undefined,
+    photoUrl: formData.get("photoUrl") || undefined,
     whatsappOptIn: formData.get("whatsappOptIn") === "on",
     isActive: formData.get("isActive") === "on",
   });
@@ -39,7 +41,7 @@ export async function updateParent(formData: FormData) {
 
   await prisma.user.update({
     where: { id: parent.userId },
-    data: { name: d.name, email: d.email.toLowerCase(), phone: d.phone || null, isActive: d.isActive ?? true },
+    data: { name: d.name, email: d.email.toLowerCase(), phone: d.phone || null, isActive: d.isActive ?? true, image: d.photoUrl || null },
   });
   await prisma.parent.update({ where: { id: d.id }, data: { whatsappOptIn: !!d.whatsappOptIn } });
 

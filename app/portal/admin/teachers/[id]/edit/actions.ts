@@ -12,6 +12,7 @@ const Schema = z.object({
   email: z.string().email(),
   phone: z.string().optional().or(z.literal("")),
   bio: z.string().optional().or(z.literal("")),
+  photoUrl: z.string().optional().or(z.literal("")),
   isActive: z.coerce.boolean().optional(),
 });
 
@@ -27,6 +28,7 @@ export async function updateTeacher(formData: FormData) {
     email: formData.get("email"),
     phone: formData.get("phone") || undefined,
     bio: formData.get("bio") || undefined,
+    photoUrl: formData.get("photoUrl") || undefined,
     isActive: formData.get("isActive") === "on",
   });
   if (!parsed.success) {
@@ -40,7 +42,7 @@ export async function updateTeacher(formData: FormData) {
 
   await prisma.user.update({
     where: { id: teacher.userId },
-    data: { name: d.name, email: d.email.toLowerCase(), phone: d.phone || null, isActive: d.isActive ?? true },
+    data: { name: d.name, email: d.email.toLowerCase(), phone: d.phone || null, isActive: d.isActive ?? true, image: d.photoUrl || null },
   });
   await prisma.teacher.update({ where: { id: d.id }, data: { bio: d.bio || null } });
 

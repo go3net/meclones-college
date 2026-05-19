@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/auth-helpers";
 import { createParent } from "./actions";
 import { ArrowLeft, AlertCircle, UserPlus } from "lucide-react";
+import { PhotoUpload } from "@/components/PhotoUpload";
 
 export const dynamic = "force-dynamic";
 
@@ -40,6 +41,10 @@ export default async function NewParentPage({ searchParams }: { searchParams: Se
         <CardHeader><CardTitle>Parent details</CardTitle></CardHeader>
         <CardBody>
           <form action={createParent} className="grid sm:grid-cols-2 gap-4">
+            <div className="sm:col-span-2">
+              <Label>Photo</Label>
+              <PhotoUpload name="photoUrl" alt="New parent" />
+            </div>
             <div><Label>Full name *</Label><Input name="name" required minLength={2} /></div>
             <div><Label>Email *</Label><Input name="email" type="email" required /></div>
             <div><Label>Phone (WhatsApp)</Label><Input name="phone" placeholder="+234..." /></div>

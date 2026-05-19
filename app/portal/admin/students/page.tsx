@@ -40,7 +40,7 @@ export default async function AdminStudentsPage({ searchParams }: { searchParams
     where,
     orderBy: { createdAt: "desc" },
     include: {
-      user: { select: { name: true, email: true } },
+      user: { select: { name: true, email: true, image: true } },
       classRef: { select: { name: true, arm: true } },
     },
     take: 200,
@@ -147,7 +147,18 @@ export default async function AdminStudentsPage({ searchParams }: { searchParams
                         <Link href={`/portal/admin/students/${s.id}`} className="hover:underline">{s.admissionNumber}</Link>
                       </td>
                       <td className="px-4 py-2.5 font-medium text-slate-900">
-                        <Link href={`/portal/admin/students/${s.id}`} className="hover:text-brand-700">{s.user.name}</Link>
+                        <Link href={`/portal/admin/students/${s.id}`} className="hover:text-brand-700 flex items-center gap-2">
+                          {(() => {
+                            const url = s.photoUrl ?? s.user.image ?? null;
+                            const initials = s.user.name.split(" ").map(n => n[0]).slice(0, 2).join("").toUpperCase();
+                            return (
+                              <span className="relative h-7 w-7 rounded-full overflow-hidden bg-brand-100 text-brand-700 flex items-center justify-center text-[10px] font-bold shrink-0">
+                                {url ? <img src={url} alt={s.user.name} className="absolute inset-0 h-full w-full object-cover" /> : initials || "?"}
+                              </span>
+                            );
+                          })()}
+                          <span>{s.user.name}</span>
+                        </Link>
                       </td>
                       <td className="px-4 py-2.5">
                         {s.classRef ? (

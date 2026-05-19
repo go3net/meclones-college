@@ -136,6 +136,7 @@ export function PortalShell({ role, children }: { role: MockRole; children: Reac
 
   const userName = session?.user?.name ?? "User";
   const userEmail = session?.user?.email ?? "";
+  const userImage = (session?.user as { image?: string | null })?.image ?? null;
   const initials = userName.split(" ").map(n => n[0]).slice(0, 2).join("");
 
   return (
@@ -192,7 +193,9 @@ export function PortalShell({ role, children }: { role: MockRole; children: Reac
             </button>
             <div className="relative">
               <button onClick={() => setMenuOpen(!menuOpen)} className="flex items-center gap-2 p-1 pr-2 hover:bg-slate-100 rounded-lg">
-                <div className="h-8 w-8 rounded-full bg-brand-100 text-brand-700 flex items-center justify-center text-xs font-semibold">{initials}</div>
+                <div className="relative h-8 w-8 rounded-full bg-brand-100 text-brand-700 flex items-center justify-center text-xs font-semibold overflow-hidden">
+                  {userImage ? <img src={userImage} alt={userName} className="absolute inset-0 h-full w-full object-cover" /> : initials}
+                </div>
                 <div className="hidden sm:block text-left">
                   <p className="text-xs font-medium text-slate-900 leading-tight">{userName}</p>
                   <p className="text-[10px] text-slate-500 leading-tight">{roleLabel[effectiveRole]}</p>

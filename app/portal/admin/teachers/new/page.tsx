@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/auth-helpers";
 import { ArrowLeft, UserPlus } from "lucide-react";
 import { createTeacher } from "./actions";
+import { PhotoUpload } from "@/components/PhotoUpload";
 
 export const dynamic = "force-dynamic";
 
@@ -34,6 +35,10 @@ export default async function NewTeacherPage() {
         </CardHeader>
         <CardBody>
           <form action={createTeacher} className="space-y-5">
+            <div>
+              <label className="block text-xs font-medium text-slate-600 mb-1">Photo</label>
+              <PhotoUpload name="photoUrl" alt="New teacher" />
+            </div>
             <div className="grid sm:grid-cols-2 gap-4">
               <div className="sm:col-span-2">
                 <label className="block text-xs font-medium text-slate-600 mb-1">Full name *</label>

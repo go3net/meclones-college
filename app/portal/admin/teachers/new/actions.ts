@@ -15,6 +15,7 @@ export async function createTeacher(formData: FormData) {
   const email = String(formData.get("email") ?? "").trim().toLowerCase();
   const phone = String(formData.get("phone") ?? "").trim();
   const bio = String(formData.get("bio") ?? "").trim();
+  const photoUrl = String(formData.get("photoUrl") ?? "").trim() || null;
   const formTeacherOf = String(formData.get("formTeacherOf") ?? "").trim();
   const subjectIds = formData.getAll("subjectIds").map(v => String(v)).filter(Boolean);
   const classIds = formData.getAll("classIds").map(v => String(v)).filter(Boolean);
@@ -25,7 +26,7 @@ export async function createTeacher(formData: FormData) {
 
   const user = await prisma.user.upsert({
     where: { email },
-    update: { name, phone: phone || null, role: "TEACHER" as never, isActive: true },
+    update: { name, phone: phone || null, role: "TEACHER" as never, isActive: true, image: photoUrl ?? undefined },
     create: {
       name,
       email,
@@ -33,6 +34,7 @@ export async function createTeacher(formData: FormData) {
       role: "TEACHER" as never,
       passwordHash,
       isActive: true,
+      image: photoUrl,
     },
   });
 

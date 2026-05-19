@@ -15,6 +15,7 @@ const Schema = z.object({
   gender: z.enum(["MALE", "FEMALE", ""]).optional(),
   dob: z.string().optional().or(z.literal("")),
   address: z.string().optional().or(z.literal("")),
+  photoUrl: z.string().optional().or(z.literal("")),
   isActive: z.coerce.boolean().optional(),
 });
 
@@ -30,6 +31,7 @@ export async function updateStudent(formData: FormData) {
     gender: formData.get("gender") || undefined,
     dob: formData.get("dob") || undefined,
     address: formData.get("address") || undefined,
+    photoUrl: formData.get("photoUrl") || undefined,
     isActive: formData.get("isActive") === "on",
   });
   if (!parsed.success) {
@@ -48,6 +50,7 @@ export async function updateStudent(formData: FormData) {
       email: d.email.toLowerCase(),
       phone: d.phone || null,
       isActive: d.isActive ?? true,
+      image: d.photoUrl || null,
     },
   });
   await prisma.student.update({
@@ -57,6 +60,7 @@ export async function updateStudent(formData: FormData) {
       gender: d.gender ? (d.gender as "MALE" | "FEMALE") : null,
       dob: d.dob ? new Date(d.dob) : null,
       address: d.address || null,
+      photoUrl: d.photoUrl || null,
     },
   });
 

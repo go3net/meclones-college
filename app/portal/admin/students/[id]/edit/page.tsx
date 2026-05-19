@@ -6,6 +6,7 @@ import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/auth-helpers";
 import { updateStudent, deactivateStudent } from "./actions";
 import { ArrowLeft, AlertCircle, Save, UserX } from "lucide-react";
+import { PhotoUpload } from "@/components/PhotoUpload";
 
 export const dynamic = "force-dynamic";
 
@@ -17,7 +18,7 @@ export default async function EditStudentPage({ params, searchParams }: Props) {
   const [student, classes] = await Promise.all([
     prisma.student.findUnique({
       where: { id: params.id },
-      include: { user: { select: { name: true, email: true, phone: true, isActive: true } } },
+      include: { user: { select: { name: true, email: true, phone: true, isActive: true, image: true } } },
     }),
     prisma.class.findMany({ orderBy: [{ name: "asc" }, { arm: "asc" }] }),
   ]);
@@ -44,6 +45,10 @@ export default async function EditStudentPage({ params, searchParams }: Props) {
         <CardBody>
           <form action={updateStudent} className="grid sm:grid-cols-2 gap-4">
             <input type="hidden" name="id" value={student.id} />
+            <div className="sm:col-span-2">
+              <Label>Photo</Label>
+              <PhotoUpload name="photoUrl" defaultUrl={student.photoUrl ?? student.user.image} alt={student.user.name} />
+            </div>
             <div><Label>Full name *</Label><Input name="name" defaultValue={student.user.name} required /></div>
             <div><Label>Email *</Label><Input name="email" type="email" defaultValue={student.user.email} required /></div>
             <div><Label>Phone</Label><Input name="phone" defaultValue={student.user.phone ?? ""} /></div>

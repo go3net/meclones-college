@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import { PortalShell } from "@/components/PortalShell";
 import { Card, CardBody, CardHeader, CardTitle, StatCard, Badge, Button } from "@/components/ui";
 import { prisma } from "@/lib/prisma";
@@ -129,18 +130,27 @@ export default async function ParentDashboard() {
             const bal = Math.max(0, f.billed - f.paid);
             const results = resultsByStudent.get(s.id) ?? [];
             const avg = results.length > 0 ? Math.round(results.reduce((sum, r) => sum + r.total, 0) / results.length) : null;
+            const photoUrl = s.photoUrl ?? s.user.image ?? null;
+            const initials = s.user.name.split(" ").map(n => n[0]).slice(0, 2).join("").toUpperCase();
 
             return (
               <Card key={s.id} className="hover:shadow-lift transition-shadow">
                 <CardBody>
-                  <div className="flex items-start justify-between gap-3 mb-3">
-                    <div>
-                      <p className="font-semibold text-brand-900">{s.user.name}</p>
-                      <p className="text-xs text-slate-500 font-mono">{s.admissionNumber}</p>
+                  <div className="flex items-start gap-3 mb-4">
+                    <div className="relative h-14 w-14 rounded-full overflow-hidden ring-2 ring-gold-200 bg-brand-100 text-brand-700 flex items-center justify-center font-bold text-lg shrink-0">
+                      {photoUrl ? (
+                        <Image src={photoUrl} alt={s.user.name} fill sizes="56px" className="object-cover" />
+                      ) : (
+                        initials || "?"
+                      )}
                     </div>
-                    {s.classRef && (
-                      <Badge tone="neutral">{s.classRef.name}{s.classRef.arm}</Badge>
-                    )}
+                    <div className="flex-1 min-w-0">
+                      <p className="font-semibold text-brand-900 truncate">{s.user.name}</p>
+                      <p className="text-[11px] text-slate-500 font-mono truncate">{s.admissionNumber}</p>
+                      {s.classRef && (
+                        <Badge tone="neutral" className="mt-1">{s.classRef.name}{s.classRef.arm}</Badge>
+                      )}
+                    </div>
                   </div>
                   <dl className="space-y-2 text-sm">
                     <div className="flex justify-between"><dt className="text-slate-500">Attendance</dt><dd className="font-medium text-slate-900">{a.total > 0 ? `${rate}%` : "—"}</dd></div>
