@@ -274,6 +274,7 @@ model Teacher {
   classes        ClassTeacher[]
   results        Result[]   @relation("ResultAuthor")
   attendance     Attendance[] @relation("AttendanceMarker")
+  timetableEntries TimetableEntry[] @relation("TimetableTeacher")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -296,16 +297,54 @@ model Class {
   classTeacher   Teacher? @relation("ClassTeacher", fields: [classTeacherId], references: [id])
   classTeacherId String?
 
-  students    Student[]
-  subjects    ClassSubject[]
-  teachers    ClassTeacher[]
-  attendance  Attendance[]
-  announcements Announcement[]
+  students        Student[]
+  subjects        ClassSubject[]
+  teachers        ClassTeacher[]
+  attendance      Attendance[]
+  announcements   Announcement[]
+  timetableEntries TimetableEntry[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@unique([name, arm])
+}
+
+enum DayOfWeek {
+  MON
+  TUE
+  WED
+  THU
+  FRI
+  SAT
+  SUN
+}
+
+/// Weekly class timetable. One row = one period on one day for one class.
+/// `subjectId` null means a non-academic period (break, assembly, etc.) —
+/// use `note` to label it.
+model TimetableEntry {
+  id        String   @id @default(cuid())
+  class     Class    @relation(fields: [classId], references: [id], onDelete: Cascade)
+  classId   String
+  subject   Subject? @relation(fields: [subjectId], references: [id])
+  subjectId String?
+  teacher   Teacher? @relation("TimetableTeacher", fields: [teacherId], references: [id])
+  teacherId String?
+
+  day       DayOfWeek
+  period    Int        // 1..N
+  startTime String?    // "08:00" — display only
+  endTime   String?    // "08:40"
+  room      String?
+  note      String?    // e.g. "Break", "Assembly"
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([classId, day, period])
+  @@index([teacherId])
+  @@index([subjectId])
 }
 
 model Subject {
@@ -316,6 +355,7 @@ model Subject {
   classes  ClassSubject[]
   teachers SubjectTeacher[]
   results  Result[]
+  timetableEntries TimetableEntry[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
