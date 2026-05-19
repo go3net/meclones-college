@@ -68,10 +68,17 @@ export default async function ResultSlipPage({ params, searchParams }: Props) {
     orderBy: { subject: { name: "asc" } },
   });
 
-  const attendance = await prisma.attendance.findMany({
-    where: { studentId: student.id, termId: term.id },
-    select: { status: true },
-  });
+  const [attendance, awards] = await Promise.all([
+    prisma.attendance.findMany({
+      where: { studentId: student.id, termId: term.id },
+      select: { status: true },
+    }),
+    prisma.award.findMany({
+      where: { studentId: student.id, OR: [{ termId: term.id }, { termId: null }] },
+      orderBy: { awardedAt: "desc" },
+      take: 8,
+    }),
+  ]);
 
   const totalAtt = attendance.length;
   const present = attendance.filter(a => a.status === "PRESENT").length;
@@ -211,6 +218,27 @@ export default async function ResultSlipPage({ params, searchParams }: Props) {
             </tr>
           </tbody>
         </table>
+
+        {/* Awards */}
+        {awards.length > 0 && (
+          <>
+            <h3 className="font-display text-lg font-bold text-brand-900 mb-2">Awards & Recognition</h3>
+            <div className="grid sm:grid-cols-2 gap-3 mb-6">
+              {awards.map(a => (
+                <div key={a.id} className="border border-gold-200 bg-gold-50 rounded-lg p-3">
+                  <div className="flex items-center gap-2">
+                    <span className="text-gold-500 text-xs">{"★".repeat(a.stars)}{"☆".repeat(5 - a.stars)}</span>
+                    <span className="text-[11px] uppercase tracking-wide text-gold-700 font-semibold">
+                      {a.category.replace(/_/g, " ").toLowerCase()}
+                    </span>
+                  </div>
+                  <p className="mt-1 font-semibold text-brand-900">{a.title}</p>
+                  {a.citation && <p className="text-xs text-slate-600 italic mt-0.5">"{a.citation}"</p>}
+                </div>
+              ))}
+            </div>
+          </>
+        )}
 
         {/* Signatures */}
         <div className="grid grid-cols-2 gap-8 mt-12 pt-4 border-t border-slate-200 text-sm">

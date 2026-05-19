@@ -11,7 +11,7 @@ import {
   Home, Users, GraduationCap, BookOpen, Calendar, FileText, MessageCircle,
   CreditCard, Brain, Smartphone, Settings, LogOut, Menu, X, Bell, ChevronDown,
   CheckSquare, BookMarked, Banknote, TrendingUp, ClipboardList, Megaphone,
-  UserCircle2, ShieldCheck,
+  UserCircle2, ShieldCheck, KeyRound, Trophy,
 } from "lucide-react";
 
 interface NavItem { href: string; label: string; icon: any; }
@@ -36,9 +36,11 @@ const NAV_BY_ROLE: Record<MockRole, NavItem[]> = {
     { href: "/portal/admin/students", label: "Students", icon: Users },
     { href: "/portal/admin/teachers", label: "Teachers", icon: GraduationCap },
     { href: "/portal/admin/parents", label: "Parents", icon: UserCircle2 },
+    { href: "/portal/admin/staff", label: "Staff & Accounts", icon: KeyRound },
     { href: "/portal/admin/classes", label: "Classes", icon: ClipboardList },
     { href: "/portal/admin/subjects", label: "Subjects", icon: BookMarked },
     { href: "/portal/admin/results", label: "Results", icon: FileText },
+    { href: "/portal/admin/awards", label: "Awards", icon: Trophy },
     { href: "/portal/admin/fees", label: "Fees", icon: Banknote },
     { href: "/portal/admin/applications", label: "Admissions", icon: ClipboardList },
     { href: "/portal/admin/attendance", label: "Attendance", icon: CheckSquare },
@@ -55,9 +57,11 @@ const NAV_BY_ROLE: Record<MockRole, NavItem[]> = {
     { href: "/portal/admin/students", label: "Students", icon: Users },
     { href: "/portal/admin/teachers", label: "Teachers", icon: GraduationCap },
     { href: "/portal/admin/parents", label: "Parents", icon: UserCircle2 },
+    { href: "/portal/admin/staff", label: "Staff & Accounts", icon: KeyRound },
     { href: "/portal/admin/classes", label: "Classes", icon: ClipboardList },
     { href: "/portal/admin/subjects", label: "Subjects", icon: BookMarked },
     { href: "/portal/admin/results", label: "Results", icon: FileText },
+    { href: "/portal/admin/awards", label: "Awards", icon: Trophy },
     { href: "/portal/admin/fees", label: "Fees", icon: Banknote },
     { href: "/portal/admin/applications", label: "Admissions", icon: ClipboardList },
     { href: "/portal/admin/attendance", label: "Attendance", icon: CheckSquare },

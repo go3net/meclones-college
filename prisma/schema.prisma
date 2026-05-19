@@ -51,6 +51,7 @@ model User {
   complaintsHandled Complaint[]     @relation("ComplaintHandler")
   bookRequests     BookRequest[]    @relation("BookRequester")
   bookApprovals    BookRequest[]    @relation("BookApprover")
+  awardsIssued     Award[]          @relation("AwardedBy")
 
   createdAt        DateTime         @default(now())
   updatedAt        DateTime         @updatedAt
@@ -106,6 +107,7 @@ model Student {
   results        Result[]
   attendance     Attendance[]
   fees           Fee[]
+  awards         Award[]
   parentLinks    ParentStudent[]
   whatsappSessions WhatsAppSession[]
 
@@ -243,6 +245,7 @@ model AcademicSession {
   terms    Term[]
   results  Result[]
   fees     Fee[]
+  awards   Award[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -266,6 +269,7 @@ model Term {
   results    Result[]
   attendance Attendance[]
   fees       Fee[]
+  awards     Award[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -335,6 +339,21 @@ enum FeeStatus {
   UNPAID
   PARTIAL
   PAID
+}
+
+/// A reusable fee structure (set of line items) the admin defines once and
+/// applies to one or more classes at the start of a term. Charging the
+/// structure creates Fee rows for every student in the targeted class.
+model FeeStructure {
+  id    String @id @default(cuid())
+  name  String  // e.g. "JSS Term 1 2026/2027"
+  level Level?  // optional scope hint
+  /// JSON array of {feeType, amount} line items.
+  items Json
+  isDefault Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model Fee {
@@ -611,6 +630,49 @@ enum BookRequestStatus {
   REJECTED
   COLLECTED
   RETURNED
+}
+
+// ============================================================
+// AWARDS / RECOGNITION
+// ============================================================
+
+enum AwardCategory {
+  ACADEMIC_EXCELLENCE
+  ATTENDANCE
+  CONDUCT
+  LEADERSHIP
+  SPORTSMANSHIP
+  COMMUNITY_SERVICE
+  ARTS
+  IMPROVEMENT
+  PERFECT_ATTENDANCE
+  OTHER
+}
+
+model Award {
+  id        String @id @default(cuid())
+  student   Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  studentId String
+  term      Term?   @relation(fields: [termId], references: [id])
+  termId    String?
+  session   AcademicSession? @relation(fields: [sessionId], references: [id])
+  sessionId String?
+
+  category  AwardCategory
+  title     String  // e.g. "Best Mathematics Student"
+  citation  String? @db.Text
+  /// 1-5 stars; surfaced on result slip + student profile.
+  stars     Int     @default(5)
+  awardedAt DateTime @default(now())
+  /// User (admin/director/teacher) who issued the award.
+  awardedById String?
+  awardedBy   User?  @relation("AwardedBy", fields: [awardedById], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([studentId, termId])
+  @@index([category])
 }
 
 model BookRequest {

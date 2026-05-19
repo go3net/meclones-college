@@ -137,7 +137,18 @@ function LoginInner() {
             <p className="mt-1 text-sm text-slate-600">Use any demo account below to explore each role.</p>
 
             <form onSubmit={submit} className="mt-6 space-y-4">
-              <div><Label>Email</Label><Input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="you@meclonescollege.com" required autoComplete="email" /></div>
+              <div>
+                <Label>Email or Admission Number</Label>
+                <Input
+                  type="text"
+                  value={email}
+                  onChange={e => setEmail(e.target.value)}
+                  placeholder="you@meclonescollege.com  or  MCL/SS3A/2526/001"
+                  required
+                  autoComplete="username"
+                />
+                <p className="text-[11px] text-slate-500 mt-1">Students may sign in with their admission number (e.g. MCL/SS3A/2526/001) instead of an email.</p>
+              </div>
               <div>
                 <div className="flex justify-between mb-1.5">
                   <Label className="mb-0">Password</Label>

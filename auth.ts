@@ -11,10 +11,16 @@ import { prisma } from "./lib/prisma";
 // adapter lookup just adds latency to every request and login round-trip
 // without giving us anything. Skipping it materially speeds up sign-in.
 
+// Login accepts either an email OR a student admission number — useful for
+// younger students who don't yet have a personal email address.
 const Credentials_Schema = z.object({
-  email: z.string().email(),
+  identifier: z.string().min(1),
   password: z.string().min(1),
 });
+
+function looksLikeEmail(s: string): boolean {
+  return s.includes("@");
+}
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
   ...authConfig,
@@ -22,18 +28,35 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     Credentials({
       name: "Credentials",
       credentials: {
-        email: { label: "Email", type: "email" },
+        // The form posts `email` for backwards compat; `identifier` works too.
+        email: { label: "Email or Admission Number", type: "text" },
+        identifier: { label: "Identifier", type: "text" },
         password: { label: "Password", type: "password" },
       },
       async authorize(credentials) {
-        const parsed = Credentials_Schema.safeParse(credentials);
+        const raw = String(credentials?.identifier ?? credentials?.email ?? "").trim();
+        const password = String(credentials?.password ?? "");
+        const parsed = Credentials_Schema.safeParse({ identifier: raw, password });
         if (!parsed.success) return null;
-        const { email, password } = parsed.data;
 
-        const user = await prisma.user.findUnique({
-          where: { email: email.toLowerCase() },
-          select: { id: true, name: true, email: true, passwordHash: true, role: true, isActive: true, image: true },
-        });
+        let user: { id: string; name: string; email: string; passwordHash: string; role: string; isActive: boolean; image: string | null } | null = null;
+
+        if (looksLikeEmail(raw)) {
+          user = await prisma.user.findUnique({
+            where: { email: raw.toLowerCase() },
+            select: { id: true, name: true, email: true, passwordHash: true, role: true, isActive: true, image: true },
+          });
+        } else {
+          // Treat as admission number — find the linked User via Student.
+          const student = await prisma.student.findUnique({
+            where: { admissionNumber: raw },
+            include: {
+              user: { select: { id: true, name: true, email: true, passwordHash: true, role: true, isActive: true, image: true } },
+            },
+          });
+          user = student?.user ?? null;
+        }
+
         if (!user || !user.isActive) return null;
 
         const ok = await bcrypt.compare(password, user.passwordHash);

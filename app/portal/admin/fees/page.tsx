@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { requireRole, getActiveContext } from "@/lib/auth-helpers";
 import { bulkChargeFee, recordPayment } from "./actions";
 import { Wallet, Plus, CheckCircle2, AlertCircle, TrendingUp, Receipt } from "lucide-react";
+// (Receipt icon is reused for the Structures button above)
 
 export const dynamic = "force-dynamic";
 
@@ -63,6 +64,9 @@ export default async function AdminFeesPage({ searchParams }: { searchParams: Se
           <h1 className="text-2xl font-bold text-brand-900">Fees</h1>
           <p className="text-sm text-slate-500">{term.name.charAt(0)}{term.name.slice(1).toLowerCase()} Term · Session {session?.name ?? ""}</p>
         </div>
+        <Link href="/portal/admin/fees/structures" className="inline-flex items-center gap-2 bg-brand-700 hover:bg-brand-800 text-white text-sm font-medium px-4 py-2 rounded-lg">
+          <Receipt className="h-4 w-4" /> Fee Structures
+        </Link>
       </div>
 
       {searchParams.added && <div className="mb-4 rounded-lg bg-emerald-50 border border-emerald-200 px-4 py-2.5 text-sm text-emerald-800 flex items-center gap-2"><CheckCircle2 className="h-4 w-4" /> {decodeURIComponent(searchParams.added)}</div>}

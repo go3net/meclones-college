@@ -3,7 +3,7 @@ import { PortalShell } from "@/components/PortalShell";
 import { Card, CardBody, CardHeader, CardTitle, Badge, StatCard } from "@/components/ui";
 import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/auth-helpers";
-import { UserCircle2, Plus, CheckCircle2, Users, MessageCircle } from "lucide-react";
+import { UserCircle2, Plus, CheckCircle2, Users, MessageCircle, Send } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
@@ -105,6 +105,7 @@ export default async function AdminParentsPage({ searchParams }: { searchParams:
                     <th className="text-left px-4 py-2.5 font-medium">Children</th>
                     <th className="text-left px-4 py-2.5 font-medium">WhatsApp</th>
                     <th className="text-left px-4 py-2.5 font-medium">Created</th>
+                    <th className="text-right px-4 py-2.5 font-medium">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -130,6 +131,11 @@ export default async function AdminParentsPage({ searchParams }: { searchParams:
                         {p.whatsappOptIn ? <Badge tone="success">Opted in</Badge> : <Badge tone="neutral">No</Badge>}
                       </td>
                       <td className="px-4 py-2.5 text-slate-500 text-[12px]">{dateFmt.format(p.user.createdAt)}</td>
+                      <td className="px-4 py-2.5 text-right">
+                        <Link href={`/portal/admin/parents/${p.id}/whatsapp`} className="inline-flex items-center gap-1 text-[11px] font-medium text-emerald-700 hover:bg-emerald-50 px-2 py-1 rounded">
+                          <Send className="h-3 w-3" /> WhatsApp
+                        </Link>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
