@@ -45,6 +45,13 @@ function LoginInner() {
     setError("");
     setLoading(true);
 
+    // Pre-compute the redirect target so we can let NextAuth do the full
+    // round-trip in one hop. /portal/me is a server-component forwarder that
+    // reads the new session cookie and redirects to the role's home — we let
+    // signIn's own redirect handle the navigation so the cookie is in place
+    // before the destination page renders (avoids a flash of /portal/login).
+    const target = callbackUrl ?? "/portal/me";
+
     const res = await signIn("credentials", {
       email: email.toLowerCase().trim(),
       password,
@@ -57,11 +64,10 @@ function LoginInner() {
       return;
     }
 
-    // Resolve target: respect callbackUrl if it was passed, otherwise route by
-    // role via a tiny server endpoint that knows the session.
-    const target = callbackUrl ?? "/portal/me";
-    router.push(target);
-    router.refresh();
+    // Hard navigation rather than router.push so middleware re-reads the
+    // freshly-set cookie and there's no client-router stale state. Faster
+    // perceived experience than push() + refresh().
+    window.location.href = target;
   };
 
   const useDemo = (e: string) => {

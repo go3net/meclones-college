@@ -1,10 +1,15 @@
 import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
-import { PrismaAdapter } from "@auth/prisma-adapter";
 import bcrypt from "bcryptjs";
 import { z } from "zod";
 import { authConfig } from "./auth.config";
 import { prisma } from "./lib/prisma";
+
+// NOTE: We use JWT session strategy (set in auth.config.ts) — the Prisma
+// adapter is intentionally NOT attached. The adapter exists to persist
+// Account/Session rows for database sessions; with JWT sessions, each
+// adapter lookup just adds latency to every request and login round-trip
+// without giving us anything. Skipping it materially speeds up sign-in.
 
 const Credentials_Schema = z.object({
   email: z.string().email(),
@@ -13,7 +18,6 @@ const Credentials_Schema = z.object({
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
   ...authConfig,
-  adapter: PrismaAdapter(prisma),
   providers: [
     Credentials({
       name: "Credentials",
