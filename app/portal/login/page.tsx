@@ -35,6 +35,7 @@ function LoginInner() {
   const router = useRouter();
   const params = useSearchParams();
   const callbackUrl = params.get("callbackUrl");
+  const justReset = params.get("reset") === "1";
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -156,6 +157,11 @@ function LoginInner() {
                 </div>
                 <Input type="password" value={password} onChange={e => setPassword(e.target.value)} required autoComplete="current-password" />
               </div>
+              {justReset && !error && (
+                <div className="flex gap-2 text-sm text-emerald-800 bg-emerald-50 border border-emerald-200 rounded-lg p-3">
+                  <Lock className="h-4 w-4 mt-0.5 shrink-0" /><span>Password updated. Sign in with your new password.</span>
+                </div>
+              )}
               {error && <div className="flex gap-2 text-sm text-red-700 bg-red-50 border border-red-200 rounded-lg p-3"><AlertCircle className="h-4 w-4 mt-0.5 shrink-0" /><span>{error}</span></div>}
               <Button type="submit" className="w-full" disabled={loading}>{loading ? "Signing in..." : "Sign In"} <ArrowRight className="h-4 w-4" /></Button>
             </form>

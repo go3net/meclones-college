@@ -4,6 +4,8 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/auth-helpers";
+import { sendResultsPublishedEmail } from "@/lib/resend";
+import { SCHOOL } from "@/lib/constants";
 
 /**
  * Publish (or unpublish) all results for a (class × subject × term) batch.
@@ -45,6 +47,13 @@ export async function setResultsPublishState(formData: FormData) {
     });
   }
 
+  // Email parents on publish (fire-and-forget; one email per student × term).
+  if (publish) {
+    notifyResultsPublished(students.map(s => s.id), termId).catch(err => {
+      console.error("[results] email batch failed", err);
+    });
+  }
+
   revalidatePath("/portal/admin/results");
   revalidatePath("/portal/teacher/results");
   revalidatePath("/portal/student");
@@ -52,4 +61,65 @@ export async function setResultsPublishState(formData: FormData) {
   revalidatePath("/portal/parent");
   revalidatePath("/portal/parent/results");
   redirect(`/portal/admin/results?${publish ? "published" : "unpublished"}=1`);
+}
+
+/**
+ * Fire one "Results published" email per student to every linked parent
+ * (and to the student's own email if set). Best-effort — failures are
+ * logged but don't roll back the publish.
+ */
+async function notifyResultsPublished(studentIds: string[], termId: string) {
+  const [students, term] = await Promise.all([
+    prisma.student.findMany({
+      where: { id: { in: studentIds } },
+      include: {
+        user: { select: { name: true, email: true } },
+        classRef: true,
+        parentLinks: { include: { parent: { include: { user: { select: { name: true, email: true } } } } } },
+      },
+    }),
+    prisma.term.findUnique({ where: { id: termId }, include: { session: true } }),
+  ]);
+  if (!term) return;
+
+  const termLabel = `${term.name.charAt(0)}${term.name.slice(1).toLowerCase()} Term ${term.session.name}`;
+  const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL ?? SCHOOL.website).replace(/\/$/, "");
+
+  for (const s of students) {
+    const classLabel = s.classRef ? `${s.classRef.name}${s.classRef.arm}` : "—";
+
+    // Email each linked parent.
+    for (const link of s.parentLinks) {
+      const parent = link.parent;
+      if (!parent.user.email) continue;
+      try {
+        await sendResultsPublishedEmail({
+          to: parent.user.email,
+          parentName: parent.user.name,
+          studentName: s.user.name,
+          termLabel,
+          classLabel,
+          resultUrl: `${siteUrl}/portal/results/${s.id}/slip?termId=${term.id}`,
+        });
+      } catch (err) {
+        console.error("[results] parent email failed", parent.user.email, err);
+      }
+    }
+
+    // Also email the student directly if they have an email.
+    if (s.user.email) {
+      try {
+        await sendResultsPublishedEmail({
+          to: s.user.email,
+          parentName: s.user.name,
+          studentName: s.user.name,
+          termLabel,
+          classLabel,
+          resultUrl: `${siteUrl}/portal/results/${s.id}/slip?termId=${term.id}`,
+        });
+      } catch (err) {
+        console.error("[results] student email failed", s.user.email, err);
+      }
+    }
+  }
 }

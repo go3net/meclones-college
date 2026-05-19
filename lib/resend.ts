@@ -165,3 +165,137 @@ export async function sendPaymentReceipt(input: {
   }
   return c.emails.send({ from: FROM, to: input.to, subject, html });
 }
+
+// ============================================================
+// Auth & portal notifications
+// ============================================================
+
+export async function sendPasswordResetEmail(input: {
+  to: string;
+  name: string;
+  resetUrl: string;
+}) {
+  const subject = `${SCHOOL.shortName} — Reset your password`;
+  const html = `
+    <div style="font-family: Inter, Arial, sans-serif; color:#1a2c5a; max-width:560px; margin:0 auto; padding:24px;">
+      <h2 style="color:#0B1F4B; font-family: Georgia, serif;">Reset your password</h2>
+      <p>Hello ${input.name},</p>
+      <p>We received a request to reset your ${SCHOOL.shortName} portal password.
+        Click the button below to set a new one — the link expires in 1 hour.</p>
+      <p style="margin:24px 0;">
+        <a href="${input.resetUrl}" style="display:inline-block; background:#D4A017; color:#0B1F4B; padding:12px 24px; border-radius:6px; text-decoration:none; font-weight:600;">Reset password</a>
+      </p>
+      <p style="font-size:12px; color:#64748b;">If you didn't request this, you can safely ignore this email — your password won't change.</p>
+      <hr style="border:none; border-top:1px solid #e5e7eb; margin:20px 0;" />
+      <p style="font-size:12px; color:#64748b;">
+        ${SCHOOL.name} · ${SCHOOL.phone} · ${SCHOOL.email}
+      </p>
+    </div>
+  `;
+  const c = client();
+  if (!c) {
+    console.log("[resend stub] sendPasswordResetEmail", { to: input.to, resetUrl: input.resetUrl });
+    return { id: "stub" };
+  }
+  return c.emails.send({ from: FROM, to: input.to, subject, html });
+}
+
+export async function sendResultsPublishedEmail(input: {
+  to: string | string[];
+  parentName: string;
+  studentName: string;
+  termLabel: string;
+  classLabel: string;
+  resultUrl: string;
+}) {
+  const subject = `${SCHOOL.shortName} — ${input.studentName}'s ${input.termLabel} results are out`;
+  const html = `
+    <div style="font-family: Inter, Arial, sans-serif; color:#1a2c5a; max-width:560px; margin:0 auto; padding:24px;">
+      <h2 style="color:#0B1F4B; font-family: Georgia, serif;">${input.termLabel} results published</h2>
+      <p>Dear ${input.parentName},</p>
+      <p><strong>${input.studentName}</strong> (${input.classLabel})'s results for the ${input.termLabel} have been published on the portal.</p>
+      <p style="margin:20px 0;">
+        <a href="${input.resultUrl}" style="display:inline-block; background:#D4A017; color:#0B1F4B; padding:12px 24px; border-radius:6px; text-decoration:none; font-weight:600;">View results</a>
+      </p>
+      <p style="font-size:13px; color:#475569;">You can also download a printable result slip from the same page.</p>
+      <hr style="border:none; border-top:1px solid #e5e7eb; margin:20px 0;" />
+      <p style="font-size:12px; color:#64748b;">${SCHOOL.name} · ${SCHOOL.phone} · ${SCHOOL.email}</p>
+    </div>
+  `;
+  const c = client();
+  if (!c) {
+    console.log("[resend stub] sendResultsPublishedEmail", { to: input.to, student: input.studentName });
+    return { id: "stub" };
+  }
+  return c.emails.send({ from: FROM, to: input.to, subject, html });
+}
+
+export async function sendComplaintRepliedEmail(input: {
+  to: string;
+  parentName: string;
+  subject: string;
+  resolution: string;
+  portalUrl: string;
+}) {
+  const emailSubject = `${SCHOOL.shortName} — Re: ${input.subject}`;
+  const html = `
+    <div style="font-family: Inter, Arial, sans-serif; color:#1a2c5a; max-width:560px; margin:0 auto; padding:24px;">
+      <h2 style="color:#0B1F4B; font-family: Georgia, serif;">Your complaint has been resolved</h2>
+      <p>Dear ${input.parentName},</p>
+      <p>The school has reviewed and responded to your complaint:</p>
+      <p style="font-size:14px; color:#475569;"><em>"${input.subject}"</em></p>
+      <div style="background:#ecfdf5; border-left:3px solid #10b981; padding:12px 16px; border-radius:4px; margin:16px 0;">
+        <p style="margin:0; font-size:13px; color:#065f46;">${input.resolution}</p>
+      </div>
+      <p style="margin:20px 0;">
+        <a href="${input.portalUrl}" style="display:inline-block; background:#D4A017; color:#0B1F4B; padding:10px 20px; border-radius:6px; text-decoration:none; font-weight:600;">View in portal</a>
+      </p>
+      <hr style="border:none; border-top:1px solid #e5e7eb; margin:20px 0;" />
+      <p style="font-size:12px; color:#64748b;">${SCHOOL.name} · ${SCHOOL.phone} · ${SCHOOL.email}</p>
+    </div>
+  `;
+  const c = client();
+  if (!c) {
+    console.log("[resend stub] sendComplaintRepliedEmail", { to: input.to });
+    return { id: "stub" };
+  }
+  return c.emails.send({ from: FROM, to: input.to, subject: emailSubject, html });
+}
+
+export async function sendFeeChargedEmail(input: {
+  to: string;
+  parentName: string;
+  studentName: string;
+  feeType: string;
+  amount: number;
+  dueDate: Date | null;
+  portalUrl: string;
+}) {
+  const emailSubject = `${SCHOOL.shortName} — New fee charged for ${input.studentName}: ${naira.format(input.amount)}`;
+  const dueLine = input.dueDate
+    ? `<p>Due by <strong>${dateF.format(input.dueDate)}</strong>.</p>`
+    : "";
+  const html = `
+    <div style="font-family: Inter, Arial, sans-serif; color:#1a2c5a; max-width:560px; margin:0 auto; padding:24px;">
+      <h2 style="color:#0B1F4B; font-family: Georgia, serif;">New fee charged</h2>
+      <p>Dear ${input.parentName},</p>
+      <p>A new fee has been added to <strong>${input.studentName}</strong>'s account:</p>
+      <table style="width:100%; border-collapse:collapse; margin:16px 0; font-size:14px;">
+        <tr><td style="padding:6px 0; color:#64748b;">Fee item</td><td style="text-align:right; font-weight:600;">${input.feeType}</td></tr>
+        <tr><td style="padding:6px 0; color:#64748b;">Amount</td><td style="text-align:right; font-weight:600; color:#0B1F4B;">${naira.format(input.amount)}</td></tr>
+      </table>
+      ${dueLine}
+      <p style="margin:20px 0;">
+        <a href="${input.portalUrl}" style="display:inline-block; background:#D4A017; color:#0B1F4B; padding:10px 20px; border-radius:6px; text-decoration:none; font-weight:600;">Pay now / view balance</a>
+      </p>
+      <hr style="border:none; border-top:1px solid #e5e7eb; margin:20px 0;" />
+      <p style="font-size:12px; color:#64748b;">${SCHOOL.name} · ${SCHOOL.phone} · ${SCHOOL.email}</p>
+    </div>
+  `;
+  const c = client();
+  if (!c) {
+    console.log("[resend stub] sendFeeChargedEmail", { to: input.to, amount: input.amount });
+    return { id: "stub" };
+  }
+  return c.emails.send({ from: FROM, to: input.to, subject: emailSubject, html });
+}

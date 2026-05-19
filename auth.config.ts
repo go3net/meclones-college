@@ -28,7 +28,7 @@ export const PORTAL_ACL: { prefix: string; roles: string[] }[] = [
   { prefix: "/portal/parent", roles: ["SUPER_ADMIN", "PARENT"] },
 ];
 
-const PUBLIC_PORTAL_PATHS = ["/portal/login", "/portal/forgot"];
+const PUBLIC_PORTAL_PATHS = ["/portal/login", "/portal/forgot", "/portal/reset-password"];
 
 export const authConfig = {
   pages: {

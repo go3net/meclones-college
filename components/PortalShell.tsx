@@ -205,6 +205,7 @@ export function PortalShell({ role, children }: { role: MockRole; children: Reac
                     <p className="text-sm font-medium text-slate-900">{userName}</p>
                     <p className="text-xs text-slate-500">{userEmail}</p>
                   </div>
+                  <Link href="/portal/me/profile" className="block px-3 py-2 text-sm text-slate-700 hover:bg-slate-50">My profile</Link>
                   <Link href="/" className="block px-3 py-2 text-sm text-slate-700 hover:bg-slate-50">School website</Link>
                   <button onClick={doLogout} className="w-full text-left px-3 py-2 text-sm text-red-600 hover:bg-red-50">Sign out</button>
                 </div>

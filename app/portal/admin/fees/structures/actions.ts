@@ -6,6 +6,8 @@ import { z } from "zod";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/auth-helpers";
+import { sendFeeChargedEmail } from "@/lib/resend";
+import { SCHOOL } from "@/lib/constants";
 
 const LineItemSchema = z.object({ feeType: z.string().min(1), amount: z.coerce.number().min(0) });
 const StructureSchema = z.object({
@@ -137,8 +139,58 @@ export async function applyFeeStructure(formData: FormData) {
     }
   }
 
+  // Notify parents — one summary email per parent listing the total they
+  // were billed for their child via this structure. Fire-and-forget.
+  if (rowsCreated > 0) {
+    notifyParentsAfterCharge(
+      students.map(s => s.id),
+      items,
+      dueDate,
+      structure.name,
+    ).catch(err => console.error("[fees] email batch failed", err));
+  }
+
   revalidatePath("/portal/admin/fees");
   revalidatePath("/portal/parent/fees");
   revalidatePath("/portal/student/fees");
   redirect(`/portal/admin/fees/structures?applied=${rowsCreated}+${rowsUpdated}`);
+}
+
+async function notifyParentsAfterCharge(
+  studentIds: string[],
+  items: { feeType: string; amount: number }[],
+  dueDate: Date | null,
+  structureName: string,
+) {
+  const total = items.reduce((s, it) => s + Number(it.amount), 0);
+  const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL ?? SCHOOL.website).replace(/\/$/, "");
+  const portalUrl = `${siteUrl}/portal/parent/fees`;
+
+  const students = await prisma.student.findMany({
+    where: { id: { in: studentIds } },
+    include: {
+      user: { select: { name: true } },
+      parentLinks: { include: { parent: { include: { user: { select: { name: true, email: true } } } } } },
+    },
+  });
+
+  for (const s of students) {
+    for (const link of s.parentLinks) {
+      const p = link.parent;
+      if (!p.user.email) continue;
+      try {
+        await sendFeeChargedEmail({
+          to: p.user.email,
+          parentName: p.user.name,
+          studentName: s.user.name,
+          feeType: structureName,
+          amount: total,
+          dueDate,
+          portalUrl,
+        });
+      } catch (err) {
+        console.error("[fees] parent email failed", p.user.email, err);
+      }
+    }
+  }
 }

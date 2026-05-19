@@ -59,6 +59,21 @@ model User {
   @@index([role])
 }
 
+/// One-time tokens for password reset. Tokens are randomly generated,
+/// SHA-256 hashed for storage, and expire 1 hour from creation.
+model PasswordResetToken {
+  id        String   @id @default(cuid())
+  /// SHA-256 of the raw token. The raw value never lives in the DB.
+  tokenHash String   @unique
+  email     String
+  expiresAt DateTime
+  usedAt    DateTime?
+
+  createdAt DateTime @default(now())
+
+  @@index([email])
+}
+
 /// Per-admin permission flags. Defaults are permissive (true) for now —
 /// super-admin can disable specific capabilities for individual admins via
 /// `/portal/director/permissions`.
