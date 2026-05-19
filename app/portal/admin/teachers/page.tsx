@@ -149,7 +149,9 @@ export default async function AdminTeachersPage({ searchParams }: { searchParams
                 <tbody>
                   {teachers.map(t => (
                     <tr key={t.id} className="border-t border-slate-100 hover:bg-slate-50">
-                      <td className="px-4 py-2.5 font-medium text-slate-900">{t.user.name}</td>
+                      <td className="px-4 py-2.5 font-medium text-slate-900">
+                        <Link href={`/portal/admin/teachers/${t.id}/edit`} className="hover:text-brand-700">{t.user.name}</Link>
+                      </td>
                       <td className="px-4 py-2.5 text-slate-600 text-[12px]">
                         <div>{t.user.email}</div>
                         {t.user.phone && <div className="text-slate-400">{t.user.phone}</div>}

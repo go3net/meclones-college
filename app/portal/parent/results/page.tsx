@@ -1,9 +1,9 @@
 import Link from "next/link";
 import { PortalShell } from "@/components/PortalShell";
-import { Card, CardBody, CardHeader, CardTitle, Badge } from "@/components/ui";
+import { Card, CardBody, CardHeader, CardTitle, Badge, Button } from "@/components/ui";
 import { prisma } from "@/lib/prisma";
 import { getCurrentParentWithChildren, getActiveContext } from "@/lib/auth-helpers";
-import { FileText, AlertCircle } from "lucide-react";
+import { FileText, AlertCircle, Download } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
@@ -66,23 +66,30 @@ export default async function ParentResultsPage({ searchParams }: { searchParams
           </p>
         </div>
 
-        {parent.children.length > 1 && (
-          <div className="flex gap-1.5 flex-wrap">
-            {parent.children.map(c => (
-              <Link
-                key={c.student.id}
-                href={`/portal/parent/results?student=${c.student.id}${targetTermId ? `&term=${targetTermId}` : ""}`}
-                className={
-                  c.student.id === selected.student.id
-                    ? "px-3 py-1.5 rounded-full text-xs font-medium bg-brand-700 text-white"
-                    : "px-3 py-1.5 rounded-full text-xs font-medium bg-slate-100 text-slate-700 hover:bg-slate-200"
-                }
-              >
-                {c.student.user.name.split(" ")[0]}
-              </Link>
-            ))}
-          </div>
-        )}
+        <div className="flex items-center gap-2 flex-wrap">
+          {parent.children.length > 1 && (
+            <div className="flex gap-1.5 flex-wrap">
+              {parent.children.map(c => (
+                <Link
+                  key={c.student.id}
+                  href={`/portal/parent/results?student=${c.student.id}${targetTermId ? `&term=${targetTermId}` : ""}`}
+                  className={
+                    c.student.id === selected.student.id
+                      ? "px-3 py-1.5 rounded-full text-xs font-medium bg-brand-700 text-white"
+                      : "px-3 py-1.5 rounded-full text-xs font-medium bg-slate-100 text-slate-700 hover:bg-slate-200"
+                  }
+                >
+                  {c.student.user.name.split(" ")[0]}
+                </Link>
+              ))}
+            </div>
+          )}
+          {results.length > 0 && targetTermId && (
+            <Link href={`/portal/results/${selected.student.id}/slip?termId=${targetTermId}`} target="_blank">
+              <Button variant="gold" className="text-xs"><Download className="h-3 w-3" /> Result Slip</Button>
+            </Link>
+          )}
+        </div>
       </div>
 
       {results.length === 0 ? (

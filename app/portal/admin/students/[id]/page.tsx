@@ -4,7 +4,7 @@ import { Card, CardBody, CardHeader, CardTitle, Badge, StatCard } from "@/compon
 import { prisma } from "@/lib/prisma";
 import { requireRole, getActiveContext } from "@/lib/auth-helpers";
 import {
-  User, FileText, CalendarCheck, Wallet, Trophy, Mail, Phone, Home, ArrowLeft,
+  User, FileText, CalendarCheck, Wallet, Trophy, Mail, Phone, Home, ArrowLeft, Edit,
 } from "lucide-react";
 import { notFound } from "next/navigation";
 
@@ -80,17 +80,22 @@ export default async function StudentDetailPage({ params }: { params: { id: stri
 
   return (
     <PortalShell role="school_admin">
-      <div className="mb-6 flex items-center gap-3">
-        <Link href="/portal/admin/students" className="text-slate-500 hover:text-brand-700">
-          <ArrowLeft className="h-5 w-5" />
-        </Link>
-        <div>
-          <h1 className="text-2xl font-bold text-brand-900">{student.user.name}</h1>
-          <p className="text-sm text-slate-500 font-mono">
-            {student.admissionNumber} · {student.classRef ? `${student.classRef.name}${student.classRef.arm}` : "Unassigned"}
-            {term && session && ` · ${term.name.charAt(0)}${term.name.slice(1).toLowerCase()} Term ${session.name}`}
-          </p>
+      <div className="mb-6 flex items-center justify-between gap-3 flex-wrap">
+        <div className="flex items-center gap-3">
+          <Link href="/portal/admin/students" className="text-slate-500 hover:text-brand-700">
+            <ArrowLeft className="h-5 w-5" />
+          </Link>
+          <div>
+            <h1 className="text-2xl font-bold text-brand-900">{student.user.name}</h1>
+            <p className="text-sm text-slate-500 font-mono">
+              {student.admissionNumber} · {student.classRef ? `${student.classRef.name}${student.classRef.arm}` : "Unassigned"}
+              {term && session && ` · ${term.name.charAt(0)}${term.name.slice(1).toLowerCase()} Term ${session.name}`}
+            </p>
+          </div>
         </div>
+        <Link href={`/portal/admin/students/${student.id}/edit`} className="inline-flex items-center gap-2 bg-brand-700 hover:bg-brand-800 text-white text-sm font-medium px-4 py-2 rounded-lg">
+          <Edit className="h-4 w-4" /> Edit
+        </Link>
       </div>
 
       <div className="grid lg:grid-cols-3 gap-6 mb-6">

@@ -1,8 +1,9 @@
+import Link from "next/link";
 import { PortalShell } from "@/components/PortalShell";
-import { Card, CardBody, CardHeader, CardTitle, Badge, StatCard } from "@/components/ui";
+import { Card, CardBody, CardHeader, CardTitle, Badge, StatCard, Button } from "@/components/ui";
 import { prisma } from "@/lib/prisma";
 import { getCurrentStudent, getActiveContext } from "@/lib/auth-helpers";
-import { FileText, Trophy } from "lucide-react";
+import { FileText, Trophy, Download } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
@@ -43,11 +44,18 @@ export default async function StudentResultsPage() {
 
   return (
     <PortalShell role="student">
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-brand-900">My Results</h1>
-        <p className="text-sm text-slate-500">
-          {term.name.charAt(0)}{term.name.slice(1).toLowerCase()} Term · Session {session?.name ?? ""} · {student.classRef ? `${student.classRef.name}${student.classRef.arm}` : "Unassigned"}
-        </p>
+      <div className="mb-6 flex items-center justify-between gap-3 flex-wrap">
+        <div>
+          <h1 className="text-2xl font-bold text-brand-900">My Results</h1>
+          <p className="text-sm text-slate-500">
+            {term.name.charAt(0)}{term.name.slice(1).toLowerCase()} Term · Session {session?.name ?? ""} · {student.classRef ? `${student.classRef.name}${student.classRef.arm}` : "Unassigned"}
+          </p>
+        </div>
+        {results.length > 0 && (
+          <Link href={`/portal/results/${student.id}/slip?termId=${term.id}`} target="_blank">
+            <Button variant="gold"><Download className="h-4 w-4" /> Result Slip</Button>
+          </Link>
+        )}
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">

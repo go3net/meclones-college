@@ -27,7 +27,6 @@ export async function saveResults(formData: FormData) {
 
   const classId = String(formData.get("classId") ?? "");
   const subjectId = String(formData.get("subjectId") ?? "");
-  const action = String(formData.get("action") ?? "save"); // "save" | "save_and_publish"
   if (!classId || !subjectId) throw new Error("classId and subjectId are required");
 
   // Authorization: teacher must be assigned to this subject AND this class.
@@ -44,8 +43,6 @@ export async function saveResults(formData: FormData) {
     select: { id: true },
   });
 
-  const isPublished = action === "save_and_publish";
-
   for (const s of students) {
     const ca1Raw = formData.get(`ca1:${s.id}`);
     const ca2Raw = formData.get(`ca2:${s.id}`);
@@ -59,14 +56,17 @@ export async function saveResults(formData: FormData) {
     const exam = clamp(Number(examRaw) || 0, 0, 60);
     const total = ca1 + ca2 + exam;
 
+    // Check current state — published results are locked from teacher edits;
+    // admin must unpublish first.
+    const existing = await prisma.result.findUnique({
+      where: { studentId_subjectId_termId_sessionId: { studentId: s.id, subjectId, termId: term.id, sessionId: session.id } },
+      select: { isPublished: true },
+    });
+    if (existing?.isPublished) continue;
+
     await prisma.result.upsert({
       where: { studentId_subjectId_termId_sessionId: { studentId: s.id, subjectId, termId: term.id, sessionId: session.id } },
-      update: {
-        ca1, ca2, exam, total,
-        grade: gradeFor(total),
-        enteredById: teacher.id,
-        ...(isPublished ? { isPublished: true } : {}),
-      },
+      update: { ca1, ca2, exam, total, grade: gradeFor(total), enteredById: teacher.id },
       create: {
         studentId: s.id,
         subjectId,
@@ -75,32 +75,11 @@ export async function saveResults(formData: FormData) {
         ca1, ca2, exam, total,
         grade: gradeFor(total),
         enteredById: teacher.id,
-        isPublished,
+        isPublished: false,
       },
     });
   }
 
-  // Recompute positions within the class if published.
-  if (isPublished) {
-    const totals = await prisma.result.groupBy({
-      by: ["studentId"],
-      where: { studentId: { in: students.map(s => s.id) }, termId: term.id, isPublished: true },
-      _sum: { total: true },
-    });
-    const ranked = totals
-      .map(t => ({ studentId: t.studentId, sum: Number(t._sum.total ?? 0) }))
-      .sort((a, b) => b.sum - a.sum);
-    for (let i = 0; i < ranked.length; i++) {
-      await prisma.result.updateMany({
-        where: { studentId: ranked[i].studentId, termId: term.id, isPublished: true },
-        data: { position: i + 1 },
-      });
-    }
-  }
-
   revalidatePath("/portal/teacher/results");
-  revalidatePath("/portal/parent");
-  revalidatePath("/portal/parent/results");
-  revalidatePath("/portal/student");
-  revalidatePath("/portal/student/results");
+  revalidatePath("/portal/admin/results");
 }

@@ -110,7 +110,9 @@ export default async function AdminParentsPage({ searchParams }: { searchParams:
                 <tbody>
                   {parents.map(p => (
                     <tr key={p.id} className="border-t border-slate-100 hover:bg-slate-50">
-                      <td className="px-4 py-2.5 font-medium text-slate-900">{p.user.name}</td>
+                      <td className="px-4 py-2.5 font-medium text-slate-900">
+                        <Link href={`/portal/admin/parents/${p.id}/edit`} className="hover:text-brand-700">{p.user.name}</Link>
+                      </td>
                       <td className="px-4 py-2.5 text-slate-600 text-[12px]">
                         <div>{p.user.email}</div>
                         {p.user.phone && <div className="text-slate-400">{p.user.phone}</div>}
