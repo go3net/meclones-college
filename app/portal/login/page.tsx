@@ -2,12 +2,14 @@
 
 import { Suspense, useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
 import { signIn } from "next-auth/react";
 import { Card, CardBody, Button, Input, Label } from "@/components/ui";
 import { Logo } from "@/components/Logo";
 import { ROLE_HOME } from "@/auth.config";
-import { ShieldCheck, AlertCircle, ArrowRight } from "lucide-react";
+import { PLACE } from "@/lib/images";
+import { ShieldCheck, AlertCircle, ArrowRight, Lock } from "lucide-react";
 
 const DEMO_ACCOUNTS: { role: keyof typeof ROLE_HOME; email: string; label: string }[] = [
   { role: "DIRECTOR", email: "director@meclonescollege.com", label: "Director" },
@@ -78,15 +80,47 @@ function LoginInner() {
       </header>
 
       <div className="flex-1 grid lg:grid-cols-2">
-        <div className="hidden lg:flex bg-gradient-to-br from-brand-900 via-brand-800 to-brand-700 text-white p-12 items-center">
-          <div className="max-w-md">
-            <ShieldCheck className="h-12 w-12 text-gold-300 mb-4" />
-            <h1 className="text-3xl font-bold leading-tight">Welcome to the Meclones Smart Portal.</h1>
-            <p className="mt-4 text-slate-200 leading-relaxed">A single, secure place for parents, students, teachers, and administrators to manage academic life — from attendance to fees, results to assignments.</p>
-            <div className="mt-8 space-y-2 text-sm text-slate-300">
-              <p className="flex gap-2"><span className="text-gold-300">✓</span> Real-time WhatsApp notifications</p>
-              <p className="flex gap-2"><span className="text-gold-300">✓</span> Secure Paystack-integrated payments</p>
-              <p className="flex gap-2"><span className="text-gold-300">✓</span> One dashboard for parents, students, staff</p>
+        <div className="hidden lg:block relative text-white">
+          {/* Full-height hero photo behind a navy gradient for legibility */}
+          <Image
+            src={PLACE.homeHero}
+            alt="Meclones College students"
+            fill
+            priority
+            sizes="50vw"
+            className="object-cover object-center"
+          />
+          <div className="absolute inset-0 bg-gradient-to-br from-brand-900/95 via-brand-900/80 to-brand-800/40" />
+
+          {/* Content: welcome copy at the top, security card at the bottom */}
+          <div className="relative h-full flex flex-col justify-between p-12 z-10">
+            <div className="max-w-md">
+              <ShieldCheck className="h-12 w-12 text-gold-300 mb-4" />
+              <h1 className="font-display text-3xl md:text-4xl font-bold leading-tight">
+                Welcome to the<br />Meclones <span className="text-gold-300">Portal</span>
+              </h1>
+              <div className="mt-4 h-1 w-16 bg-gold-400 rounded-full" />
+              <p className="mt-5 text-slate-200 leading-relaxed">
+                Your secure gateway to academic excellence. Access important information, manage activities and stay connected with the Meclones community.
+              </p>
+              <div className="mt-8 space-y-2 text-sm text-slate-200">
+                <p className="flex gap-2"><span className="text-gold-300">✓</span> Real-time WhatsApp notifications</p>
+                <p className="flex gap-2"><span className="text-gold-300">✓</span> Secure Paystack-integrated payments</p>
+                <p className="flex gap-2"><span className="text-gold-300">✓</span> One dashboard for parents, students, staff</p>
+              </div>
+            </div>
+
+            {/* Trust card — matches the brief mockup */}
+            <div className="max-w-sm bg-white/10 backdrop-blur-md ring-1 ring-white/15 rounded-xl p-4">
+              <div className="flex items-start gap-3">
+                <div className="h-9 w-9 rounded-lg bg-gold-400 text-brand-900 flex items-center justify-center shrink-0">
+                  <Lock className="h-4 w-4" />
+                </div>
+                <div>
+                  <p className="font-semibold text-sm">Secure. Trusted. Meclones.</p>
+                  <p className="text-xs text-slate-300 mt-0.5">Your data is protected with enterprise-grade security and privacy standards.</p>
+                </div>
+              </div>
             </div>
           </div>
         </div>
