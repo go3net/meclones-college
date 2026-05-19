@@ -11,6 +11,7 @@ import {
   Home, Users, GraduationCap, BookOpen, Calendar, FileText, MessageCircle,
   CreditCard, Brain, Smartphone, Settings, LogOut, Menu, X, Bell, ChevronDown,
   CheckSquare, BookMarked, Banknote, TrendingUp, ClipboardList, Megaphone,
+  UserCircle2, ShieldCheck,
 } from "lucide-react";
 
 interface NavItem { href: string; label: string; icon: any; }
@@ -34,8 +35,14 @@ const NAV_BY_ROLE: Record<MockRole, NavItem[]> = {
     { href: "/portal/director/performance", label: "Performance", icon: TrendingUp },
     { href: "/portal/admin/students", label: "Students", icon: Users },
     { href: "/portal/admin/teachers", label: "Teachers", icon: GraduationCap },
+    { href: "/portal/admin/parents", label: "Parents", icon: UserCircle2 },
     { href: "/portal/admin/applications", label: "Admissions", icon: ClipboardList },
+    { href: "/portal/admin/attendance", label: "Attendance", icon: CheckSquare },
     { href: "/portal/admin/announcements", label: "Announcements", icon: Megaphone },
+    { href: "/portal/admin/complaints", label: "Complaints", icon: MessageCircle },
+    { href: "/portal/admin/library", label: "Library", icon: BookOpen },
+    { href: "/portal/director/permissions", label: "Permissions", icon: ShieldCheck },
+    { href: "/portal/director/sessions", label: "Sessions", icon: Calendar },
     { href: "/portal/whatsapp", label: "WhatsApp Logs", icon: Smartphone },
     { href: "/portal/director/settings", label: "Settings", icon: Settings },
   ],
@@ -43,9 +50,12 @@ const NAV_BY_ROLE: Record<MockRole, NavItem[]> = {
     { href: "/portal/admin", label: "Overview", icon: Home },
     { href: "/portal/admin/students", label: "Students", icon: Users },
     { href: "/portal/admin/teachers", label: "Teachers", icon: GraduationCap },
+    { href: "/portal/admin/parents", label: "Parents", icon: UserCircle2 },
     { href: "/portal/admin/applications", label: "Admissions", icon: ClipboardList },
+    { href: "/portal/admin/attendance", label: "Attendance", icon: CheckSquare },
     { href: "/portal/admin/announcements", label: "Announcements", icon: Megaphone },
     { href: "/portal/admin/complaints", label: "Complaints", icon: MessageCircle },
+    { href: "/portal/admin/library", label: "Library", icon: BookOpen },
     { href: "/portal/whatsapp", label: "WhatsApp Logs", icon: Smartphone },
   ],
   teacher: [
@@ -58,12 +68,15 @@ const NAV_BY_ROLE: Record<MockRole, NavItem[]> = {
     { href: "/portal/parent/results", label: "Results", icon: FileText },
     { href: "/portal/parent/attendance", label: "Attendance", icon: CheckSquare },
     { href: "/portal/parent/fees", label: "Fees & Payments", icon: CreditCard },
+    { href: "/portal/parent/complaints", label: "Complaints", icon: MessageCircle },
+    { href: "/portal/parent/library", label: "Library", icon: BookOpen },
   ],
   student: [
     { href: "/portal/student", label: "Dashboard", icon: Home },
     { href: "/portal/student/results", label: "Results", icon: FileText },
     { href: "/portal/student/attendance", label: "Attendance", icon: CheckSquare },
     { href: "/portal/student/fees", label: "Fees", icon: CreditCard },
+    { href: "/portal/student/library", label: "Library", icon: BookOpen },
   ],
   accountant: [
     { href: "/portal/accountant", label: "Dashboard", icon: Home },

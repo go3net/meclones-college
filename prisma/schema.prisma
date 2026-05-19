@@ -41,12 +41,45 @@ model User {
   teacher      Teacher?
   parent       Parent?
 
+  /// Granular per-admin permissions. Super-admin always has all; for ADMIN
+  /// role users, super-admin can flip these on/off.
+  permissions  AdminPermissions?
+
   whatsappSessions WhatsAppSession[]
   announcements    Announcement[]   @relation("AnnouncementAuthor")
+  complaintsFiled  Complaint[]      @relation("ComplaintAuthor")
+  complaintsHandled Complaint[]     @relation("ComplaintHandler")
+  bookRequests     BookRequest[]    @relation("BookRequester")
+  bookApprovals    BookRequest[]    @relation("BookApprover")
+
   createdAt        DateTime         @default(now())
   updatedAt        DateTime         @updatedAt
 
   @@index([role])
+}
+
+/// Per-admin permission flags. Defaults are permissive (true) for now —
+/// super-admin can disable specific capabilities for individual admins via
+/// `/portal/director/permissions`.
+model AdminPermissions {
+  id              String @id @default(cuid())
+  user            User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId          String @unique
+
+  canManageStudents     Boolean @default(true)
+  canManageTeachers     Boolean @default(true)
+  canManageParents      Boolean @default(true)
+  canManageClasses      Boolean @default(true)
+  canManageFees         Boolean @default(true)
+  canManageResults      Boolean @default(true)
+  canPublishAnnouncements Boolean @default(true)
+  canHandleAdmissions   Boolean @default(true)
+  canHandleComplaints   Boolean @default(true)
+  canManageLibrary      Boolean @default(true)
+  canRotateSession      Boolean @default(false)   // school-wide; default off
+
+  updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now())
 }
 
 // ============================================================
@@ -481,4 +514,124 @@ model BlogPost {
   updatedAt DateTime @updatedAt
 
   @@index([isPublished, publishedAt])
+}
+
+// ============================================================
+// COMPLAINTS / FEEDBACK
+// ============================================================
+
+enum ComplaintCategory {
+  ACADEMIC
+  FEES
+  STAFF
+  FACILITY
+  TRANSPORT
+  GENERAL
+  OTHER
+}
+
+enum ComplaintStatus {
+  OPEN
+  IN_PROGRESS
+  RESOLVED
+  CLOSED
+}
+
+model Complaint {
+  id          String   @id @default(cuid())
+  subject     String
+  body        String   @db.Text
+  category    ComplaintCategory @default(GENERAL)
+  status      ComplaintStatus   @default(OPEN)
+
+  author      User?    @relation("ComplaintAuthor", fields: [authorId], references: [id])
+  authorId    String?
+  /// Snapshot of submitter contact in case the author user gets deleted.
+  authorName  String
+  authorEmail String?
+  authorPhone String?
+
+  handledBy   User?    @relation("ComplaintHandler", fields: [handledById], references: [id])
+  handledById String?
+  resolutionNote String? @db.Text
+  resolvedAt  DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status, createdAt])
+}
+
+// ============================================================
+// LIBRARY (books for purchase request / rental)
+// ============================================================
+
+enum BookAvailability {
+  AVAILABLE
+  RENTED_OUT
+  OUT_OF_STOCK
+  ARCHIVED
+}
+
+model Book {
+  id          String  @id @default(cuid())
+  title       String
+  author      String?
+  isbn        String? @unique
+  category    String?
+  coverUrl    String?
+  description String? @db.Text
+  /// Total copies the school holds. Set to null for unlimited (digital).
+  totalCopies Int     @default(1)
+  /// How many are currently rented out. Computed via app logic; not enforced
+  /// in DB to avoid race conditions on raw counts.
+  copiesOut   Int     @default(0)
+  /// Naira price for outright purchase (₦); null = rental-only.
+  pricePurchase Decimal? @db.Decimal(10, 2)
+  /// Naira rental price per term (₦); null = purchase-only.
+  priceRental   Decimal? @db.Decimal(10, 2)
+  availability  BookAvailability @default(AVAILABLE)
+
+  requests BookRequest[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([category, availability])
+}
+
+enum BookRequestType {
+  PURCHASE
+  RENTAL
+}
+
+enum BookRequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  COLLECTED
+  RETURNED
+}
+
+model BookRequest {
+  id        String  @id @default(cuid())
+  book      Book    @relation(fields: [bookId], references: [id], onDelete: Cascade)
+  bookId    String
+  requester User    @relation("BookRequester", fields: [requesterId], references: [id], onDelete: Cascade)
+  requesterId String
+  type      BookRequestType
+  status    BookRequestStatus @default(PENDING)
+  notes     String?  @db.Text
+  /// For rentals — the due-back date set by admin on approval.
+  dueDate   DateTime?
+
+  decidedBy   User?   @relation("BookApprover", fields: [decidedById], references: [id])
+  decidedById String?
+  decidedAt   DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status])
+  @@index([requesterId])
 }

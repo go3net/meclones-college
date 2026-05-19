@@ -137,13 +137,18 @@ export default async function AdminStudentsPage({ searchParams }: { searchParams
                     <th className="text-left px-4 py-2.5 font-medium">Gender</th>
                     <th className="text-left px-4 py-2.5 font-medium">Email</th>
                     <th className="text-left px-4 py-2.5 font-medium">Joined</th>
+                    <th className="text-right px-4 py-2.5 font-medium" />
                   </tr>
                 </thead>
                 <tbody>
                   {students.map(s => (
-                    <tr key={s.id} className="border-t border-slate-100 hover:bg-slate-50">
-                      <td className="px-4 py-2.5 font-mono text-[12px] text-brand-700">{s.admissionNumber}</td>
-                      <td className="px-4 py-2.5 font-medium text-slate-900">{s.user.name}</td>
+                    <tr key={s.id} className="border-t border-slate-100 hover:bg-slate-50 cursor-pointer">
+                      <td className="px-4 py-2.5 font-mono text-[12px] text-brand-700">
+                        <Link href={`/portal/admin/students/${s.id}`} className="hover:underline">{s.admissionNumber}</Link>
+                      </td>
+                      <td className="px-4 py-2.5 font-medium text-slate-900">
+                        <Link href={`/portal/admin/students/${s.id}`} className="hover:text-brand-700">{s.user.name}</Link>
+                      </td>
                       <td className="px-4 py-2.5">
                         {s.classRef ? (
                           <Badge tone="neutral">{s.classRef.name}{s.classRef.arm}</Badge>
@@ -154,6 +159,9 @@ export default async function AdminStudentsPage({ searchParams }: { searchParams
                       <td className="px-4 py-2.5 text-slate-600 text-[12px]">{s.gender ?? "—"}</td>
                       <td className="px-4 py-2.5 text-slate-600 text-[12px]">{s.user.email}</td>
                       <td className="px-4 py-2.5 text-slate-500 text-[12px]">{dateFmt.format(s.createdAt)}</td>
+                      <td className="px-4 py-2.5 text-right">
+                        <Link href={`/portal/admin/students/${s.id}`} className="text-xs font-medium text-brand-700 hover:underline whitespace-nowrap">View →</Link>
+                      </td>
                     </tr>
                   ))}
                 </tbody>

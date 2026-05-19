@@ -32,6 +32,30 @@ export default async function TeacherDashboard() {
     where: { markedById: teacher.id, date: { gte: todayStart } },
   }) : 0;
 
+  // KPIs across the term: total marks recorded, total result rows entered,
+  // and average score across results they entered (where they're the author).
+  const [marksThisTerm, resultsEntered, scoreAgg] = term ? await Promise.all([
+    prisma.attendance.count({ where: { markedById: teacher.id, termId: term.id } }),
+    prisma.result.count({ where: { enteredById: teacher.id, termId: term.id } }),
+    prisma.result.aggregate({
+      where: { enteredById: teacher.id, termId: term.id },
+      _avg: { total: true },
+      _count: { _all: true },
+    }),
+  ]) : [0, 0, { _avg: { total: null }, _count: { _all: 0 } } as { _avg: { total: number | null }; _count: { _all: number } }];
+
+  const avgScore = scoreAgg._avg.total !== null ? Math.round(scoreAgg._avg.total * 10) / 10 : null;
+
+  // Marking coverage: how many of (their students × days the term has been running) they've covered.
+  // Simple proxy: number of marks vs (students × days) where days = unique attendance dates so far for active term.
+  const distinctDates = term ? await prisma.attendance.findMany({
+    where: { termId: term.id },
+    distinct: ["date"],
+    select: { date: true },
+  }) : [];
+  const expectedMarks = studentCount * distinctDates.length;
+  const coveragePct = expectedMarks > 0 ? Math.min(100, Math.round((marksThisTerm / expectedMarks) * 100)) : 0;
+
   // Recent attendance batches they've recorded.
   const recentMarks = await prisma.attendance.findMany({
     where: { markedById: teacher.id },
@@ -59,12 +83,42 @@ export default async function TeacherDashboard() {
         </p>
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
         <StatCard label="Classes" value={classIds.length} hint="assigned" icon={<BookOpen className="h-5 w-5" />} accent="brand" />
         <StatCard label="Subjects" value={subjectIds.length} hint="teaching" icon={<ClipboardList className="h-5 w-5" />} accent="sky" />
         <StatCard label="Students" value={studentCount} hint="across classes" icon={<Users className="h-5 w-5" />} accent="emerald" />
         <StatCard label="Marked today" value={todaysMarks} hint="attendance entries" icon={<CheckSquare className="h-5 w-5" />} accent="gold" />
       </div>
+
+      {/* KPIs for the term */}
+      <Card className="mb-6 bg-gradient-to-br from-brand-700 to-brand-900 text-white border-0">
+        <CardBody>
+          <div className="flex items-start gap-4 flex-wrap">
+            <div className="flex-1 min-w-[180px]">
+              <p className="text-xs uppercase tracking-wide text-gold-300">This term — KPIs</p>
+              <p className="font-display text-2xl font-bold mt-1">Your teaching impact</p>
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 flex-[2] min-w-[260px]">
+              <div>
+                <p className="text-3xl font-bold text-gold-400 leading-none">{marksThisTerm}</p>
+                <p className="text-xs text-slate-200 mt-1">Attendance marks</p>
+              </div>
+              <div>
+                <p className="text-3xl font-bold text-gold-400 leading-none">{coveragePct}%</p>
+                <p className="text-xs text-slate-200 mt-1">Marking coverage</p>
+              </div>
+              <div>
+                <p className="text-3xl font-bold text-gold-400 leading-none">{resultsEntered}</p>
+                <p className="text-xs text-slate-200 mt-1">Scores entered</p>
+              </div>
+              <div>
+                <p className="text-3xl font-bold text-gold-400 leading-none">{avgScore !== null ? `${avgScore}` : "—"}</p>
+                <p className="text-xs text-slate-200 mt-1">Avg student score</p>
+              </div>
+            </div>
+          </div>
+        </CardBody>
+      </Card>
 
       <div className="grid lg:grid-cols-3 gap-6">
         <Card className="lg:col-span-2">
