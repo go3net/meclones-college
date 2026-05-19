@@ -54,6 +54,7 @@ model User {
   awardsIssued     Award[]          @relation("AwardedBy")
   notifications    Notification[]   @relation("UserNotifications")
   auditLogs        AuditLog[]       @relation("AuditActor")
+  studentNotes     StudentNote[]    @relation("StudentNoteAuthor")
 
   createdAt        DateTime         @default(now())
   updatedAt        DateTime         @updatedAt
@@ -183,6 +184,7 @@ model Student {
   attendance     Attendance[]
   fees           Fee[]
   awards         Award[]
+  notes          StudentNote[]
   parentLinks    ParentStudent[]
   whatsappSessions WhatsAppSession[]
 
@@ -190,6 +192,48 @@ model Student {
   updatedAt DateTime @updatedAt
 
   @@index([classId])
+}
+
+enum StudentNoteCategory {
+  ACADEMIC
+  BEHAVIOUR
+  ATTENDANCE
+  HEALTH
+  COMMENDATION
+  OTHER
+}
+
+enum StudentNoteVisibility {
+  /// Visible to teachers + admins + director + super-admin.
+  STAFF_ONLY
+  /// Sensitive — only admin / director / super-admin can see.
+  ADMIN_ONLY
+  /// Shared with the linked parent's portal too (good for commendations).
+  PARENT_VISIBLE
+}
+
+/// Free-form observation from a teacher or admin about a student. Used to
+/// capture context that doesn't fit anywhere else — behavioural notes,
+/// commendations, health alerts, etc. Visible to other staff (and
+/// optionally parents) on the student profile.
+model StudentNote {
+  id          String  @id @default(cuid())
+  student     Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  studentId   String
+  author      User?   @relation("StudentNoteAuthor", fields: [authorId], references: [id])
+  authorId    String?
+  /// Snapshot for resilience if the author user is deleted later.
+  authorName  String
+  authorRole  String?
+  category    StudentNoteCategory   @default(OTHER)
+  visibility  StudentNoteVisibility @default(STAFF_ONLY)
+  body        String  @db.Text
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([studentId, createdAt])
+  @@index([visibility])
 }
 
 model Parent {
