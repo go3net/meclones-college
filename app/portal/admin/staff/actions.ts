@@ -6,6 +6,7 @@ import bcrypt from "bcryptjs";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/auth-helpers";
+import { auditLog } from "@/lib/audit";
 
 const ResetSchema = z.object({
   userId: z.string().min(1),
@@ -42,6 +43,13 @@ export async function resetUserPassword(formData: FormData) {
   const passwordHash = await bcrypt.hash(parsed.data.newPassword, 10);
   await prisma.user.update({ where: { id: target.id }, data: { passwordHash } });
 
+  auditLog({
+    action: "user.password_reset",
+    targetType: "User",
+    targetId: target.id,
+    metadata: { targetRole: target.role, targetName: target.name },
+  });
+
   revalidatePath("/portal/admin/staff");
   redirect(`/portal/admin/staff?reset=${encodeURIComponent(target.name)}`);
 }
@@ -52,5 +60,12 @@ export async function toggleUserActive(formData: FormData) {
   const active = String(formData.get("active") ?? "true") === "true";
   if (!userId) throw new Error("userId required");
   await prisma.user.update({ where: { id: userId }, data: { isActive: active } });
+
+  auditLog({
+    action: active ? "user.activate" : "user.deactivate",
+    targetType: "User",
+    targetId: userId,
+  });
+
   revalidatePath("/portal/admin/staff");
 }

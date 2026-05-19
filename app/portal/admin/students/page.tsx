@@ -3,7 +3,7 @@ import { PortalShell } from "@/components/PortalShell";
 import { Card, CardBody, CardHeader, CardTitle, Badge } from "@/components/ui";
 import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/auth-helpers";
-import { Users, Plus, Search, CheckCircle2 } from "lucide-react";
+import { Users, Plus, Search, CheckCircle2, Upload } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
@@ -53,9 +53,14 @@ export default async function AdminStudentsPage({ searchParams }: { searchParams
           <h1 className="text-2xl font-bold text-brand-900">Students</h1>
           <p className="text-sm text-slate-500">{totalStudents} enrolled across {classes.length} classes.</p>
         </div>
-        <Link href="/portal/admin/students/new" className="inline-flex items-center gap-2 bg-brand-700 hover:bg-brand-800 text-white text-sm font-medium px-4 py-2 rounded-lg">
-          <Plus className="h-4 w-4" /> Add Student
-        </Link>
+        <div className="flex items-center gap-2">
+          <Link href="/portal/admin/students/import" className="inline-flex items-center gap-2 bg-white border border-slate-200 hover:border-brand-300 text-slate-700 text-sm font-medium px-4 py-2 rounded-lg">
+            <Upload className="h-4 w-4" /> Bulk import
+          </Link>
+          <Link href="/portal/admin/students/new" className="inline-flex items-center gap-2 bg-brand-700 hover:bg-brand-800 text-white text-sm font-medium px-4 py-2 rounded-lg">
+            <Plus className="h-4 w-4" /> Add Student
+          </Link>
+        </div>
       </div>
 
       {searchParams.added && (

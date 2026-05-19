@@ -1,6 +1,7 @@
 import { Prisma, PaymentMethod } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { sendPaymentReceipt } from "@/lib/resend";
+import { notify } from "@/lib/notify";
 
 interface ApplyArgs {
   feeId: string;
@@ -79,6 +80,19 @@ export async function applyPaymentSuccess(args: ApplyArgs) {
       paystackRef: args.method === "PAYSTACK" ? args.reference : fee.paystackRef,
     },
   });
+
+  // In-portal bell notifications for the student + every linked parent.
+  const recipientUserIds = new Set<string>();
+  recipientUserIds.add(fee.student.userId);
+  for (const link of fee.student.parentLinks) recipientUserIds.add(link.parent.userId);
+  const nairaFmt = new Intl.NumberFormat("en-NG", { style: "currency", currency: "NGN", maximumFractionDigits: 0 });
+  notify({
+    userIds: Array.from(recipientUserIds),
+    type: "PAYMENT_RECEIVED",
+    title: `Payment received — ${fee.feeType}`,
+    body: `${nairaFmt.format(Number(amount))} paid for ${fee.student.user.name}. View or print the receipt.`,
+    href: `/portal/parent/fees/receipt/${payment.id}`,
+  }).catch(err => console.error("[apply-payment] notify failed", err));
 
   // Fire receipt email to parent(s) + student (if they have an email).
   const recipientEmails = new Set<string>();

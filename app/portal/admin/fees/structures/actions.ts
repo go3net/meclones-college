@@ -7,6 +7,8 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/auth-helpers";
 import { sendFeeChargedEmail } from "@/lib/resend";
+import { notify } from "@/lib/notify";
+import { auditLog } from "@/lib/audit";
 import { SCHOOL } from "@/lib/constants";
 
 const LineItemSchema = z.object({ feeType: z.string().min(1), amount: z.coerce.number().min(0) });
@@ -174,9 +176,13 @@ async function notifyParentsAfterCharge(
     },
   });
 
+  // Collect every parent user id for one bell notification fan-out.
+  const parentUserIds = new Set<string>();
+
   for (const s of students) {
     for (const link of s.parentLinks) {
       const p = link.parent;
+      parentUserIds.add(p.userId);
       if (!p.user.email) continue;
       try {
         await sendFeeChargedEmail({
@@ -192,5 +198,16 @@ async function notifyParentsAfterCharge(
         console.error("[fees] parent email failed", p.user.email, err);
       }
     }
+  }
+
+  if (parentUserIds.size > 0) {
+    const nairaFmt = new Intl.NumberFormat("en-NG", { style: "currency", currency: "NGN", maximumFractionDigits: 0 });
+    await notify({
+      userIds: Array.from(parentUserIds),
+      type: "FEE_CHARGED",
+      title: `New fees: ${structureName}`,
+      body: `Total ${nairaFmt.format(total)}${dueDate ? ` · due ${dueDate.toLocaleDateString("en-NG", { dateStyle: "medium" } as Intl.DateTimeFormatOptions)}` : ""}`,
+      href: "/portal/parent/fees",
+    }).catch(err => console.error("[fees] notify failed", err));
   }
 }

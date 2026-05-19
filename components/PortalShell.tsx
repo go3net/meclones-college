@@ -6,12 +6,13 @@ import { useRouter, usePathname } from "next/navigation";
 import { useSession, signOut } from "next-auth/react";
 import type { Role as MockRole } from "@/lib/mock-data";
 import { Logo } from "./Logo";
+import { NotificationsBell } from "./NotificationsBell";
 import clsx from "clsx";
 import {
   Home, Users, GraduationCap, BookOpen, Calendar, FileText, MessageCircle,
   CreditCard, Brain, Smartphone, Settings, LogOut, Menu, X, Bell, ChevronDown,
   CheckSquare, BookMarked, Banknote, TrendingUp, ClipboardList, Megaphone,
-  UserCircle2, ShieldCheck, KeyRound, Trophy,
+  UserCircle2, ShieldCheck, KeyRound, Trophy, ScrollText,
 } from "lucide-react";
 
 interface NavItem { href: string; label: string; icon: any; }
@@ -49,6 +50,7 @@ const NAV_BY_ROLE: Record<MockRole, NavItem[]> = {
     { href: "/portal/admin/library", label: "Library", icon: BookOpen },
     { href: "/portal/director/permissions", label: "Permissions", icon: ShieldCheck },
     { href: "/portal/director/sessions", label: "Sessions", icon: Calendar },
+    { href: "/portal/director/audit", label: "Audit Log", icon: ScrollText },
     { href: "/portal/whatsapp", label: "WhatsApp Logs", icon: Smartphone },
     { href: "/portal/director/settings", label: "Settings", icon: Settings },
   ],
@@ -187,10 +189,7 @@ export function PortalShell({ role, children }: { role: MockRole; children: Reac
             <p className="text-xs text-slate-500">Portal · {roleLabel[effectiveRole]}</p>
           </div>
           <div className="flex items-center gap-3">
-            <button className="relative p-2 rounded-lg hover:bg-slate-100">
-              <Bell className="h-5 w-5 text-slate-600" />
-              <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-red-500 ring-2 ring-white"></span>
-            </button>
+            <NotificationsBell />
             <div className="relative">
               <button onClick={() => setMenuOpen(!menuOpen)} className="flex items-center gap-2 p-1 pr-2 hover:bg-slate-100 rounded-lg">
                 <div className="relative h-8 w-8 rounded-full bg-brand-100 text-brand-700 flex items-center justify-center text-xs font-semibold overflow-hidden">

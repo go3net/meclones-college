@@ -5,6 +5,8 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { requireRole, getSessionUser } from "@/lib/auth-helpers";
+import { auditLog } from "@/lib/audit";
+import { notify } from "@/lib/notify";
 
 /**
  * Close the current active session and open a new one.
@@ -77,6 +79,21 @@ export async function rotateSession(formData: FormData) {
       },
     });
   });
+
+  // Audit + bell-notify everyone that a new session started.
+  auditLog({
+    action: "session.rotate",
+    targetType: "AcademicSession",
+    metadata: { newSessionName: d.newSessionName, startDate: d.startDate, endDate: d.endDate },
+  });
+  const allUsers = await prisma.user.findMany({ where: { isActive: true }, select: { id: true } });
+  notify({
+    userIds: allUsers.map(u => u.id),
+    type: "ANNOUNCEMENT",
+    title: `New academic session: ${d.newSessionName}`,
+    body: `Term 1 is now active. Previous session records remain accessible in archives.`,
+    href: "/portal/me",
+  }).catch(err => console.error("[session.rotate] notify failed", err));
 
   revalidatePath("/portal/director/sessions");
   revalidatePath("/portal/director");

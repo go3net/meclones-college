@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/auth-helpers";
+import { auditLog } from "@/lib/audit";
 
 /** Toggle a single permission flag for a target admin user. */
 export async function setPermission(formData: FormData) {
@@ -27,6 +28,13 @@ export async function setPermission(formData: FormData) {
       userId,
       [key]: value,
     },
+  });
+
+  auditLog({
+    action: value ? "permission.grant" : "permission.revoke",
+    targetType: "User",
+    targetId: userId,
+    metadata: { permission: key, granted: value },
   });
 
   revalidatePath("/portal/director/permissions");

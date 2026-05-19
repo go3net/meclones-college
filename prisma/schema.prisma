@@ -52,11 +52,71 @@ model User {
   bookRequests     BookRequest[]    @relation("BookRequester")
   bookApprovals    BookRequest[]    @relation("BookApprover")
   awardsIssued     Award[]          @relation("AwardedBy")
+  notifications    Notification[]   @relation("UserNotifications")
+  auditLogs        AuditLog[]       @relation("AuditActor")
 
   createdAt        DateTime         @default(now())
   updatedAt        DateTime         @updatedAt
 
   @@index([role])
+}
+
+/// In-portal notifications fanned out when something the user cares about
+/// happens (announcement, result publish, fee charge, complaint reply, etc.).
+/// Powers the bell icon in the portal shell.
+enum NotificationType {
+  ANNOUNCEMENT
+  RESULT_PUBLISHED
+  FEE_CHARGED
+  PAYMENT_RECEIVED
+  COMPLAINT_REPLIED
+  ADMISSION_UPDATE
+  WHATSAPP_INCOMING
+  GENERIC
+}
+
+model Notification {
+  id        String  @id @default(cuid())
+  user      User    @relation("UserNotifications", fields: [userId], references: [id], onDelete: Cascade)
+  userId    String
+  type      NotificationType @default(GENERIC)
+  title     String
+  body      String  @db.Text
+  /// Optional deep link to the related entity (e.g. /portal/parent/results).
+  href      String?
+  isRead    Boolean @default(false)
+  readAt    DateTime?
+
+  createdAt DateTime @default(now())
+
+  @@index([userId, isRead, createdAt])
+}
+
+/// Immutable trail of sensitive actions for accountability/compliance.
+/// Never updated after insert — only appended and read.
+model AuditLog {
+  id          String   @id @default(cuid())
+  /// User who performed the action. Null only if action is system-driven.
+  actor       User?    @relation("AuditActor", fields: [actorId], references: [id])
+  actorId     String?
+  /// Short verb-style action identifier, e.g. "user.password_reset",
+  /// "result.publish", "fee.charge", "session.rotate".
+  action      String
+  /// Optional target reference — e.g. targetType="User", targetId="cuid…".
+  targetType  String?
+  targetId    String?
+  /// Free-form metadata (request body, IP, before/after snapshots, etc.).
+  metadata    Json?
+  /// Snapshot of actor info in case the actor user gets deleted.
+  actorName   String?
+  actorEmail  String?
+  actorRole   String?
+
+  createdAt DateTime @default(now())
+
+  @@index([action, createdAt])
+  @@index([actorId, createdAt])
+  @@index([targetType, targetId])
 }
 
 /// One-time tokens for password reset. Tokens are randomly generated,

@@ -5,6 +5,8 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { getSessionUser, requireRole } from "@/lib/auth-helpers";
 import { sendComplaintRepliedEmail } from "@/lib/resend";
+import { notify } from "@/lib/notify";
+import { auditLog } from "@/lib/audit";
 import { SCHOOL } from "@/lib/constants";
 
 export async function setComplaintStatus(formData: FormData) {
@@ -47,7 +49,26 @@ export async function setComplaintStatus(formData: FormData) {
         portalUrl: `${siteUrl}/portal/parent/complaints`,
       }).catch(err => console.error("[complaints] email failed", err));
     }
+
+    // In-portal bell ping for the author if they still have an active account.
+    if (updated.authorId) {
+      notify({
+        userIds: [updated.authorId],
+        type: "COMPLAINT_REPLIED",
+        title: "Your complaint has been resolved",
+        body: `"${updated.subject}" — ${resolutionNote}`,
+        href: "/portal/parent/complaints",
+      }).catch(err => console.error("[complaints] notify failed", err));
+    }
   }
+
+  // Audit
+  auditLog({
+    action: `complaint.status.${status.toLowerCase()}`,
+    targetType: "Complaint",
+    targetId: id,
+    metadata: { status, hasResolution: !!resolutionNote },
+  });
 
   revalidatePath("/portal/admin/complaints");
   revalidatePath("/portal/parent/complaints");
