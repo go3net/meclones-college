@@ -110,3 +110,58 @@ export async function sendContactInquiry(input: {
   }
   return c.emails.send({ from: FROM, to, subject, html, replyTo: input.email });
 }
+
+const naira = new Intl.NumberFormat("en-NG", { style: "currency", currency: "NGN", maximumFractionDigits: 0 });
+const dateF = new Intl.DateTimeFormat("en-NG", { dateStyle: "medium", timeStyle: "short" });
+
+export async function sendPaymentReceipt(input: {
+  to: string | string[];
+  studentName: string;
+  feeType: string;
+  amountPaid: number;
+  newBalance: number;
+  reference: string;
+  channel: string;
+  paidAt: Date;
+  paymentId: string;
+}) {
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? SCHOOL.website;
+  const receiptUrl = `${siteUrl.replace(/\/$/, "")}/portal/parent/fees/receipt/${input.paymentId}`;
+  const subject = `${SCHOOL.shortName} — Payment receipt for ${input.studentName} (${naira.format(input.amountPaid)})`;
+  const html = `
+    <div style="font-family: Inter, Arial, sans-serif; color:#1a2c5a; max-width:560px; margin:0 auto; padding:24px;">
+      <div style="border-bottom:3px solid #0B1F4B; padding-bottom:12px; margin-bottom:20px;">
+        <h2 style="color:#0B1F4B; font-family: Georgia, serif; margin:0;">${SCHOOL.name}</h2>
+        <p style="font-size:12px; color:#5e3e17; font-weight:600; margin:4px 0 0;">${SCHOOL.tagline}</p>
+      </div>
+
+      <h3 style="color:#0B1F4B; font-family: Georgia, serif;">Payment received — thank you!</h3>
+      <p>We've received your payment for <strong>${input.studentName}</strong>.</p>
+
+      <table style="width:100%; border-collapse:collapse; margin:20px 0; font-size:14px;">
+        <tr><td style="padding:8px 0; color:#64748b;">Fee item</td><td style="text-align:right; font-weight:600;">${input.feeType}</td></tr>
+        <tr><td style="padding:8px 0; color:#64748b;">Amount paid</td><td style="text-align:right; font-weight:600; color:#047857;">${naira.format(input.amountPaid)}</td></tr>
+        <tr><td style="padding:8px 0; color:#64748b;">Balance remaining</td><td style="text-align:right; font-weight:600;">${naira.format(input.newBalance)}</td></tr>
+        <tr><td style="padding:8px 0; color:#64748b;">Reference</td><td style="text-align:right; font-family:monospace;">${input.reference}</td></tr>
+        <tr><td style="padding:8px 0; color:#64748b;">Channel</td><td style="text-align:right;">${input.channel}</td></tr>
+        <tr><td style="padding:8px 0; color:#64748b;">Paid on</td><td style="text-align:right;">${dateF.format(input.paidAt)}</td></tr>
+      </table>
+
+      <p style="margin:24px 0;">
+        <a href="${receiptUrl}" style="display:inline-block; background:#D4A017; color:#0B1F4B; padding:10px 20px; border-radius:6px; text-decoration:none; font-weight:600;">View / print receipt</a>
+      </p>
+
+      <hr style="border:none; border-top:1px solid #e5e7eb; margin:24px 0;" />
+      <p style="font-size:12px; color:#64748b;">
+        ${SCHOOL.name}<br/>${SCHOOL.address}<br/>${SCHOOL.phone} · ${SCHOOL.email}
+      </p>
+    </div>
+  `;
+
+  const c = client();
+  if (!c) {
+    console.log("[resend stub] sendPaymentReceipt", { to: input.to, subject, reference: input.reference });
+    return { id: "stub" };
+  }
+  return c.emails.send({ from: FROM, to: input.to, subject, html });
+}

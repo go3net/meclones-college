@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { getCurrentStudent, getActiveContext } from "@/lib/auth-helpers";
 import { CreditCard, Wallet, AlertCircle, Phone } from "lucide-react";
 import { SCHOOL } from "@/lib/constants";
+import { PayNowButton } from "@/components/PayNowButton";
 
 export const dynamic = "force-dynamic";
 
@@ -69,21 +70,28 @@ export default async function StudentFeesPage() {
                     <th className="text-right px-4 py-2.5 font-medium">Balance</th>
                     <th className="text-left px-4 py-2.5 font-medium">Status</th>
                     <th className="text-left px-4 py-2.5 font-medium">Due</th>
+                    <th className="text-right px-4 py-2.5 font-medium">Action</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {fees.map(f => (
-                    <tr key={f.id} className="border-t border-slate-100 hover:bg-slate-50">
-                      <td className="px-4 py-2.5 font-medium text-slate-900">{f.feeType}</td>
-                      <td className="px-4 py-2.5 text-right text-slate-700">{nairaFmt.format(Number(f.amount))}</td>
-                      <td className="px-4 py-2.5 text-right text-emerald-700">{nairaFmt.format(Number(f.amountPaid))}</td>
-                      <td className="px-4 py-2.5 text-right font-medium text-slate-900">{nairaFmt.format(Number(f.balance))}</td>
-                      <td className="px-4 py-2.5">
-                        <Badge tone={feeTone[f.status] ?? "neutral"}>{f.status.toLowerCase()}</Badge>
-                      </td>
-                      <td className="px-4 py-2.5 text-slate-500 text-[12px]">{f.dueDate ? dateFmt.format(f.dueDate) : "—"}</td>
-                    </tr>
-                  ))}
+                  {fees.map(f => {
+                    const balance = Number(f.balance);
+                    return (
+                      <tr key={f.id} className="border-t border-slate-100 hover:bg-slate-50">
+                        <td className="px-4 py-2.5 font-medium text-slate-900">{f.feeType}</td>
+                        <td className="px-4 py-2.5 text-right text-slate-700">{nairaFmt.format(Number(f.amount))}</td>
+                        <td className="px-4 py-2.5 text-right text-emerald-700">{nairaFmt.format(Number(f.amountPaid))}</td>
+                        <td className="px-4 py-2.5 text-right font-medium text-slate-900">{nairaFmt.format(balance)}</td>
+                        <td className="px-4 py-2.5">
+                          <Badge tone={feeTone[f.status] ?? "neutral"}>{f.status.toLowerCase()}</Badge>
+                        </td>
+                        <td className="px-4 py-2.5 text-slate-500 text-[12px]">{f.dueDate ? dateFmt.format(f.dueDate) : "—"}</td>
+                        <td className="px-4 py-2.5 text-right">
+                          <PayNowButton feeId={f.id} defaultAmount={balance} maxAmount={balance} enabled={balance > 0} />
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
                 <tfoot>
                   <tr className="bg-slate-50 border-t border-slate-200 font-semibold">
@@ -91,7 +99,7 @@ export default async function StudentFeesPage() {
                     <td className="px-4 py-2.5 text-right">{nairaFmt.format(totals.billed)}</td>
                     <td className="px-4 py-2.5 text-right text-emerald-700">{nairaFmt.format(totals.paid)}</td>
                     <td className="px-4 py-2.5 text-right">{nairaFmt.format(totals.balance)}</td>
-                    <td colSpan={2} />
+                    <td colSpan={3} />
                   </tr>
                 </tfoot>
               </table>

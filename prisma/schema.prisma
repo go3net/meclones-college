@@ -372,10 +372,54 @@ model Fee {
   status    FeeStatus @default(UNPAID)
   dueDate   DateTime?
 
+  payments  Payment[]
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([studentId, termId])
+}
+
+/// One row per payment attempt against a Fee — Paystack success/failure
+/// and manual cash/transfer entries all live here. Gives the school a full
+/// audit trail and powers receipt printing.
+enum PaymentMethod {
+  PAYSTACK
+  CASH
+  TRANSFER
+  CHEQUE
+  POS
+  OTHER
+}
+
+enum PaymentStatus {
+  PENDING
+  SUCCESS
+  FAILED
+  REFUNDED
+}
+
+model Payment {
+  id          String   @id @default(cuid())
+  fee         Fee      @relation(fields: [feeId], references: [id], onDelete: Cascade)
+  feeId       String
+  amount      Decimal  @db.Decimal(12, 2)
+  reference   String   @unique
+  method      PaymentMethod @default(PAYSTACK)
+  status      PaymentStatus @default(PENDING)
+  channel     String?  // card / bank / ussd / etc — from Paystack response
+  paidAt      DateTime?
+  /// Raw Paystack payload, kept for forensic checks later.
+  rawPayload  Json?
+  /// Admin/Accountant who recorded a manual payment. Null for self-service.
+  createdById String?
+  notes       String?  @db.Text
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([feeId])
+  @@index([status, createdAt])
 }
 
 // ============================================================
