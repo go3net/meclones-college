@@ -55,6 +55,7 @@ model User {
   notifications    Notification[]   @relation("UserNotifications")
   auditLogs        AuditLog[]       @relation("AuditActor")
   studentNotes     StudentNote[]    @relation("StudentNoteAuthor")
+  messages         Message[]        @relation("MessageAuthor")
 
   createdAt        DateTime         @default(now())
   updatedAt        DateTime         @updatedAt
@@ -191,6 +192,7 @@ model Student {
   notes          StudentNote[]
   parentLinks    ParentStudent[]
   whatsappSessions WhatsAppSession[]
+  messageThreads MessageThread[] @relation("ThreadStudent")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -246,7 +248,8 @@ model Parent {
   userId  String   @unique
   whatsappOptIn Boolean @default(false)
 
-  children ParentStudent[]
+  children       ParentStudent[]
+  messageThreads MessageThread[] @relation("ThreadParent")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -279,6 +282,7 @@ model Teacher {
   results        Result[]   @relation("ResultAuthor")
   attendance     Attendance[] @relation("AttendanceMarker")
   timetableEntries TimetableEntry[] @relation("TimetableTeacher")
+  messageThreads MessageThread[] @relation("ThreadTeacher")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -312,6 +316,46 @@ model Class {
   updatedAt DateTime @updatedAt
 
   @@unique([name, arm])
+}
+
+/// A 2-way conversation between one Parent and one Teacher, optionally
+/// scoped to a Student (so e.g. a teacher can have separate threads about
+/// two siblings with the same parent).
+model MessageThread {
+  id        String   @id @default(cuid())
+  parent    Parent   @relation("ThreadParent", fields: [parentId], references: [id], onDelete: Cascade)
+  parentId  String
+  teacher   Teacher  @relation("ThreadTeacher", fields: [teacherId], references: [id], onDelete: Cascade)
+  teacherId String
+  student   Student? @relation("ThreadStudent", fields: [studentId], references: [id])
+  studentId String?
+  subject   String
+  /// Denormalised for cheap inbox sorting / "latest" preview.
+  lastMessageAt DateTime @default(now())
+  /// Per-side unread counters; incremented by sendMessage based on author.
+  parentUnread  Int @default(0)
+  teacherUnread Int @default(0)
+
+  messages  Message[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([parentId, lastMessageAt])
+  @@index([teacherId, lastMessageAt])
+}
+
+model Message {
+  id        String @id @default(cuid())
+  thread    MessageThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  threadId  String
+  author    User   @relation("MessageAuthor", fields: [authorId], references: [id])
+  authorId  String
+  body      String @db.Text
+
+  createdAt DateTime @default(now())
+
+  @@index([threadId, createdAt])
 }
 
 enum DayOfWeek {
