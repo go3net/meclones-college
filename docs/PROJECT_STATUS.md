@@ -1,7 +1,7 @@
 # Meclones College Lekki — Project Status
 
 > **Read this first** when picking up the project in a fresh Claude session.
-> Updated through commit `83629b1` (2026-05).
+> Updated through commit `718cbbd` (2026-05-21).
 
 ---
 
@@ -264,14 +264,43 @@ External Paystack dashboard config:
 
 ### Notifications & audit
 - Real bell with unread count + dropdown + relative timestamps + poll every 60s
-- Auto-notify on: announcement publish, result publish, complaint resolve, fee structure apply, Paystack payment success
-- Audit log catches: password resets, activate/deactivate, session rotation, permission grant/revoke, announcement publish/delete, result publish/unpublish, complaint status changes, bulk student imports, student-note create/delete
+- Auto-notify on: announcement publish, result publish, complaint resolve, fee structure apply, Paystack payment success, **new message**, **class promotion**, **parent-visible student note**
+- Audit log catches: password resets, activate/deactivate, session rotation, permission grant/revoke, announcement publish/delete, result publish/unpublish, complaint status changes, bulk student imports, student-note create/delete, **promotions**, **class moves**, **graduation/restore**
 
 ### Payments
 - Paystack init/callback/webhook fully wired
 - Receipt page at `/portal/parent/fees/receipt/[id]` (printable)
 - Receipt email via Resend on success
 - Idempotent: webhook + callback both safely apply
+
+### Timetable (shipped after first doc revision)
+- `TimetableEntry` model: classId × day × period (1–8) with subject + teacher + optional time/room/note. Unique on (classId, day, period).
+- **Admin builder** at `/portal/admin/timetable` — class picker → inline editable grid per cell (subject + teacher dropdown). Period defaults configured in `components/TimetableGrid.tsx` (DEFAULT_PERIOD_TIMES).
+- **Student** sees their class's grid at `/portal/student/timetable`
+- **Parent** sees per-child grid at `/portal/parent/timetable`
+- **Teacher** sees their own teaching schedule across all classes at `/portal/teacher/timetable` (cells coloured + class badge per period)
+
+### Class promotion & graduation (shipped after first doc revision)
+- `Student.graduatedAt` field — set when student passes SS 3 / leaves. Graduated students hide from active student lists but keep full history.
+- `/portal/director/promotions`:
+  - Preview table: every non-empty class → target class (same arm, name+1). SS 3 → "Graduate". Missing target classes flag as warnings and skip rather than fail.
+  - "Run promotion" confirmation gate (type PROMOTE)
+  - Recent graduates table with inline "Restore to…" dropdown to undo
+- Server actions in `actions.ts`: `promoteAllStudents`, `moveSingleStudent`, `ungraduateStudent`
+- `lib/promotion.ts` exports `nextLevelName()` (sync helper, importable from server components)
+
+### Parent ↔ Teacher messaging (shipped after first doc revision)
+- `MessageThread` (parent + teacher + optional student scope) + `Message` (author + body). Denormalised `lastMessageAt` + per-side unread counters for cheap inbox sorting.
+- Server actions in `app/portal/messages/actions.ts`:
+  - `startThreadAsParent` — parent picks teacher (filtered to teachers of their children's classes only)
+  - `sendReply` — either side replies; increments other side's unread
+  - `markThreadRead` — zero out caller's unread when they open thread
+- Parent inbox at `/portal/parent/messages` · `/new` · `/[id]`
+- Teacher inbox at `/portal/teacher/messages` · `/[id]`
+- Shared `<ThreadView>` component (speech-bubble layout, own messages right-aligned)
+- Bell notification fires on every new message + reply
+- "Messages" added to both parent and teacher sidebars
+- ⚠️ Teacher cannot initiate a thread yet (small TODO — would be ~10 LOC)
 
 ---
 
@@ -282,19 +311,24 @@ External Paystack dashboard config:
 - **Result slip PDF as actual PDF** — currently we use browser print → save as PDF. Real PDF generation (e.g. via @react-pdf/renderer) would let us email PDFs as attachments and store them.
 
 ### 🟡 Important next
-- **Timetable** — no schema, no UI yet. Standard expectation.
-- **Class promotion** at session rotation — JSS1A → JSS2A bulk move. Currently students stay on their old class through a rotation.
-- **Disciplinary records** — `StudentNote` with category=BEHAVIOUR is close, but a dedicated record could include sanctions, parent acknowledgement, etc.
-- **Parent-teacher direct messaging** — currently parents file complaints to the admin office; no direct line to a specific teacher.
-- **Health / medical records** — emergency contacts, allergies. New model.
+- **Health / medical records** — emergency contacts, allergies, blood group. New model.
+- **Disciplinary records (formal)** — `StudentNote` with category=BEHAVIOUR is close, but a dedicated `Disciplinary` record could include sanctions, parent acknowledgement, etc.
+- **Teacher-initiated messages** — currently only parent can start a thread (~10 LOC away).
+- **File attachments in messages** — currently text-only.
+- **Class teacher daily roster** — quick form-teacher view of their class for the day.
 - **Email Resend** — wire `RESEND_API_KEY` on Railway so the notification emails actually deliver (currently logging to stdout).
 
 ### 🟢 Polish
 - Notifications: persistence is solid but polling is 60s; could upgrade to Server-Sent Events.
 - Make session cookie reflect new profile photo without re-login (JWT refresh on update).
-- Real photo upload for awards (currently just the student's existing photo).
 - Mobile sidebar UX (lots of items, gets long).
 - Per-page loading skeletons.
+- Global search bar.
+- Read receipts for messages.
+- Notification preferences (parent opts in/out per type).
+- 2FA for admin accounts.
+- Backup / restore tooling.
+- Multi-language UI (Yoruba / Igbo / Hausa).
 
 ---
 
