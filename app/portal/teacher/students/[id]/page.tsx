@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { PortalShell } from "@/components/PortalShell";
 import { Card, CardBody, CardHeader, CardTitle, Badge, StatCard, Button, Textarea, Label, Select } from "@/components/ui";
+import { HealthCard } from "@/components/HealthCard";
 import { prisma } from "@/lib/prisma";
 import { getCurrentTeacher, getActiveContext } from "@/lib/auth-helpers";
 import { createStudentNote, deleteStudentNote } from "./actions";
@@ -52,6 +53,7 @@ export default async function TeacherStudentDetailPage({ params, searchParams }:
       user: { select: { name: true, email: true, phone: true, image: true } },
       classRef: true,
       parentLinks: { include: { parent: { include: { user: { select: { name: true, email: true, phone: true } } } } } },
+      healthRecord: true,
     },
   });
   if (!student) notFound();
@@ -222,6 +224,14 @@ export default async function TeacherStudentDetailPage({ params, searchParams }:
             )}
           </CardBody>
         </Card>
+      </div>
+
+      {/* Health & medical */}
+      <div className="mb-6">
+        <HealthCard
+          record={student.healthRecord}
+          emptyHint="Ask the school office to capture this — important for emergencies."
+        />
       </div>
 
       {/* Current term results */}

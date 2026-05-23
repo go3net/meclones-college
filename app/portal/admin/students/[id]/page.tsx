@@ -1,10 +1,11 @@
 import Link from "next/link";
 import { PortalShell } from "@/components/PortalShell";
 import { Card, CardBody, CardHeader, CardTitle, Badge, StatCard } from "@/components/ui";
+import { HealthCard } from "@/components/HealthCard";
 import { prisma } from "@/lib/prisma";
 import { requireRole, getActiveContext } from "@/lib/auth-helpers";
 import {
-  User, FileText, CalendarCheck, Wallet, Trophy, Mail, Phone, Home, ArrowLeft, Edit,
+  User, FileText, CalendarCheck, Wallet, Trophy, Mail, Phone, Home, ArrowLeft, Edit, HeartPulse,
 } from "lucide-react";
 import { notFound } from "next/navigation";
 
@@ -32,6 +33,7 @@ export default async function StudentDetailPage({ params }: { params: { id: stri
       parentLinks: {
         include: { parent: { include: { user: { select: { name: true, email: true, phone: true } } } } },
       },
+      healthRecord: true,
     },
   });
 
@@ -102,9 +104,14 @@ export default async function StudentDetailPage({ params }: { params: { id: stri
             </p>
           </div>
         </div>
-        <Link href={`/portal/admin/students/${student.id}/edit`} className="inline-flex items-center gap-2 bg-brand-700 hover:bg-brand-800 text-white text-sm font-medium px-4 py-2 rounded-lg">
-          <Edit className="h-4 w-4" /> Edit
-        </Link>
+        <div className="flex items-center gap-2">
+          <Link href={`/portal/admin/students/${student.id}/health`} className="inline-flex items-center gap-2 bg-rose-50 hover:bg-rose-100 text-rose-700 text-sm font-medium px-4 py-2 rounded-lg border border-rose-200">
+            <HeartPulse className="h-4 w-4" /> Health
+          </Link>
+          <Link href={`/portal/admin/students/${student.id}/edit`} className="inline-flex items-center gap-2 bg-brand-700 hover:bg-brand-800 text-white text-sm font-medium px-4 py-2 rounded-lg">
+            <Edit className="h-4 w-4" /> Edit
+          </Link>
+        </div>
       </div>
 
       <div className="grid lg:grid-cols-3 gap-6 mb-6">
@@ -249,6 +256,15 @@ export default async function StudentDetailPage({ params }: { params: { id: stri
             )}
           </CardBody>
         </Card>
+      </div>
+
+      {/* Health & medical */}
+      <div className="mt-6">
+        <HealthCard
+          record={student.healthRecord}
+          emptyHint="No health record on file yet — click the Health button above to capture one."
+          editHref={`/portal/admin/students/${student.id}/health`}
+        />
       </div>
 
       {/* Attendance log */}

@@ -193,11 +193,78 @@ model Student {
   parentLinks    ParentStudent[]
   whatsappSessions WhatsAppSession[]
   messageThreads MessageThread[] @relation("ThreadStudent")
+  healthRecord   HealthRecord?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([classId])
+}
+
+enum BloodGroup {
+  A_POSITIVE
+  A_NEGATIVE
+  B_POSITIVE
+  B_NEGATIVE
+  AB_POSITIVE
+  AB_NEGATIVE
+  O_POSITIVE
+  O_NEGATIVE
+  UNKNOWN
+}
+
+enum Genotype {
+  AA
+  AS
+  AC
+  SS
+  SC
+  CC
+  UNKNOWN
+}
+
+/// One-to-one with Student. Captures clinically-relevant info the school
+/// office or sickbay needs in a hurry — blood group, allergies, chronic
+/// conditions, medications, emergency contact. Admin / director / super-admin
+/// can edit; teachers + linked parents see a read-only view. Changes go to
+/// the audit log because health data is sensitive.
+model HealthRecord {
+  id                       String    @id @default(cuid())
+  student                  Student   @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  studentId                String    @unique
+
+  bloodGroup               BloodGroup  @default(UNKNOWN)
+  genotype                 Genotype    @default(UNKNOWN)
+  allergies                String?     @db.Text
+  chronicConditions        String?     @db.Text
+  currentMedications       String?     @db.Text
+  immunisationNotes        String?     @db.Text
+  dietaryRestrictions      String?     @db.Text
+
+  /// Height in cm.
+  heightCm                 Float?
+  /// Weight in kg.
+  weightKg                 Float?
+
+  emergencyContactName     String?
+  emergencyContactPhone    String?
+  emergencyContactRelation String?
+
+  doctorName               String?
+  doctorPhone              String?
+  preferredHospital        String?
+  insuranceProvider        String?
+  insurancePolicyNumber    String?
+
+  lastCheckup              DateTime?
+  notes                    String?     @db.Text
+
+  /// Snapshot of the user who last touched this record.
+  lastUpdatedBy            String?
+  lastUpdatedById          String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 enum StudentNoteCategory {
