@@ -79,6 +79,7 @@ const NAV_BY_ROLE: Record<MockRole, NavItem[]> = {
   ],
   teacher: [
     { href: "/portal/teacher", label: "Dashboard", icon: Home },
+    { href: "/portal/teacher/roster", label: "Homeroom", icon: Users },
     { href: "/portal/teacher/classes", label: "My Classes", icon: Users },
     { href: "/portal/teacher/timetable", label: "Schedule", icon: Calendar },
     { href: "/portal/teacher/attendance", label: "Attendance", icon: CheckSquare },
