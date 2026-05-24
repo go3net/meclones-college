@@ -207,6 +207,10 @@ export async function sendResultsPublishedEmail(input: {
   termLabel: string;
   classLabel: string;
   resultUrl: string;
+  /** Optional PDF buffer to attach as the result slip. */
+  pdfBuffer?: Buffer;
+  /** Filename for the PDF attachment, e.g. "Yusuf_Bello_FirstTerm.pdf". */
+  pdfFilename?: string;
 }) {
   const subject = `${SCHOOL.shortName} — ${input.studentName}'s ${input.termLabel} results are out`;
   const html = `
@@ -224,10 +228,18 @@ export async function sendResultsPublishedEmail(input: {
   `;
   const c = client();
   if (!c) {
-    console.log("[resend stub] sendResultsPublishedEmail", { to: input.to, student: input.studentName });
+    console.log("[resend stub] sendResultsPublishedEmail", { to: input.to, student: input.studentName, hasPdf: !!input.pdfBuffer });
     return { id: "stub" };
   }
-  return c.emails.send({ from: FROM, to: input.to, subject, html });
+  return c.emails.send({
+    from: FROM,
+    to: input.to,
+    subject,
+    html,
+    ...(input.pdfBuffer && input.pdfFilename
+      ? { attachments: [{ filename: input.pdfFilename, content: input.pdfBuffer }] }
+      : {}),
+  });
 }
 
 export async function sendComplaintRepliedEmail(input: {

@@ -101,7 +101,17 @@ export default async function ResultSlipPage({ params, searchParams }: Props) {
           <Link href="/portal/me" className="inline-flex items-center gap-2 text-sm text-slate-600 hover:text-brand-700">
             <ArrowLeft className="h-4 w-4" /> Back to portal
           </Link>
-          <PrintButton />
+          <div className="flex items-center gap-2">
+            <a
+              href={`/api/results/${student.id}/slip.pdf?termId=${term.id}`}
+              target="_blank"
+              rel="noreferrer noopener"
+              className="inline-flex items-center gap-2 bg-brand-700 hover:bg-brand-800 text-white text-sm font-medium px-4 py-1.5 rounded-lg"
+            >
+              Download PDF
+            </a>
+            <PrintButton />
+          </div>
         </div>
       </div>
 

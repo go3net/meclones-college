@@ -8,6 +8,10 @@ import { sendResultsPublishedEmail } from "@/lib/resend";
 import { notify } from "@/lib/notify";
 import { auditLog } from "@/lib/audit";
 import { SCHOOL } from "@/lib/constants";
+import { loadResultSlipData } from "@/lib/result-slip-data";
+import { renderToBuffer } from "@react-pdf/renderer";
+import { ResultSlipPdf } from "@/components/ResultSlipPdf";
+import { createElement } from "react";
 
 /**
  * Publish (or unpublish) all results for a (class × subject × term) batch.
@@ -116,6 +120,22 @@ async function notifyResultsPublished(studentIds: string[], termId: string) {
   for (const s of students) {
     const classLabel = s.classRef ? `${s.classRef.name}${s.classRef.arm}` : "—";
 
+    // Render the PDF once per student and reuse it across all recipients
+    // (parents + the student themselves). If rendering fails, send the
+    // email without the attachment rather than skipping it.
+    let pdfBuffer: Buffer | undefined;
+    let pdfFilename: string | undefined;
+    try {
+      const data = await loadResultSlipData(s.id, term.id);
+      if (data) {
+        pdfBuffer = await renderToBuffer(createElement(ResultSlipPdf, { data }));
+        const safe = s.user.name.replace(/[^a-zA-Z0-9_-]/g, "_");
+        pdfFilename = `${safe}_${data.term.label.replace(/\s+/g, "")}_${data.term.sessionName.replace(/\//g, "-")}.pdf`;
+      }
+    } catch (err) {
+      console.error("[results] PDF render failed for", s.id, err);
+    }
+
     // Email each linked parent.
     for (const link of s.parentLinks) {
       const parent = link.parent;
@@ -128,6 +148,8 @@ async function notifyResultsPublished(studentIds: string[], termId: string) {
           termLabel,
           classLabel,
           resultUrl: `${siteUrl}/portal/results/${s.id}/slip?termId=${term.id}`,
+          pdfBuffer,
+          pdfFilename,
         });
       } catch (err) {
         console.error("[results] parent email failed", parent.user.email, err);
@@ -144,6 +166,8 @@ async function notifyResultsPublished(studentIds: string[], termId: string) {
           termLabel,
           classLabel,
           resultUrl: `${siteUrl}/portal/results/${s.id}/slip?termId=${term.id}`,
+          pdfBuffer,
+          pdfFilename,
         });
       } catch (err) {
         console.error("[results] student email failed", s.user.email, err);
