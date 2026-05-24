@@ -3,7 +3,7 @@ import { PortalShell } from "@/components/PortalShell";
 import { Card, CardBody, CardHeader, CardTitle } from "@/components/ui";
 import { prisma } from "@/lib/prisma";
 import { getCurrentTeacher } from "@/lib/auth-helpers";
-import { MessageSquare } from "lucide-react";
+import { MessageSquare, Plus } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
@@ -27,12 +27,20 @@ export default async function TeacherMessagesPage() {
 
   return (
     <PortalShell role="teacher">
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-brand-900">Messages</h1>
-        <p className="text-sm text-slate-500">
-          {threads.length} conversation{threads.length === 1 ? "" : "s"} with parents
-          {unreadTotal > 0 && <> · <strong className="text-rose-700">{unreadTotal} unread</strong></>}
-        </p>
+      <div className="mb-6 flex items-start justify-between gap-3 flex-wrap">
+        <div>
+          <h1 className="text-2xl font-bold text-brand-900">Messages</h1>
+          <p className="text-sm text-slate-500">
+            {threads.length} conversation{threads.length === 1 ? "" : "s"} with parents
+            {unreadTotal > 0 && <> · <strong className="text-rose-700">{unreadTotal} unread</strong></>}
+          </p>
+        </div>
+        <Link
+          href="/portal/teacher/messages/new"
+          className="inline-flex items-center gap-2 bg-gold-500 hover:bg-gold-600 text-brand-900 text-sm font-semibold px-4 py-2 rounded-lg shadow-sm"
+        >
+          <Plus className="h-4 w-4" /> New message
+        </Link>
       </div>
 
       <Card>

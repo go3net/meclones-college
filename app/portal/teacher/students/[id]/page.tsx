@@ -8,7 +8,7 @@ import { getCurrentTeacher, getActiveContext } from "@/lib/auth-helpers";
 import { createStudentNote, deleteStudentNote } from "./actions";
 import {
   ArrowLeft, Phone, Mail, User as UserIcon, Trophy, CalendarCheck,
-  FileText, MessageSquarePlus, Trash2, AlertCircle, CheckCircle2,
+  FileText, MessageSquarePlus, Trash2, AlertCircle, CheckCircle2, Send,
 } from "lucide-react";
 
 export const dynamic = "force-dynamic";
@@ -198,6 +198,12 @@ export default async function TeacherStudentDetailPage({ params, searchParams }:
                     <a href={`https://wa.me/${link.parent.user.phone.replace(/\D/g, "")}`} target="_blank" rel="noreferrer noopener" className="text-emerald-600 hover:text-emerald-700">WhatsApp</a>
                   </div>
                 )}
+                <Link
+                  href={`/portal/teacher/messages/new?parent=${link.parent.id}&student=${student.id}`}
+                  className="mt-2 inline-flex items-center gap-1 text-[11px] font-semibold text-brand-700 hover:text-brand-900 bg-brand-50 hover:bg-brand-100 px-2 py-0.5 rounded"
+                >
+                  <Send className="h-3 w-3" /> Message in portal
+                </Link>
               </div>
             ))}
           </CardBody>

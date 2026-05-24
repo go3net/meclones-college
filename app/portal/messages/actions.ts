@@ -81,6 +81,116 @@ export async function startThreadAsParent(formData: FormData) {
   redirect(`/portal/parent/messages/${thread.id}`);
 }
 
+/**
+ * Teacher-initiated: open a new conversation with a parent of a student
+ * in one of this teacher's classes. Auth: must be TEACHER; the parent
+ * must have at least one child whose class the teacher teaches (either
+ * as form teacher or subject teacher). studentId is required so the
+ * thread is anchored to the right child.
+ */
+const TeacherNewThreadSchema = z.object({
+  parentId: z.string().min(1),
+  studentId: z.string().min(1),
+  subject: z.string().min(2, "Subject is required"),
+  body: z.string().min(2, "Write something"),
+});
+
+export async function startThreadAsTeacher(formData: FormData) {
+  const user = await getSessionUser();
+  if (!user || user.role !== "TEACHER") redirect("/portal/login");
+
+  // Form sends `recipientKey="<parentId>|<studentId>"` from a single select,
+  // OR explicit parentId/studentId pair (e.g. from a deep link). Accept either.
+  const raw = String(formData.get("recipientKey") ?? "");
+  let parentId = String(formData.get("parentId") ?? "");
+  let studentId = String(formData.get("studentId") ?? "");
+  if ((!parentId || !studentId) && raw.includes("|")) {
+    const [p, s] = raw.split("|");
+    parentId = parentId || p;
+    studentId = studentId || s;
+  }
+
+  const parsed = TeacherNewThreadSchema.safeParse({
+    parentId,
+    studentId,
+    subject: String(formData.get("subject") ?? "").trim(),
+    body: String(formData.get("body") ?? "").trim(),
+  });
+  if (!parsed.success) {
+    const msg = Object.values(parsed.error.flatten().fieldErrors).flat()[0] ?? "Invalid";
+    redirect(`/portal/teacher/messages/new?error=${encodeURIComponent(msg)}`);
+  }
+  const d = parsed.data;
+
+  const teacher = await prisma.teacher.findUnique({
+    where: { userId: user.id },
+    include: {
+      classTeacherOf: { select: { id: true } },
+      classes: { select: { classId: true } },
+    },
+  });
+  if (!teacher) redirect("/portal/login");
+
+  const allowedClassIds = new Set<string>([
+    ...teacher.classTeacherOf.map(c => c.id),
+    ...teacher.classes.map(c => c.classId),
+  ]);
+
+  // Authorise: studentId must belong to a class this teacher teaches, AND
+  // the parentId must be linked to that student.
+  const student = await prisma.student.findUnique({
+    where: { id: d.studentId },
+    select: {
+      classId: true,
+      user: { select: { name: true } },
+      parentLinks: { where: { parentId: d.parentId }, select: { id: true } },
+    },
+  });
+  if (!student) {
+    redirect("/portal/teacher/messages/new?error=" + encodeURIComponent("Student not found"));
+  }
+  if (!student!.classId || !allowedClassIds.has(student!.classId)) {
+    redirect("/portal/teacher/messages/new?error=" + encodeURIComponent("Not your class"));
+  }
+  if (student!.parentLinks.length === 0) {
+    redirect("/portal/teacher/messages/new?error=" + encodeURIComponent("That parent isn't linked to that child"));
+  }
+
+  const thread = await prisma.messageThread.create({
+    data: {
+      parentId: d.parentId,
+      teacherId: teacher.id,
+      studentId: d.studentId,
+      subject: d.subject,
+      lastMessageAt: new Date(),
+      parentUnread: 1, // initial message is unread for the parent
+    },
+  });
+
+  await prisma.message.create({
+    data: { threadId: thread.id, authorId: user.id, body: d.body },
+  });
+
+  // Bell-ping the parent.
+  const parent = await prisma.parent.findUnique({
+    where: { id: d.parentId },
+    select: { userId: true },
+  });
+  if (parent) {
+    notify({
+      userIds: [parent.userId],
+      type: "GENERIC",
+      title: `New message from ${user.name}`,
+      body: d.subject,
+      href: `/portal/parent/messages/${thread.id}`,
+    }).catch(err => console.error("[messages] notify failed", err));
+  }
+
+  revalidatePath("/portal/teacher/messages");
+  revalidatePath("/portal/parent/messages");
+  redirect(`/portal/teacher/messages/${thread.id}`);
+}
+
 const ReplySchema = z.object({
   threadId: z.string().min(1),
   body: z.string().min(1),
