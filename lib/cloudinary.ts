@@ -26,6 +26,43 @@ export async function uploadBase64(file: string, folder = "meclones") {
 }
 
 /**
+ * Upload a buffer to Cloudinary as a generic attachment (images or PDFs
+ * sent in messages, complaint evidence, etc.). Uses `resource_type: "auto"`
+ * so Cloudinary picks raw vs image based on the bytes. No transforms.
+ */
+export async function uploadAttachment(
+  buffer: Buffer,
+  filename: string,
+  opts?: { folder?: string },
+) {
+  if (!process.env.CLOUDINARY_CLOUD_NAME) {
+    console.log("[cloudinary stub] uploadAttachment");
+    return { secure_url: "", public_id: "" };
+  }
+  const c = getCloudinary();
+  const folder = opts?.folder ?? "meclones/attachments";
+  const safeName = filename.replace(/[^a-zA-Z0-9_.-]/g, "_").slice(0, 100);
+
+  return new Promise<{ secure_url: string; public_id: string }>((resolve, reject) => {
+    const stream = c.uploader.upload_stream(
+      {
+        folder,
+        resource_type: "auto",
+        // Preserve original filename in the public id so downloads have a sensible name.
+        use_filename: true,
+        filename_override: safeName,
+        unique_filename: true,
+      },
+      (err, result) => {
+        if (err || !result) return reject(err ?? new Error("Upload failed"));
+        resolve({ secure_url: result.secure_url, public_id: result.public_id });
+      },
+    );
+    stream.end(buffer);
+  });
+}
+
+/**
  * Upload a buffer of image bytes to Cloudinary as a profile photo. Uses
  * `image` resource type with face-centred 600×600 incoming transform.
  */

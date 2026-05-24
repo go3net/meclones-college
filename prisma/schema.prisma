@@ -510,6 +510,12 @@ model Message {
   authorId  String
   body      String @db.Text
 
+  /// Optional single attachment hosted on Cloudinary (image or PDF).
+  attachmentUrl  String?
+  attachmentName String?
+  attachmentMime String?
+  attachmentSize Int?
+
   createdAt DateTime @default(now())
 
   @@index([threadId, createdAt])

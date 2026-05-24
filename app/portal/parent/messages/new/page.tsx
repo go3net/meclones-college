@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { PortalShell } from "@/components/PortalShell";
 import { Card, CardBody, CardHeader, CardTitle, Button, Input, Label, Textarea, Select } from "@/components/ui";
+import { AttachmentPicker } from "@/components/AttachmentPicker";
 import { prisma } from "@/lib/prisma";
 import { getCurrentParentWithChildren } from "@/lib/auth-helpers";
 import { startThreadAsParent } from "../../../messages/actions";
@@ -89,6 +90,11 @@ export default async function NewParentMessagePage({ searchParams }: { searchPar
             <div>
               <Label>Message *</Label>
               <Textarea name="body" required minLength={2} rows={6} placeholder="Write your message…" />
+            </div>
+
+            <div>
+              <Label>Attachment</Label>
+              <AttachmentPicker namePrefix="attachment" />
             </div>
 
             <div className="flex justify-end gap-2 pt-2">

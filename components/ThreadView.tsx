@@ -1,5 +1,9 @@
+"use client";
+
+import { useRef } from "react";
 import { Card, CardBody, CardHeader, CardTitle, Badge, Button, Textarea } from "@/components/ui";
 import { sendReply } from "@/app/portal/messages/actions";
+import { AttachmentPicker, AttachmentChip } from "@/components/AttachmentPicker";
 import { Send } from "lucide-react";
 
 interface MessageItem {
@@ -8,6 +12,10 @@ interface MessageItem {
   body: string;
   createdAt: Date;
   authorName: string;
+  attachmentUrl: string | null;
+  attachmentName: string | null;
+  attachmentMime: string | null;
+  attachmentSize: number | null;
 }
 
 interface Props {
@@ -26,6 +34,8 @@ interface Props {
 const timeFmt = new Intl.DateTimeFormat("en-NG", { dateStyle: "medium", timeStyle: "short" });
 
 export function ThreadView({ threadId, subject, counterpartName, studentLabel, currentUserId, messages }: Props) {
+  const formRef = useRef<HTMLFormElement>(null);
+
   return (
     <Card className="flex flex-col" style={{ minHeight: "60vh" }}>
       <CardHeader>
@@ -50,7 +60,16 @@ export function ThreadView({ threadId, subject, counterpartName, studentLabel, c
                 ? "bg-brand-700 text-white rounded-br-sm"
                 : "bg-white border border-slate-200 text-slate-800 rounded-bl-sm"}`}
               >
-                <p className="whitespace-pre-wrap leading-relaxed">{m.body}</p>
+                {m.body && <p className="whitespace-pre-wrap leading-relaxed">{m.body}</p>}
+                {m.attachmentUrl && (
+                  <AttachmentChip
+                    url={m.attachmentUrl}
+                    name={m.attachmentName ?? "Attachment"}
+                    mime={m.attachmentMime}
+                    size={m.attachmentSize}
+                    mine={mine}
+                  />
+                )}
                 <p className={`text-[10px] mt-1 ${mine ? "text-brand-200" : "text-slate-400"}`}>
                   {mine ? "You" : m.authorName} · {timeFmt.format(m.createdAt)}
                 </p>
@@ -61,16 +80,25 @@ export function ThreadView({ threadId, subject, counterpartName, studentLabel, c
       </CardBody>
 
       <div className="border-t border-slate-100 bg-white p-3">
-        <form action={sendReply} className="flex items-end gap-2">
+        <form
+          ref={formRef}
+          action={async (fd: FormData) => {
+            await sendReply(fd);
+            formRef.current?.reset();
+          }}
+          className="space-y-2"
+        >
           <input type="hidden" name="threadId" value={threadId} />
-          <Textarea
-            name="body"
-            required
-            placeholder="Write a reply…"
-            className="flex-1 min-h-[44px] resize-none"
-            rows={2}
-          />
-          <Button type="submit" variant="gold"><Send className="h-4 w-4" /> Send</Button>
+          <div className="flex items-end gap-2">
+            <Textarea
+              name="body"
+              placeholder="Write a reply…"
+              className="flex-1 min-h-[44px] resize-none"
+              rows={2}
+            />
+            <Button type="submit" variant="gold"><Send className="h-4 w-4" /> Send</Button>
+          </div>
+          <AttachmentPicker namePrefix="attachment" compact />
         </form>
       </div>
     </Card>

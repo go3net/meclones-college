@@ -7,6 +7,20 @@ import { prisma } from "@/lib/prisma";
 import { getSessionUser } from "@/lib/auth-helpers";
 import { notify } from "@/lib/notify";
 
+function readAttachment(formData: FormData) {
+  const url = String(formData.get("attachmentUrl") ?? "").trim();
+  if (!url) return null;
+  return {
+    attachmentUrl: url,
+    attachmentName: String(formData.get("attachmentName") ?? "").trim() || null,
+    attachmentMime: String(formData.get("attachmentMime") ?? "").trim() || null,
+    attachmentSize: (() => {
+      const n = Number(formData.get("attachmentSize"));
+      return Number.isFinite(n) && n > 0 ? Math.floor(n) : null;
+    })(),
+  };
+}
+
 const NewThreadSchema = z.object({
   teacherId: z.string().min(1),
   studentId: z.string().optional().or(z.literal("")),
@@ -57,8 +71,9 @@ export async function startThreadAsParent(formData: FormData) {
     },
   });
 
+  const attachment = readAttachment(formData);
   await prisma.message.create({
-    data: { threadId: thread.id, authorId: user.id, body: d.body },
+    data: { threadId: thread.id, authorId: user.id, body: d.body, ...(attachment ?? {}) },
   });
 
   // Bell-ping the teacher.
@@ -167,8 +182,9 @@ export async function startThreadAsTeacher(formData: FormData) {
     },
   });
 
+  const teacherAttachment = readAttachment(formData);
   await prisma.message.create({
-    data: { threadId: thread.id, authorId: user.id, body: d.body },
+    data: { threadId: thread.id, authorId: user.id, body: d.body, ...(teacherAttachment ?? {}) },
   });
 
   // Bell-ping the parent.
@@ -191,27 +207,24 @@ export async function startThreadAsTeacher(formData: FormData) {
   redirect(`/portal/teacher/messages/${thread.id}`);
 }
 
-const ReplySchema = z.object({
-  threadId: z.string().min(1),
-  body: z.string().min(1),
-});
-
 /**
  * Reply on an existing thread. Auth: must be the parent or the teacher
- * of the thread (or an admin reading the thread).
+ * of the thread (or an admin reading the thread). At least one of body
+ * or attachment must be present.
  */
 export async function sendReply(formData: FormData) {
   const user = await getSessionUser();
   if (!user) redirect("/portal/login");
 
-  const parsed = ReplySchema.safeParse({
-    threadId: formData.get("threadId"),
-    body: String(formData.get("body") ?? "").trim(),
-  });
-  if (!parsed.success) return;
+  const threadId = String(formData.get("threadId") ?? "");
+  const body = String(formData.get("body") ?? "").trim();
+  const attachment = readAttachment(formData);
+
+  if (!threadId) return;
+  if (!body && !attachment) return; // Empty submit — silently ignore.
 
   const thread = await prisma.messageThread.findUnique({
-    where: { id: parsed.data.threadId },
+    where: { id: threadId },
     include: {
       parent: { select: { userId: true } },
       teacher: { select: { userId: true, user: { select: { name: true } } } },
@@ -222,7 +235,6 @@ export async function sendReply(formData: FormData) {
   const isParent = thread.parent.userId === user.id;
   const isTeacher = thread.teacher.userId === user.id;
   if (!isParent && !isTeacher) {
-    // Admin override allowed but they shouldn't typically be reply-ing
     if (!["ADMIN", "DIRECTOR", "SUPER_ADMIN"].includes(user.role)) return;
   }
 
@@ -230,7 +242,8 @@ export async function sendReply(formData: FormData) {
     data: {
       threadId: thread.id,
       authorId: user.id,
-      body: parsed.data.body,
+      body: body || (attachment ? `📎 ${attachment.attachmentName ?? "attachment"}` : ""),
+      ...(attachment ?? {}),
     },
   });
 
@@ -245,11 +258,12 @@ export async function sendReply(formData: FormData) {
 
   // Bell-ping the other side.
   const recipientUserId = isParent ? thread.teacher.userId : thread.parent.userId;
+  const previewSource = body || (attachment ? `📎 ${attachment.attachmentName ?? "attachment"}` : "");
   notify({
     userIds: [recipientUserId],
     type: "GENERIC",
     title: `New reply from ${user.name}`,
-    body: parsed.data.body.length > 160 ? parsed.data.body.slice(0, 157) + "..." : parsed.data.body,
+    body: previewSource.length > 160 ? previewSource.slice(0, 157) + "..." : previewSource,
     href: isParent ? `/portal/teacher/messages/${thread.id}` : `/portal/parent/messages/${thread.id}`,
   }).catch(err => console.error("[messages] notify failed", err));
 

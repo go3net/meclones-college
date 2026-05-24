@@ -53,6 +53,10 @@ export default async function TeacherThreadPage({ params }: Props) {
           authorName: m.author.name,
           body: m.body,
           createdAt: m.createdAt,
+          attachmentUrl: m.attachmentUrl,
+          attachmentName: m.attachmentName,
+          attachmentMime: m.attachmentMime,
+          attachmentSize: m.attachmentSize,
         }))}
       />
     </PortalShell>
