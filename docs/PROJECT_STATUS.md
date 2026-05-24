@@ -1,7 +1,7 @@
 # Meclones College Lekki — Project Status
 
 > **Read this first** when picking up the project in a fresh Claude session.
-> Updated through commit `718cbbd` (2026-05-21).
+> Updated through commit `d6984b4` (2026-05-24).
 
 ---
 
@@ -29,7 +29,7 @@
 | Media       | Cloudinary (server proxy upload at `/api/upload`) |
 | Payments    | Paystack (REST, no SDK)                       |
 | Email       | Resend                                        |
-| WhatsApp    | Manual deep-links + n8n REST endpoints (no Cloud API webhook yet) |
+| WhatsApp    | Both: in-Next.js Meta Cloud API bot AT `/api/whatsapp/meta` + n8n REST endpoints |
 | Hosting     | Railway                                       |
 
 ---
@@ -139,7 +139,7 @@ people            Student, Parent, ParentStudent, Teacher
 academic          Class, Subject, ClassSubject, SubjectTeacher,
                   ClassTeacher, AcademicSession, Term
 records           Result, Attendance, Fee, FeeStructure, Payment,
-                  StudentNote, Award
+                  StudentNote, Award, HealthRecord, DisciplinaryCase
 content           Announcement, GalleryImage, BlogPost
 admissions        Admission (from public website form)
 website           ContactMessage
@@ -153,7 +153,8 @@ Key enums: `Role`, `Gender`, `Level (JSS/SSS)`, `TermName (FIRST/SECOND/THIRD)`,
 `AttendanceStatus`, `FeeStatus`, `PaymentMethod/Status`, `AnnouncementAudience`,
 `AdmissionStatus`, `ComplaintCategory/Status`, `BookAvailability`,
 `BookRequestType/Status`, `AwardCategory`, `StudentNoteCategory/Visibility`,
-`NotificationType`.
+`NotificationType`, `BloodGroup`, `Genotype`,
+`DisciplinaryCategory/Severity/Sanction/Status`.
 
 ---
 
@@ -175,9 +176,13 @@ CLOUDINARY_API_SECRET     <set>
 PAYSTACK_SECRET_KEY       sk_test_...
 PAYSTACK_PUBLIC_KEY       pk_test_...
 
-# WhatsApp Cloud API (NOT YET WIRED to a bot — only used as a shared
-# secret for n8n calling our /api/whatsapp/* endpoints)
+# WhatsApp — shared secret for the n8n integration (existing)
 WHATSAPP_WEBHOOK_SECRET   <set>
+
+# WhatsApp Cloud API (NEW — only required if running the in-Next.js bot at /api/whatsapp/meta)
+WHATSAPP_VERIFY_TOKEN     <any string, paste into Meta's webhook config>
+WHATSAPP_PHONE_NUMBER_ID  <from your WhatsApp Business App>
+WHATSAPP_ACCESS_TOKEN     <long-lived system-user token>
 
 # RESEND (not set yet — email will log to stdout until configured)
 RESEND_API_KEY            <unset>
@@ -293,30 +298,78 @@ External Paystack dashboard config:
 - `MessageThread` (parent + teacher + optional student scope) + `Message` (author + body). Denormalised `lastMessageAt` + per-side unread counters for cheap inbox sorting.
 - Server actions in `app/portal/messages/actions.ts`:
   - `startThreadAsParent` — parent picks teacher (filtered to teachers of their children's classes only)
+  - `startThreadAsTeacher` — teacher picks parent + child (filtered to teacher's own classes; recipient picker groups by class)
   - `sendReply` — either side replies; increments other side's unread
   - `markThreadRead` — zero out caller's unread when they open thread
 - Parent inbox at `/portal/parent/messages` · `/new` · `/[id]`
-- Teacher inbox at `/portal/teacher/messages` · `/[id]`
-- Shared `<ThreadView>` component (speech-bubble layout, own messages right-aligned)
+- Teacher inbox at `/portal/teacher/messages` · `/new` · `/[id]`
+- "Message in portal" deep-link from teacher student-detail (per-parent)
+- Shared `<ThreadView>` (now a client component; resets form state after submit)
 - Bell notification fires on every new message + reply
-- "Messages" added to both parent and teacher sidebars
-- ⚠️ Teacher cannot initiate a thread yet (small TODO — would be ~10 LOC)
+
+### File attachments in messages (2026-05-24)
+- One file per `Message` — fields `attachmentUrl/Name/Mime/Size`.
+- New `lib/cloudinary.ts` helper `uploadAttachment` (resource_type "auto", preserves filename, folder `meclones/messages`).
+- `/api/upload/attachment` POST route — 5 MB cap, accepts JPG/PNG/WebP/GIF/PDF.
+- `<AttachmentPicker>` client component: uploads on pick, shows chip with size, exposes URL + meta via hidden inputs.
+- Message bubbles render images inline (max-height 240); PDFs render as a download chip styled per side.
+
+### Student health & medical records (2026-05-24)
+- `HealthRecord` 1:1 with Student. Tracks blood group + genotype + allergies + chronic conditions + meds + immunisations + diet + height/weight + emergency contact (name/phone/relation, with tel + WhatsApp deeplinks) + family doctor + preferred hospital + HMO + policy # + last checkup + notes.
+- Admin edit form at `/portal/admin/students/[id]/health`. Sticky-footer save bar; audit-logged on every save (`student.health.create|update`).
+- Shared `<HealthCard>` component — colour-coded blocks (rose / amber / sky / emerald); empty state when no record.
+- Surfaces in: admin student-detail (summary + inline edit), teacher student-detail (between awards and term results), and dedicated parent `/portal/parent/health` route listing every linked child.
+- "Health" link in parent sidebar.
+
+### Formal disciplinary cases (2026-05-24)
+- `DisciplinaryCase` model — category (11 values: FIGHTING, BULLYING, ABSENTEEISM, LATENESS, UNIFORM, ACADEMIC_DISHONESTY, PROPERTY_DAMAGE, INSUBORDINATION, PHONE_MISUSE, BAD_LANGUAGE, OTHER) + severity (MINOR/MODERATE/MAJOR/SEVERE) + sanction (12 values incl. WARNING / DETENTION / SUSPENSION_1_DAY etc.) + status (OPEN/AWAITING_ACK/RESOLVED/APPEALED/ESCALATED).
+- Parent acknowledgement workflow: sanction triggers AWAITING_ACK → parent ack (with optional note) → admin formally RESOLVED with note.
+- Server actions in `app/portal/discipline/actions.ts`: `createDisciplinaryCase`, `updateDisciplinaryCase`, `resolveDisciplinaryCase`, `acknowledgeDisciplinaryCase`. All audit-logged.
+- Bell-ping every parent on create; bell-ping reporter on parent ack; bell-ping parents + reporter on resolution.
+- Pages:
+  - **Admin**: `/portal/admin/discipline` (filter by status/severity/class) · `/new` · `/[id]` (edit + resolve forms)
+  - **Teacher** (class-scoped): `/portal/teacher/discipline` · `/new` · `/[id]` (read-only)
+  - **Parent**: `/portal/parent/discipline` · `/[id]` (with acknowledgement form)
+- "Report incident" CTA on teacher + admin student-detail pages (deep-link with studentId).
+- Recent-cases table embedded on admin student-detail page.
+- Shared labels/tones in `lib/discipline.ts`.
+
+### Class teacher daily roster — Homeroom (2026-05-24)
+- New `/portal/teacher/roster` page — only available to form (class) teachers; others redirect.
+- Single-pane daily view for the homeroom class:
+  - Stats: roster size, present / late / absent / unmarked today
+  - Today's roster table with photo + adm# + attendance badge + quick "Report incident" per row
+  - Upcoming birthdays in next 30 days (year-aware)
+  - Live (un-resolved) disciplinary cases for class members
+  - Recent staff observations (StudentNote) across the class
+  - Outstanding fee balances this term in the class
+- "Homeroom" entry added to teacher sidebar between Dashboard and My Classes.
+
+### WhatsApp Cloud API bot (2026-05-24) — Part 3 of brief
+- `app/api/whatsapp/meta/route.ts` — GET verify (echoes `hub.challenge`) + POST receive (walks Meta payload, hands texts to FSM).
+- `lib/whatsapp-fsm.ts` — finite state machine:
+  - States: `AUTH_PENDING` (expects admission #) → `MAIN_MENU` → `AWAIT_TERM` (after Results) → `ESCALATED` (bot silent until parent says "menu")
+  - Menu: 1) Results 2) Attendance 3) Fees 4) Announcements 5) Speak to Admin 0) Exit
+  - Global reset tokens: "menu" / "main" / "0" / "exit" / "back" / "cancel"
+  - Auto-binds session to student + first linked parent on successful admission # match
+- `lib/whatsapp-cloud.ts` — Meta Cloud API sender (`sendWhatsAppText`, `sendAndLog`). Graph v20. `normaliseNgPhone()` for E.164.
+- Every IN + OUT message persisted on `WhatsAppMessage`; sessions touched per inbound (lastActivity bump).
+- Escalation: marks session `isEscalated`, bell-pings every active admin, audit logs `whatsapp.escalate`.
+- No-ops cleanly when env not configured (so dev runs don't blow up; Meta's verify ping still 200s).
+- The existing n8n REST endpoints stay in place — Mose can run either backend or both.
 
 ---
 
 ## 8 · Outstanding work — by priority
 
-### 🔴 Critical missing
-- **WhatsApp Cloud API bot state machine** — only the n8n REST endpoints exist; the actual "parent texts → bot replies with results/fees/attendance" flow isn't wired. The brief Part 3 work is half-done.
-- **Result slip PDF as actual PDF** — currently we use browser print → save as PDF. Real PDF generation (e.g. via @react-pdf/renderer) would let us email PDFs as attachments and store them.
+### 🔴 Bigger lifts left
+- **Real PDF generation** — currently browser print → save-as-PDF. Wiring `@react-pdf/renderer` or Puppeteer would let us email PDFs as attachments and store them server-side. Investigation needed on Railway container size (Puppeteer's Chromium binary is ~250 MB).
+- **WhatsApp bot — production go-live** — code is shipped; Mose still needs to: (1) create a Meta Business app, (2) set WHATSAPP_VERIFY_TOKEN / PHONE_NUMBER_ID / ACCESS_TOKEN on Railway, (3) configure the webhook in Meta with URL `https://meclones-college-production.up.railway.app/api/whatsapp/meta` and the same verify token, (4) submit for app review if going outside the test recipients list.
 
 ### 🟡 Important next
-- **Health / medical records** — emergency contacts, allergies, blood group. New model.
-- **Disciplinary records (formal)** — `StudentNote` with category=BEHAVIOUR is close, but a dedicated `Disciplinary` record could include sanctions, parent acknowledgement, etc.
-- **Teacher-initiated messages** — currently only parent can start a thread (~10 LOC away).
-- **File attachments in messages** — currently text-only.
-- **Class teacher daily roster** — quick form-teacher view of their class for the day.
-- **Email Resend** — wire `RESEND_API_KEY` on Railway so the notification emails actually deliver (currently logging to stdout).
+- **Email Resend** — wire `RESEND_API_KEY` on Railway so notification emails actually deliver (currently logging to stdout).
+- **WhatsApp bot — more menu depth** — current menu only goes one level deep for Results (term picker). Could add: per-subject drill-down, fee receipt download links, complaint filing, parent password reset.
+- **WhatsApp bot — interactive message types** — Meta supports interactive list + button payloads. Currently using plain text only. Upgrading would feel more like a modern bot but adds complexity.
 
 ### 🟢 Polish
 - Notifications: persistence is solid but polling is 60s; could upgrade to Server-Sent Events.
