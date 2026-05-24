@@ -262,6 +262,159 @@ export async function sendComplaintRepliedEmail(input: {
   return c.emails.send({ from: FROM, to: input.to, subject: emailSubject, html });
 }
 
+export async function sendDisciplinaryCaseFiledEmail(input: {
+  to: string | string[];
+  parentName: string;
+  studentName: string;
+  category: string;
+  severity: string;
+  sanction: string;
+  description: string;
+  caseUrl: string;
+  needsAck: boolean;
+}) {
+  const emailSubject = `${SCHOOL.shortName} — Disciplinary notice for ${input.studentName}`;
+  const severityColor =
+    input.severity === "Severe" ? "#b91c1c" :
+    input.severity === "Major" ? "#c2410c" :
+    input.severity === "Moderate" ? "#b45309" : "#475569";
+  const ackBanner = input.needsAck
+    ? `<div style="background:#fff7ed; border:1px solid #fdba74; border-radius:6px; padding:10px 14px; margin:16px 0;">
+        <p style="margin:0; font-size:13px; color:#9a3412;">
+          <strong>Action required:</strong> Please open the case in the parent portal to acknowledge you've received this notice.
+        </p>
+      </div>`
+    : "";
+  const html = `
+    <div style="font-family: Inter, Arial, sans-serif; color:#1a2c5a; max-width:560px; margin:0 auto; padding:24px;">
+      <div style="border-bottom:3px solid #0B1F4B; padding-bottom:12px; margin-bottom:20px;">
+        <h2 style="color:#0B1F4B; font-family: Georgia, serif; margin:0;">${SCHOOL.name}</h2>
+        <p style="font-size:12px; color:#5e3e17; font-weight:600; margin:4px 0 0;">${SCHOOL.tagline}</p>
+      </div>
+
+      <h3 style="color:#b91c1c; font-family: Georgia, serif; margin:0 0 16px;">Disciplinary notice</h3>
+      <p>Dear ${input.parentName},</p>
+      <p>We're writing to inform you that the school has filed a formal disciplinary case for <strong>${input.studentName}</strong>.</p>
+
+      <table style="width:100%; border-collapse:collapse; margin:18px 0; font-size:14px;">
+        <tr><td style="padding:6px 0; color:#64748b;">Category</td><td style="text-align:right; font-weight:600;">${input.category}</td></tr>
+        <tr><td style="padding:6px 0; color:#64748b;">Severity</td><td style="text-align:right; font-weight:600; color:${severityColor};">${input.severity}</td></tr>
+        <tr><td style="padding:6px 0; color:#64748b;">Sanction</td><td style="text-align:right; font-weight:600;">${input.sanction}</td></tr>
+      </table>
+
+      <div style="background:#f8fafc; border-left:3px solid #94a3b8; padding:12px 16px; border-radius:4px; margin:16px 0;">
+        <p style="margin:0; font-size:13px; color:#334155; white-space:pre-wrap;">${escapeHtml(input.description).slice(0, 1000)}</p>
+      </div>
+
+      ${ackBanner}
+
+      <p style="margin:20px 0;">
+        <a href="${input.caseUrl}" style="display:inline-block; background:#D4A017; color:#0B1F4B; padding:12px 24px; border-radius:6px; text-decoration:none; font-weight:600;">Open case in portal</a>
+      </p>
+
+      <p style="font-size:13px; color:#475569;">If you'd like to discuss this in person, please call us on ${SCHOOL.phone} or reply to this email.</p>
+
+      <hr style="border:none; border-top:1px solid #e5e7eb; margin:24px 0;" />
+      <p style="font-size:12px; color:#64748b;">${SCHOOL.name}<br/>${SCHOOL.address}<br/>${SCHOOL.phone} · ${SCHOOL.email}</p>
+    </div>
+  `;
+  const c = client();
+  if (!c) {
+    console.log("[resend stub] sendDisciplinaryCaseFiledEmail", { to: input.to, student: input.studentName });
+    return { id: "stub" };
+  }
+  return c.emails.send({ from: FROM, to: input.to, subject: emailSubject, html });
+}
+
+export async function sendDisciplinaryResolvedEmail(input: {
+  to: string | string[];
+  parentName: string;
+  studentName: string;
+  category: string;
+  resolvedByName: string;
+  resolutionNote: string;
+  caseUrl: string;
+}) {
+  const emailSubject = `${SCHOOL.shortName} — Disciplinary case resolved for ${input.studentName}`;
+  const html = `
+    <div style="font-family: Inter, Arial, sans-serif; color:#1a2c5a; max-width:560px; margin:0 auto; padding:24px;">
+      <h2 style="color:#047857; font-family: Georgia, serif; margin:0 0 16px;">Case closed</h2>
+      <p>Dear ${input.parentName},</p>
+      <p>The disciplinary case for <strong>${input.studentName}</strong> (${input.category}) has been marked resolved by ${input.resolvedByName}.</p>
+
+      <div style="background:#ecfdf5; border-left:3px solid #10b981; padding:12px 16px; border-radius:4px; margin:16px 0;">
+        <p style="margin:0; font-size:13px; color:#065f46; white-space:pre-wrap;">${escapeHtml(input.resolutionNote).slice(0, 1000)}</p>
+      </div>
+
+      <p style="margin:20px 0;">
+        <a href="${input.caseUrl}" style="display:inline-block; background:#D4A017; color:#0B1F4B; padding:10px 20px; border-radius:6px; text-decoration:none; font-weight:600;">View case in portal</a>
+      </p>
+
+      <hr style="border:none; border-top:1px solid #e5e7eb; margin:20px 0;" />
+      <p style="font-size:12px; color:#64748b;">${SCHOOL.name} · ${SCHOOL.phone} · ${SCHOOL.email}</p>
+    </div>
+  `;
+  const c = client();
+  if (!c) {
+    console.log("[resend stub] sendDisciplinaryResolvedEmail", { to: input.to, student: input.studentName });
+    return { id: "stub" };
+  }
+  return c.emails.send({ from: FROM, to: input.to, subject: emailSubject, html });
+}
+
+export async function sendNewMessageThreadEmail(input: {
+  to: string;
+  recipientName: string;
+  fromName: string;
+  fromRole: string;
+  subject: string;
+  bodyPreview: string;
+  studentName?: string | null;
+  hasAttachment: boolean;
+  threadUrl: string;
+}) {
+  const emailSubject = `${SCHOOL.shortName} — ${input.fromName}: ${input.subject}`;
+  const aboutLine = input.studentName ? `<p style="font-size:13px; color:#475569;">About <strong>${input.studentName}</strong>.</p>` : "";
+  const attachLine = input.hasAttachment ? `<p style="font-size:12px; color:#64748b; margin:-4px 0 16px;">📎 Includes an attachment.</p>` : "";
+  const html = `
+    <div style="font-family: Inter, Arial, sans-serif; color:#1a2c5a; max-width:560px; margin:0 auto; padding:24px;">
+      <h2 style="color:#0B1F4B; font-family: Georgia, serif; margin:0 0 16px;">New message from ${input.fromName}</h2>
+      <p>Hello ${input.recipientName},</p>
+      <p>${input.fromName} (${input.fromRole.toLowerCase()}) sent you a message in the parent portal:</p>
+      ${aboutLine}
+
+      <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:6px; padding:14px 16px; margin:14px 0;">
+        <p style="margin:0 0 6px; font-size:13px; color:#0B1F4B; font-weight:600;">${escapeHtml(input.subject)}</p>
+        <p style="margin:0; font-size:13px; color:#334155; white-space:pre-wrap;">${escapeHtml(input.bodyPreview).slice(0, 500)}</p>
+      </div>
+      ${attachLine}
+
+      <p style="margin:20px 0;">
+        <a href="${input.threadUrl}" style="display:inline-block; background:#D4A017; color:#0B1F4B; padding:10px 20px; border-radius:6px; text-decoration:none; font-weight:600;">Reply in portal</a>
+      </p>
+
+      <hr style="border:none; border-top:1px solid #e5e7eb; margin:20px 0;" />
+      <p style="font-size:12px; color:#64748b;">${SCHOOL.name} · ${SCHOOL.phone} · ${SCHOOL.email}</p>
+    </div>
+  `;
+  const c = client();
+  if (!c) {
+    console.log("[resend stub] sendNewMessageThreadEmail", { to: input.to, from: input.fromName });
+    return { id: "stub" };
+  }
+  return c.emails.send({ from: FROM, to: input.to, subject: emailSubject, html });
+}
+
+/** Escape HTML to safely embed user-provided strings in email markup. */
+function escapeHtml(s: string): string {
+  return s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
 export async function sendFeeChargedEmail(input: {
   to: string;
   parentName: string;

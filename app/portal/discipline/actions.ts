@@ -7,6 +7,9 @@ import { prisma } from "@/lib/prisma";
 import { getSessionUser } from "@/lib/auth-helpers";
 import { auditLog } from "@/lib/audit";
 import { notify } from "@/lib/notify";
+import { sendDisciplinaryCaseFiledEmail, sendDisciplinaryResolvedEmail } from "@/lib/resend";
+import { SCHOOL } from "@/lib/constants";
+import { CATEGORY_LABEL, SEVERITY_LABEL, SANCTION_LABEL } from "@/lib/discipline";
 
 const CATEGORIES = [
   "FIGHTING", "BULLYING", "ABSENTEEISM", "LATENESS", "UNIFORM",
@@ -64,7 +67,7 @@ export async function createDisciplinaryCase(formData: FormData) {
     select: {
       classId: true,
       user: { select: { name: true } },
-      parentLinks: { select: { parent: { select: { userId: true } } } },
+      parentLinks: { select: { parent: { select: { userId: true, user: { select: { name: true, email: true } } } } } },
     },
   });
   if (!student) {
@@ -131,6 +134,28 @@ export async function createDisciplinaryCase(formData: FormData) {
       body: `${d.category.replace(/_/g, " ").toLowerCase()} — ${d.severity.toLowerCase()} · ${d.sanction === "NONE" ? "no sanction" : d.sanction.replace(/_/g, " ").toLowerCase()}`,
       href: `/portal/parent/discipline/${created.id}`,
     }).catch(err => console.error("[discipline] notify failed", err));
+  }
+
+  // Email every linked parent with email on file.
+  const parentEmails = student!.parentLinks
+    .map(l => ({ email: l.parent.user.email, name: l.parent.user.name }))
+    .filter(p => Boolean(p.email));
+  if (parentEmails.length > 0) {
+    const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL ?? SCHOOL.website).replace(/\/$/, "");
+    const caseUrl = `${siteUrl}/portal/parent/discipline/${created.id}`;
+    for (const p of parentEmails) {
+      sendDisciplinaryCaseFiledEmail({
+        to: p.email,
+        parentName: p.name,
+        studentName: student!.user.name,
+        category: CATEGORY_LABEL[d.category],
+        severity: SEVERITY_LABEL[d.severity],
+        sanction: SANCTION_LABEL[d.sanction],
+        description: d.description,
+        caseUrl,
+        needsAck: initialStatus === "AWAITING_ACK",
+      }).catch(err => console.error("[discipline] email failed", err));
+    }
   }
 
   revalidatePath("/portal/admin/discipline");
@@ -217,7 +242,17 @@ export async function resolveDisciplinaryCase(formData: FormData) {
 
   const existing = await prisma.disciplinaryCase.findUnique({
     where: { id: d.id },
-    select: { studentId: true, reportedById: true, student: { select: { parentLinks: { select: { parent: { select: { userId: true } } } } } } },
+    select: {
+      studentId: true,
+      reportedById: true,
+      category: true,
+      student: {
+        select: {
+          user: { select: { name: true } },
+          parentLinks: { select: { parent: { select: { userId: true, user: { select: { name: true, email: true } } } } } },
+        },
+      },
+    },
   });
   if (!existing) redirect("/portal/admin/discipline?error=" + encodeURIComponent("Case not found"));
 
@@ -251,6 +286,26 @@ export async function resolveDisciplinaryCase(formData: FormData) {
       body: d.resolutionNote.length > 140 ? d.resolutionNote.slice(0, 137) + "..." : d.resolutionNote,
       href: `/portal/parent/discipline/${d.id}`,
     }).catch(err => console.error("[discipline] notify failed", err));
+  }
+
+  // Email parents on resolution too.
+  const parentEmails = existing!.student.parentLinks
+    .map(l => ({ email: l.parent.user.email, name: l.parent.user.name }))
+    .filter(p => Boolean(p.email));
+  if (parentEmails.length > 0) {
+    const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL ?? SCHOOL.website).replace(/\/$/, "");
+    const caseUrl = `${siteUrl}/portal/parent/discipline/${d.id}`;
+    for (const p of parentEmails) {
+      sendDisciplinaryResolvedEmail({
+        to: p.email,
+        parentName: p.name,
+        studentName: existing!.student.user.name,
+        category: CATEGORY_LABEL[existing!.category],
+        resolvedByName: user.name,
+        resolutionNote: d.resolutionNote,
+        caseUrl,
+      }).catch(err => console.error("[discipline] email failed", err));
+    }
   }
 
   revalidatePath(`/portal/admin/discipline/${d.id}`);

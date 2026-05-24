@@ -6,6 +6,8 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { getSessionUser } from "@/lib/auth-helpers";
 import { notify } from "@/lib/notify";
+import { sendNewMessageThreadEmail } from "@/lib/resend";
+import { SCHOOL } from "@/lib/constants";
 
 function readAttachment(formData: FormData) {
   const url = String(formData.get("attachmentUrl") ?? "").trim();
@@ -76,10 +78,10 @@ export async function startThreadAsParent(formData: FormData) {
     data: { threadId: thread.id, authorId: user.id, body: d.body, ...(attachment ?? {}) },
   });
 
-  // Bell-ping the teacher.
+  // Bell-ping the teacher + email them too.
   const teacher = await prisma.teacher.findUnique({
     where: { id: d.teacherId },
-    select: { userId: true, user: { select: { name: true } } },
+    select: { userId: true, user: { select: { name: true, email: true } } },
   });
   if (teacher) {
     notify({
@@ -89,6 +91,24 @@ export async function startThreadAsParent(formData: FormData) {
       body: d.subject,
       href: `/portal/teacher/messages/${thread.id}`,
     }).catch(err => console.error("[messages] notify failed", err));
+
+    if (teacher.user.email) {
+      const studentName = d.studentId
+        ? (await prisma.student.findUnique({ where: { id: d.studentId }, select: { user: { select: { name: true } } } }))?.user.name
+        : null;
+      const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL ?? SCHOOL.website).replace(/\/$/, "");
+      sendNewMessageThreadEmail({
+        to: teacher.user.email,
+        recipientName: teacher.user.name,
+        fromName: user.name,
+        fromRole: "PARENT",
+        subject: d.subject,
+        bodyPreview: d.body,
+        studentName,
+        hasAttachment: Boolean(attachment),
+        threadUrl: `${siteUrl}/portal/teacher/messages/${thread.id}`,
+      }).catch(err => console.error("[messages] email failed", err));
+    }
   }
 
   revalidatePath("/portal/parent/messages");
@@ -187,10 +207,10 @@ export async function startThreadAsTeacher(formData: FormData) {
     data: { threadId: thread.id, authorId: user.id, body: d.body, ...(teacherAttachment ?? {}) },
   });
 
-  // Bell-ping the parent.
+  // Bell-ping the parent + email them too.
   const parent = await prisma.parent.findUnique({
     where: { id: d.parentId },
-    select: { userId: true },
+    select: { userId: true, user: { select: { name: true, email: true } } },
   });
   if (parent) {
     notify({
@@ -200,6 +220,25 @@ export async function startThreadAsTeacher(formData: FormData) {
       body: d.subject,
       href: `/portal/parent/messages/${thread.id}`,
     }).catch(err => console.error("[messages] notify failed", err));
+
+    if (parent.user.email) {
+      const studentName = (await prisma.student.findUnique({
+        where: { id: d.studentId },
+        select: { user: { select: { name: true } } },
+      }))?.user.name;
+      const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL ?? SCHOOL.website).replace(/\/$/, "");
+      sendNewMessageThreadEmail({
+        to: parent.user.email,
+        recipientName: parent.user.name,
+        fromName: user.name,
+        fromRole: "TEACHER",
+        subject: d.subject,
+        bodyPreview: d.body,
+        studentName,
+        hasAttachment: Boolean(teacherAttachment),
+        threadUrl: `${siteUrl}/portal/parent/messages/${thread.id}`,
+      }).catch(err => console.error("[messages] email failed", err));
+    }
   }
 
   revalidatePath("/portal/teacher/messages");
