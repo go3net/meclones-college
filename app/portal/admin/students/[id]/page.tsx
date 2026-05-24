@@ -5,8 +5,9 @@ import { HealthCard } from "@/components/HealthCard";
 import { prisma } from "@/lib/prisma";
 import { requireRole, getActiveContext } from "@/lib/auth-helpers";
 import {
-  User, FileText, CalendarCheck, Wallet, Trophy, Mail, Phone, Home, ArrowLeft, Edit, HeartPulse,
+  User, FileText, CalendarCheck, Wallet, Trophy, Mail, Phone, Home, ArrowLeft, Edit, HeartPulse, Shield,
 } from "lucide-react";
+import { CATEGORY_LABEL, SEVERITY_LABEL, SEVERITY_TONE, STATUS_LABEL, STATUS_TONE } from "@/lib/discipline";
 import { notFound } from "next/navigation";
 
 export const dynamic = "force-dynamic";
@@ -40,7 +41,7 @@ export default async function StudentDetailPage({ params }: { params: { id: stri
   if (!student) notFound();
 
   // Pull results, attendance, fees for current term (if any).
-  const [results, attendance, fees] = await Promise.all([
+  const [results, attendance, fees, disciplineCases] = await Promise.all([
     term ? prisma.result.findMany({
       where: { studentId: student.id, termId: term.id },
       include: { subject: { select: { name: true, code: true } } },
@@ -54,6 +55,11 @@ export default async function StudentDetailPage({ params }: { params: { id: stri
       where: { studentId: student.id, termId: term.id },
       orderBy: { createdAt: "asc" },
     }) : Promise.resolve([]),
+    prisma.disciplinaryCase.findMany({
+      where: { studentId: student.id },
+      orderBy: { createdAt: "desc" },
+      take: 10,
+    }),
   ]);
 
   // Stats
@@ -104,7 +110,10 @@ export default async function StudentDetailPage({ params }: { params: { id: stri
             </p>
           </div>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
+          <Link href={`/portal/admin/discipline/new?student=${student.id}`} className="inline-flex items-center gap-2 bg-rose-50 hover:bg-rose-100 text-rose-700 text-sm font-medium px-4 py-2 rounded-lg border border-rose-200">
+            <Shield className="h-4 w-4" /> Report
+          </Link>
           <Link href={`/portal/admin/students/${student.id}/health`} className="inline-flex items-center gap-2 bg-rose-50 hover:bg-rose-100 text-rose-700 text-sm font-medium px-4 py-2 rounded-lg border border-rose-200">
             <HeartPulse className="h-4 w-4" /> Health
           </Link>
@@ -266,6 +275,42 @@ export default async function StudentDetailPage({ params }: { params: { id: stri
           editHref={`/portal/admin/students/${student.id}/health`}
         />
       </div>
+
+      {/* Disciplinary cases */}
+      <Card className="mt-6">
+        <CardHeader>
+          <CardTitle><Shield className="h-4 w-4 inline mr-1 text-rose-600" /> Disciplinary record</CardTitle>
+          <Badge tone={disciplineCases.length === 0 ? "success" : "warning"}>{disciplineCases.length === 0 ? "Clean" : `${disciplineCases.length} case${disciplineCases.length === 1 ? "" : "s"}`}</Badge>
+        </CardHeader>
+        <CardBody className="p-0">
+          {disciplineCases.length === 0 ? (
+            <div className="py-8 text-center text-sm text-slate-500">No disciplinary cases on file.</div>
+          ) : (
+            <table className="min-w-full text-sm">
+              <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
+                <tr>
+                  <th className="text-left px-4 py-2 font-medium">Date</th>
+                  <th className="text-left px-4 py-2 font-medium">Category</th>
+                  <th className="text-center px-4 py-2 font-medium">Severity</th>
+                  <th className="text-center px-4 py-2 font-medium">Status</th>
+                  <th className="text-center px-4 py-2 font-medium">Ack</th>
+                </tr>
+              </thead>
+              <tbody>
+                {disciplineCases.map(c => (
+                  <tr key={c.id} className="border-t border-slate-100 hover:bg-slate-50">
+                    <td className="px-4 py-2"><Link href={`/portal/admin/discipline/${c.id}`} className="hover:underline">{dateFmt.format(c.incidentDate)}</Link></td>
+                    <td className="px-4 py-2">{CATEGORY_LABEL[c.category]}</td>
+                    <td className="px-4 py-2 text-center"><Badge tone={SEVERITY_TONE[c.severity]}>{SEVERITY_LABEL[c.severity]}</Badge></td>
+                    <td className="px-4 py-2 text-center"><Badge tone={STATUS_TONE[c.status]}>{STATUS_LABEL[c.status]}</Badge></td>
+                    <td className="px-4 py-2 text-center">{c.parentAcknowledged ? <Badge tone="success">Yes</Badge> : <span className="text-[11px] text-slate-400">—</span>}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </CardBody>
+      </Card>
 
       {/* Attendance log */}
       <Card className="mt-6">

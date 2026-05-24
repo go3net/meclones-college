@@ -8,7 +8,7 @@ import { getCurrentTeacher, getActiveContext } from "@/lib/auth-helpers";
 import { createStudentNote, deleteStudentNote } from "./actions";
 import {
   ArrowLeft, Phone, Mail, User as UserIcon, Trophy, CalendarCheck,
-  FileText, MessageSquarePlus, Trash2, AlertCircle, CheckCircle2, Send,
+  FileText, MessageSquarePlus, Trash2, AlertCircle, CheckCircle2, Send, Shield,
 } from "lucide-react";
 
 export const dynamic = "force-dynamic";
@@ -145,6 +145,12 @@ export default async function TeacherStudentDetailPage({ params, searchParams }:
             </p>
           </div>
         </div>
+        <Link
+          href={`/portal/teacher/discipline/new?student=${student.id}`}
+          className="inline-flex items-center gap-2 bg-rose-50 hover:bg-rose-100 text-rose-700 text-sm font-semibold px-4 py-2 rounded-lg border border-rose-200"
+        >
+          <Shield className="h-4 w-4" /> Report incident
+        </Link>
       </div>
 
       {searchParams.noted && (

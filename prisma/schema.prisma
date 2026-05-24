@@ -56,6 +56,8 @@ model User {
   auditLogs        AuditLog[]       @relation("AuditActor")
   studentNotes     StudentNote[]    @relation("StudentNoteAuthor")
   messages         Message[]        @relation("MessageAuthor")
+  disciplinaryReports DisciplinaryCase[] @relation("DisciplinaryReporter")
+  disciplinaryResolutions DisciplinaryCase[] @relation("DisciplinaryResolver")
 
   createdAt        DateTime         @default(now())
   updatedAt        DateTime         @updatedAt
@@ -194,6 +196,7 @@ model Student {
   whatsappSessions WhatsAppSession[]
   messageThreads MessageThread[] @relation("ThreadStudent")
   healthRecord   HealthRecord?
+  disciplinaryCases DisciplinaryCase[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -265,6 +268,93 @@ model HealthRecord {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+enum DisciplinaryCategory {
+  FIGHTING
+  BULLYING
+  ABSENTEEISM
+  LATENESS
+  UNIFORM
+  ACADEMIC_DISHONESTY
+  PROPERTY_DAMAGE
+  INSUBORDINATION
+  PHONE_MISUSE
+  BAD_LANGUAGE
+  OTHER
+}
+
+enum DisciplinarySeverity {
+  MINOR
+  MODERATE
+  MAJOR
+  SEVERE
+}
+
+enum DisciplinarySanction {
+  NONE
+  WARNING
+  DETENTION
+  PARENT_MEETING
+  WRITTEN_APOLOGY
+  COMMUNITY_SERVICE
+  COUNSELING
+  SUSPENSION_1_DAY
+  SUSPENSION_3_DAYS
+  SUSPENSION_1_WEEK
+  EXPULSION
+  OTHER
+}
+
+enum DisciplinaryStatus {
+  OPEN
+  AWAITING_ACK
+  RESOLVED
+  APPEALED
+  ESCALATED
+}
+
+/// Formal disciplinary case — a step up from StudentNote. Captured by
+/// teachers (constrained to their classes) or admins. Drives parent
+/// acknowledgement workflow + audit log entries on state changes.
+model DisciplinaryCase {
+  id                  String   @id @default(cuid())
+  student             Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  studentId           String
+
+  reportedBy          User?    @relation("DisciplinaryReporter", fields: [reportedById], references: [id])
+  reportedById        String?
+  /// Snapshot for resilience if the reporter user is deleted later.
+  reporterName        String
+  reporterRole        String?
+
+  incidentDate        DateTime
+  location            String?
+  category            DisciplinaryCategory @default(OTHER)
+  severity            DisciplinarySeverity @default(MINOR)
+  description         String   @db.Text
+
+  sanction            DisciplinarySanction @default(NONE)
+  sanctionDetails     String?  @db.Text
+
+  status              DisciplinaryStatus @default(OPEN)
+
+  /// Parent acknowledgement (set when any linked parent opens & confirms).
+  parentAcknowledged  Boolean  @default(false)
+  parentAcknowledgedAt DateTime?
+  parentAckByName     String?
+  parentAckNote       String?  @db.Text
+
+  resolvedBy          User?    @relation("DisciplinaryResolver", fields: [resolvedById], references: [id])
+  resolvedById        String?
+  resolvedAt          DateTime?
+  resolutionNote      String?  @db.Text
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([studentId, createdAt])
+  @@index([status, severity])
 }
 
 enum StudentNoteCategory {

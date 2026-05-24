@@ -12,7 +12,7 @@ import {
   Home, Users, GraduationCap, BookOpen, Calendar, FileText, MessageCircle,
   CreditCard, Brain, Smartphone, Settings, LogOut, Menu, X, Bell, ChevronDown,
   CheckSquare, BookMarked, Banknote, TrendingUp, ClipboardList, Megaphone,
-  UserCircle2, ShieldCheck, KeyRound, Trophy, ScrollText, MessageSquare, HeartPulse,
+  UserCircle2, ShieldCheck, KeyRound, Trophy, ScrollText, MessageSquare, HeartPulse, Shield,
 } from "lucide-react";
 
 interface NavItem { href: string; label: string; icon: any; }
@@ -48,6 +48,7 @@ const NAV_BY_ROLE: Record<MockRole, NavItem[]> = {
     { href: "/portal/admin/timetable", label: "Timetable", icon: Calendar },
     { href: "/portal/admin/announcements", label: "Announcements", icon: Megaphone },
     { href: "/portal/admin/complaints", label: "Complaints", icon: MessageCircle },
+    { href: "/portal/admin/discipline", label: "Discipline", icon: Shield },
     { href: "/portal/admin/library", label: "Library", icon: BookOpen },
     { href: "/portal/director/permissions", label: "Permissions", icon: ShieldCheck },
     { href: "/portal/director/sessions", label: "Sessions", icon: Calendar },
@@ -72,6 +73,7 @@ const NAV_BY_ROLE: Record<MockRole, NavItem[]> = {
     { href: "/portal/admin/timetable", label: "Timetable", icon: Calendar },
     { href: "/portal/admin/announcements", label: "Announcements", icon: Megaphone },
     { href: "/portal/admin/complaints", label: "Complaints", icon: MessageCircle },
+    { href: "/portal/admin/discipline", label: "Discipline", icon: Shield },
     { href: "/portal/admin/library", label: "Library", icon: BookOpen },
     { href: "/portal/whatsapp", label: "WhatsApp Logs", icon: Smartphone },
   ],
@@ -81,6 +83,7 @@ const NAV_BY_ROLE: Record<MockRole, NavItem[]> = {
     { href: "/portal/teacher/timetable", label: "Schedule", icon: Calendar },
     { href: "/portal/teacher/attendance", label: "Attendance", icon: CheckSquare },
     { href: "/portal/teacher/results", label: "Score Entry", icon: FileText },
+    { href: "/portal/teacher/discipline", label: "Discipline", icon: Shield },
     { href: "/portal/teacher/messages", label: "Messages", icon: MessageSquare },
   ],
   parent: [
@@ -90,6 +93,7 @@ const NAV_BY_ROLE: Record<MockRole, NavItem[]> = {
     { href: "/portal/parent/timetable", label: "Timetable", icon: Calendar },
     { href: "/portal/parent/fees", label: "Fees & Payments", icon: CreditCard },
     { href: "/portal/parent/health", label: "Health", icon: HeartPulse },
+    { href: "/portal/parent/discipline", label: "Discipline", icon: Shield },
     { href: "/portal/parent/messages", label: "Messages", icon: MessageSquare },
     { href: "/portal/parent/complaints", label: "Complaints", icon: MessageCircle },
     { href: "/portal/parent/library", label: "Library", icon: BookOpen },
