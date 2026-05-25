@@ -36,10 +36,20 @@ export const authConfig = {
   },
   session: { strategy: "jwt" },
   callbacks: {
-    async jwt({ token, user }) {
+    async jwt({ token, user, trigger, session }) {
+      // Initial sign-in: copy id + role + display fields from the User row.
       if (user) {
         token.id = (user as { id: string }).id;
         token.role = (user as { role: string }).role;
+        token.name = (user as { name?: string }).name ?? token.name;
+        token.picture = (user as { image?: string | null }).image ?? token.picture;
+      }
+      // Client called useSession().update({...}) — merge new display fields
+      // so the header reflects profile changes without a sign-out round-trip.
+      if (trigger === "update" && session) {
+        const s = session as { name?: string | null; image?: string | null };
+        if (typeof s.name === "string") token.name = s.name;
+        if (s.image !== undefined) token.picture = s.image;
       }
       return token;
     },
@@ -47,6 +57,10 @@ export const authConfig = {
       if (session.user) {
         (session.user as { id?: string }).id = token.id as string | undefined;
         (session.user as { role?: string }).role = token.role as string | undefined;
+        if (typeof token.name === "string") session.user.name = token.name;
+        if (token.picture !== undefined) {
+          (session.user as { image?: string | null }).image = token.picture as string | null;
+        }
       }
       return session;
     },

@@ -8,6 +8,7 @@ import { getSessionUser } from "@/lib/auth-helpers";
 import { updateOwnProfile, changeOwnPassword } from "./actions";
 import { ArrowLeft, AlertCircle, CheckCircle2, KeyRound, User as UserIcon, Save, Bell, ChevronRight, Shield } from "lucide-react";
 import { PhotoUpload } from "@/components/PhotoUpload";
+import { ProfileSessionRefresher } from "@/components/ProfileSessionRefresher";
 
 export const dynamic = "force-dynamic";
 
@@ -52,6 +53,10 @@ export default async function MyProfilePage({ searchParams }: { searchParams: Se
 
   return (
     <PortalShell role={shellRole}>
+      {/* No-op renderer — calls useSession().update() with the just-saved
+          name + image so the sidebar avatar refreshes without sign-out. */}
+      <ProfileSessionRefresher name={user.name} image={user.image ?? null} />
+
       <div className="mb-6 flex items-center gap-3">
         <Link href="/portal/me" className="text-slate-500 hover:text-brand-700"><ArrowLeft className="h-5 w-5" /></Link>
         <div>
