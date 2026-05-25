@@ -1,7 +1,7 @@
 # Meclones College Lekki — Project Status
 
 > **Read this first** when picking up the project in a fresh Claude session.
-> Updated through commit `d6984b4` (2026-05-24).
+> Updated through commit `79a23b3` (2026-05-25).
 
 ---
 
@@ -28,7 +28,9 @@
 | Auth        | NextAuth v5 (JWT sessions, **no Prisma adapter** — see §4) |
 | Media       | Cloudinary (server proxy upload at `/api/upload`) |
 | Payments    | Paystack (REST, no SDK)                       |
-| Email       | Resend                                        |
+| Email       | Resend (live — RESEND_API_KEY set on Railway)  |
+| PDF         | `@react-pdf/renderer` — server-rendered result slips |
+| 2FA         | `otplib` + `qrcode` — optional TOTP per user   |
 | WhatsApp    | Both: in-Next.js Meta Cloud API bot AT `/api/whatsapp/meta` + n8n REST endpoints |
 | Hosting     | Railway                                       |
 
@@ -134,12 +136,15 @@ PARENT        parent@meclonescollege.com          (Dr. Aisha Bello)
 ## 5 · Prisma schema — every model
 
 ```
-auth/identity     User, AdminPermissions, PasswordResetToken
+auth/identity     User (with totpSecret + totpEnabledAt for 2FA),
+                  AdminPermissions, PasswordResetToken, NotificationPrefs
 people            Student, Parent, ParentStudent, Teacher
 academic          Class, Subject, ClassSubject, SubjectTeacher,
                   ClassTeacher, AcademicSession, Term
 records           Result, Attendance, Fee, FeeStructure, Payment,
                   StudentNote, Award, HealthRecord, DisciplinaryCase
+messaging         MessageThread, Message (with attachment fields)
+schedule          TimetableEntry
 content           Announcement, GalleryImage, BlogPost
 admissions        Admission (from public website form)
 website           ContactMessage
@@ -179,14 +184,14 @@ PAYSTACK_PUBLIC_KEY       pk_test_...
 # WhatsApp — shared secret for the n8n integration (existing)
 WHATSAPP_WEBHOOK_SECRET   <set>
 
-# WhatsApp Cloud API (NEW — only required if running the in-Next.js bot at /api/whatsapp/meta)
+# WhatsApp Cloud API (only required if running the in-Next.js bot at /api/whatsapp/meta)
 WHATSAPP_VERIFY_TOKEN     <any string, paste into Meta's webhook config>
 WHATSAPP_PHONE_NUMBER_ID  <from your WhatsApp Business App>
 WHATSAPP_ACCESS_TOKEN     <long-lived system-user token>
 
-# RESEND (not set yet — email will log to stdout until configured)
-RESEND_API_KEY            <unset>
-RESEND_FROM               (optional)
+# Resend (LIVE — set by Mose 2026-05-25)
+RESEND_API_KEY            <set>
+RESEND_FROM               (optional; defaults to "Meclones College <noreply@meclonescollege.com>")
 ADMISSIONS_NOTIFY_EMAIL   (optional)
 CONTACT_NOTIFY_EMAIL      (optional)
 ```
@@ -358,28 +363,69 @@ External Paystack dashboard config:
 - No-ops cleanly when env not configured (so dev runs don't blow up; Meta's verify ping still 200s).
 - The existing n8n REST endpoints stay in place — Mose can run either backend or both.
 
+### Discipline + new-message emails (2026-05-25)
+- `sendDisciplinaryCaseFiledEmail` — to every linked parent on case creation. Severity-coloured chip, sanction line, description in a quote box. "Action required" banner when the case starts `AWAITING_ACK`.
+- `sendDisciplinaryResolvedEmail` — green resolution-note quote box.
+- `sendNewMessageThreadEmail` — to the recipient on the first message of a thread (replies don't email — intentional to avoid spam). Subject + body preview + 'about <child>' line + attachment indicator.
+- All HTML-escape user-supplied content via `escapeHtml()` helper inside `lib/resend.ts`.
+- Wired into `createDisciplinaryCase`, `resolveDisciplinaryCase`, `startThreadAsParent`, `startThreadAsTeacher`.
+
+### Real PDF result slips (2026-05-25)
+- `@react-pdf/renderer` — server-rendered, no Chromium binary on Railway.
+- Endpoint: `GET /api/results/[studentId]/slip.pdf?termId=...` — same auth as the HTML page (staff for any; parent for linked children; student for self; teacher for own-class students).
+- Component: `components/ResultSlipPdf.tsx` — mirrors the existing HTML slip's layout (letterhead, info grid, academic table with colour-coded grade chips, 4-up summary, attendance, awards, signature lines).
+- Shared loader `lib/result-slip-data.ts` feeds both HTML and PDF so they're always in lock-step.
+- Auto-attach: when admin publishes a class's results, each student's PDF is rendered once and attached to every linked parent's + student's "Results published" email.
+
+### Welcome / set-password emails on user create (2026-05-25)
+- `lib/password-reset.ts` `createResetToken` now takes optional `ttlHours` — onboarding uses 168h / 7 days vs the default 1h for normal reset.
+- `sendWelcomeEmail` (PARENT / TEACHER / STAFF flavors) — branded header, "Set your password" CTA, login-email reminder, plus a "Linked to your account" block listing children with admission # + class for parent welcomes.
+- Wired into: `createParent` (with children list when studentIds are picked), `createTeacher` (only on truly-new users — the action is upsert-shaped), `createStudent` (when a parent email/name is provided AND the parent User didn't exist), and the bulk CSV import (fire-and-forget per new parent so a Resend hiccup doesn't stall a large import).
+- The existing reset-password page accepts these tokens — no UI change needed.
+
+### Per-user email notification preferences (2026-05-25)
+- `NotificationPrefs` model 1:1 with User. Lazy-created on first toggle.
+- Settings page at `/portal/me/notifications` — toggles for: results published, fee charged, disciplinary resolved, new message thread, announcements, complaint resolved.
+- Always-on (never opt-out): password reset, welcome, payment receipt, disciplinary case **filed** (resolution is opt-out-able), admissions confirmation.
+- `lib/notification-prefs.ts` — `canEmail(userId, key)` fails open (returns the default `true`) on DB error so infra hiccups don't silently mute critical comms.
+- Wired into all five opt-out-able call sites + a link on the profile page.
+
+### Staff creation UI + Resend welcome button (2026-05-25)
+- `/portal/admin/staff` now has a "Create staff account" form (DIRECTOR / SUPER_ADMIN only). Creates a User with role ADMIN / ACCOUNTANT / DIRECTOR, sets a random unguessable temp password, sends the welcome email.
+- Every non-student user row has a "Resend welcome" button — re-issues the 7-day set-password link. Privilege rule reused from `resetUserPassword`: plain ADMIN can resend for parents/teachers/students; staff resends require DIRECTOR+.
+- Students filtered out (their `@meclones.local` auto-generated emails aren't real inboxes).
+- Audit log: `user.create_staff`, `user.resend_welcome`.
+
+### Two-factor authentication (2026-05-25)
+- `otplib` + `qrcode` — standard RFC 6238 TOTP, 30s step, 1-step window. Compatible with Google Authenticator, Authy, Microsoft Authenticator, 1Password.
+- `User.totpSecret` + `User.totpEnabledAt`. The secret is set during enrol but only `enabledAt` flips when the user verifies a code — interrupted enrolments never lock anyone out.
+- `lib/totp.ts` — lazy-configures otplib's authenticator so Next's page-data collector doesn't choke on top-level mutation.
+- Settings page at `/portal/me/security` — start enrol → QR + manual secret display + verify input → enabled. Disable requires re-entering password.
+- Login: `auth.ts` credentials provider now reads an optional `totpCode`. When `totpEnabledAt` is non-null, the code is required and verified — missing/wrong returns null with no info-leak about which factor failed.
+- Login form has a "Use 2FA code" toggle that reveals a 6-digit input (numeric inputMode + one-time-code autocomplete). Error copy hints at the toggle on first failure.
+- Audit: `user.2fa_enabled`, `user.2fa_disabled`.
+
 ---
 
 ## 8 · Outstanding work — by priority
 
-### 🔴 Bigger lifts left
-- **Real PDF generation** — currently browser print → save-as-PDF. Wiring `@react-pdf/renderer` or Puppeteer would let us email PDFs as attachments and store them server-side. Investigation needed on Railway container size (Puppeteer's Chromium binary is ~250 MB).
-- **WhatsApp bot — production go-live** — code is shipped; Mose still needs to: (1) create a Meta Business app, (2) set WHATSAPP_VERIFY_TOKEN / PHONE_NUMBER_ID / ACCESS_TOKEN on Railway, (3) configure the webhook in Meta with URL `https://meclones-college-production.up.railway.app/api/whatsapp/meta` and the same verify token, (4) submit for app review if going outside the test recipients list.
+### 🔴 Needs Mose's action (no code work left)
+- **WhatsApp bot — production go-live** — code is shipped; Mose still needs to: (1) create a Meta Business app, (2) set `WHATSAPP_VERIFY_TOKEN` / `WHATSAPP_PHONE_NUMBER_ID` / `WHATSAPP_ACCESS_TOKEN` on Railway, (3) configure the webhook in Meta with URL `https://meclones-college-production.up.railway.app/api/whatsapp/meta` and the same verify token, (4) submit for app review if going outside the test recipients list.
 
-### 🟡 Important next
-- **Email Resend** — wire `RESEND_API_KEY` on Railway so notification emails actually deliver (currently logging to stdout).
-- **WhatsApp bot — more menu depth** — current menu only goes one level deep for Results (term picker). Could add: per-subject drill-down, fee receipt download links, complaint filing, parent password reset.
-- **WhatsApp bot — interactive message types** — Meta supports interactive list + button payloads. Currently using plain text only. Upgrading would feel more like a modern bot but adds complexity.
+### 🟡 Worth doing next
+- **2FA recovery codes** — currently a lost phone means an admin has to manually wipe `totpSecret`/`totpEnabledAt` in the DB. One-time recovery codes (10 single-use, base32) would let users self-recover.
+- **WhatsApp bot — more menu depth** — current menu goes one level deep for Results (term picker). Could add: per-subject drill-down, fee receipt download links, complaint filing, parent password reset, multi-child switching.
+- **WhatsApp bot — interactive message types** — Meta supports interactive list + button payloads. Currently using plain text only. Upgrading feels more like a modern bot but adds complexity.
+- **Read receipts on messages** — denormalised counters already exist; add a `readAt` on Message + show "Seen" indicator when peer's last-read is past your message.
+- **Notification email digests** — parents could opt for a daily/weekly digest instead of per-event emails to further reduce volume.
 
-### 🟢 Polish
+### 🟢 Polish / nice-to-haves
 - Notifications: persistence is solid but polling is 60s; could upgrade to Server-Sent Events.
 - Make session cookie reflect new profile photo without re-login (JWT refresh on update).
 - Mobile sidebar UX (lots of items, gets long).
 - Per-page loading skeletons.
 - Global search bar.
-- Read receipts for messages.
-- Notification preferences (parent opts in/out per type).
-- 2FA for admin accounts.
+- Admin-side disciplinary statistics dashboard (trends by class, recurring offenders, sanction effectiveness).
 - Backup / restore tooling.
 - Multi-language UI (Yoruba / Igbo / Hausa).
 
