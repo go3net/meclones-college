@@ -109,7 +109,10 @@ const NAV_BY_ROLE: Record<MockRole, NavItem[]> = {
   ],
   accountant: [
     { href: "/portal/accountant", label: "Dashboard", icon: Home },
-    { href: "/portal/accountant/debtors", label: "Debtors", icon: Banknote },
+    { href: "/portal/accountant/payments", label: "Payments ledger", icon: Banknote },
+    { href: "/portal/accountant/record-payment", label: "Record payment", icon: CreditCard },
+    { href: "/portal/accountant/debtors", label: "Debtors", icon: Users },
+    { href: "/portal/accountant/reminders", label: "Send reminders", icon: MessageCircle },
     { href: "/portal/whatsapp", label: "WhatsApp Logs", icon: Smartphone },
   ],
 };

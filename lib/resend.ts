@@ -274,6 +274,61 @@ export async function sendComplaintRepliedEmail(input: {
   return c.emails.send({ from: FROM, to: input.to, subject: emailSubject, html });
 }
 
+export async function sendFeeReminderEmail(input: {
+  to: string;
+  parentName: string;
+  studentName: string;
+  classLabel: string;
+  outstanding: number;
+  termLabel: string;
+  portalUrl: string;
+  customMessage?: string | null;
+}) {
+  const emailSubject = `${SCHOOL.shortName} — Fee reminder for ${input.studentName} (${naira.format(input.outstanding)})`;
+  const customBlock = input.customMessage
+    ? `<div style="background:#fff7ed; border-left:3px solid #fb923c; border-radius:4px; padding:12px 14px; margin:16px 0;">
+        <p style="margin:0; font-size:13px; color:#9a3412; white-space:pre-wrap;">${escapeHtml(input.customMessage)}</p>
+      </div>`
+    : "";
+  const html = `
+    <div style="font-family: Inter, Arial, sans-serif; color:#1a2c5a; max-width:560px; margin:0 auto; padding:24px;">
+      <div style="border-bottom:3px solid #0B1F4B; padding-bottom:12px; margin-bottom:20px;">
+        <h2 style="color:#0B1F4B; font-family: Georgia, serif; margin:0;">${SCHOOL.name}</h2>
+        <p style="font-size:12px; color:#5e3e17; font-weight:600; margin:4px 0 0;">${SCHOOL.tagline}</p>
+      </div>
+
+      <h3 style="color:#9a3412; font-family: Georgia, serif; margin:0 0 16px;">Friendly fee reminder</h3>
+      <p>Dear ${escapeHtml(input.parentName)},</p>
+      <p>This is a gentle reminder that <strong>${escapeHtml(input.studentName)}</strong> (${escapeHtml(input.classLabel)}) has an outstanding fee balance for the <strong>${escapeHtml(input.termLabel)}</strong>.</p>
+
+      <div style="background:#fef2f2; border:1px solid #fecaca; border-radius:8px; padding:16px; text-align:center; margin:18px 0;">
+        <p style="margin:0; font-size:12px; color:#7f1d1d; text-transform:uppercase; letter-spacing:0.05em;">Outstanding balance</p>
+        <p style="margin:6px 0 0; font-size:28px; font-weight:700; color:#b91c1c; font-family:Georgia, serif;">${naira.format(input.outstanding)}</p>
+      </div>
+
+      ${customBlock}
+
+      <p style="margin:20px 0;">
+        <a href="${input.portalUrl}" style="display:inline-block; background:#D4A017; color:#0B1F4B; padding:12px 28px; border-radius:6px; text-decoration:none; font-weight:700;">Pay online now</a>
+      </p>
+
+      <p style="font-size:13px; color:#475569;">You can also pay at the school office by cash, transfer, cheque or POS. The accountant will issue a receipt on the spot.</p>
+      <p style="font-size:13px; color:#475569;">Questions? Call us on ${SCHOOL.phone} — we're happy to help.</p>
+
+      <hr style="border:none; border-top:1px solid #e5e7eb; margin:24px 0;" />
+      <p style="font-size:12px; color:#64748b;">
+        ${SCHOOL.name}<br/>${SCHOOL.address}<br/>${SCHOOL.phone} · ${SCHOOL.email}
+      </p>
+    </div>
+  `;
+  const c = client();
+  if (!c) {
+    console.log("[resend stub] sendFeeReminderEmail", { to: input.to, student: input.studentName, outstanding: input.outstanding });
+    return { id: "stub" };
+  }
+  return c.emails.send({ from: FROM, to: input.to, subject: emailSubject, html });
+}
+
 export async function sendWelcomeEmail(input: {
   to: string;
   recipientName: string;
