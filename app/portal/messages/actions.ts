@@ -313,7 +313,11 @@ export async function sendReply(formData: FormData) {
   revalidatePath("/portal/teacher/messages");
 }
 
-/** Zero out unread counter for the caller's side when they open the thread. */
+/**
+ * Zero out the caller's unread counter and stamp their lastReadAt. The
+ * lastReadAt stamp powers the "Seen" indicator the other side sees on
+ * their own bubbles.
+ */
 export async function markThreadRead(threadId: string) {
   const user = await getSessionUser();
   if (!user) return;
@@ -322,9 +326,16 @@ export async function markThreadRead(threadId: string) {
     include: { parent: { select: { userId: true } }, teacher: { select: { userId: true } } },
   });
   if (!thread) return;
-  if (thread.parent.userId === user.id && thread.parentUnread > 0) {
-    await prisma.messageThread.update({ where: { id: threadId }, data: { parentUnread: 0 } });
-  } else if (thread.teacher.userId === user.id && thread.teacherUnread > 0) {
-    await prisma.messageThread.update({ where: { id: threadId }, data: { teacherUnread: 0 } });
+  const now = new Date();
+  if (thread.parent.userId === user.id) {
+    await prisma.messageThread.update({
+      where: { id: threadId },
+      data: { parentUnread: 0, parentLastReadAt: now },
+    });
+  } else if (thread.teacher.userId === user.id) {
+    await prisma.messageThread.update({
+      where: { id: threadId },
+      data: { teacherUnread: 0, teacherLastReadAt: now },
+    });
   }
 }

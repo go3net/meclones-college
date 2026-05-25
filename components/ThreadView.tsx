@@ -4,7 +4,7 @@ import { useRef } from "react";
 import { Card, CardBody, CardHeader, CardTitle, Badge, Button, Textarea } from "@/components/ui";
 import { sendReply } from "@/app/portal/messages/actions";
 import { AttachmentPicker, AttachmentChip } from "@/components/AttachmentPicker";
-import { Send } from "lucide-react";
+import { Send, CheckCheck } from "lucide-react";
 
 interface MessageItem {
   id: string;
@@ -28,13 +28,30 @@ interface Props {
   studentLabel?: string | null;
   /** Current user's id — used to decide message alignment + style. */
   currentUserId: string;
+  /** When the *other* side last opened this thread. Drives the Seen indicator. */
+  peerLastReadAt?: Date | null;
   messages: MessageItem[];
 }
 
 const timeFmt = new Intl.DateTimeFormat("en-NG", { dateStyle: "medium", timeStyle: "short" });
+const seenFmt = new Intl.DateTimeFormat("en-NG", { hour: "numeric", minute: "2-digit", day: "numeric", month: "short" });
 
-export function ThreadView({ threadId, subject, counterpartName, studentLabel, currentUserId, messages }: Props) {
+export function ThreadView({ threadId, subject, counterpartName, studentLabel, currentUserId, peerLastReadAt, messages }: Props) {
   const formRef = useRef<HTMLFormElement>(null);
+
+  // Index of the LAST own-message that the peer has already seen. We only
+  // render "Seen" once, on that bubble — putting it on every read message
+  // would clutter the thread without adding information.
+  let lastOwnSeenIdx = -1;
+  if (peerLastReadAt) {
+    for (let i = messages.length - 1; i >= 0; i--) {
+      const m = messages[i];
+      if (m.authorId === currentUserId && m.createdAt <= peerLastReadAt) {
+        lastOwnSeenIdx = i;
+        break;
+      }
+    }
+  }
 
   return (
     <Card className="flex flex-col" style={{ minHeight: "60vh" }}>
@@ -52,10 +69,11 @@ export function ThreadView({ threadId, subject, counterpartName, studentLabel, c
       <CardBody className="flex-1 overflow-y-auto space-y-3 bg-slate-50">
         {messages.length === 0 ? (
           <p className="text-center text-sm text-slate-500 py-10">No messages yet — be the first to write.</p>
-        ) : messages.map(m => {
+        ) : messages.map((m, idx) => {
           const mine = m.authorId === currentUserId;
+          const showSeen = mine && idx === lastOwnSeenIdx && peerLastReadAt;
           return (
-            <div key={m.id} className={`flex ${mine ? "justify-end" : "justify-start"}`}>
+            <div key={m.id} className={`flex flex-col ${mine ? "items-end" : "items-start"}`}>
               <div className={`max-w-[80%] rounded-2xl px-3.5 py-2 text-sm ${mine
                 ? "bg-brand-700 text-white rounded-br-sm"
                 : "bg-white border border-slate-200 text-slate-800 rounded-bl-sm"}`}
@@ -74,6 +92,12 @@ export function ThreadView({ threadId, subject, counterpartName, studentLabel, c
                   {mine ? "You" : m.authorName} · {timeFmt.format(m.createdAt)}
                 </p>
               </div>
+              {showSeen && (
+                <p className="text-[10px] text-slate-400 mt-1 mr-1 inline-flex items-center gap-1">
+                  <CheckCheck className="h-3 w-3 text-emerald-600" />
+                  Seen {seenFmt.format(peerLastReadAt!)}
+                </p>
+              )}
             </div>
           );
         })}

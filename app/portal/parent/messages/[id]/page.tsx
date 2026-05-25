@@ -48,6 +48,7 @@ export default async function ParentThreadPage({ params }: Props) {
         counterpartName={thread.teacher.user.name}
         studentLabel={thread.student?.user.name ?? null}
         currentUserId={user.id}
+        peerLastReadAt={thread.teacherLastReadAt}
         messages={thread.messages.map(m => ({
           id: m.id,
           authorId: m.authorId,

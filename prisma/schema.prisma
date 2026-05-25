@@ -527,6 +527,11 @@ model MessageThread {
   /// Per-side unread counters; incremented by sendMessage based on author.
   parentUnread  Int @default(0)
   teacherUnread Int @default(0)
+  /// Timestamps of the most recent read by each side; powers "Seen" indicators.
+  /// A message authored by side A is considered "seen" by side B when B's
+  /// lastReadAt >= the message's createdAt.
+  parentLastReadAt  DateTime?
+  teacherLastReadAt DateTime?
 
   messages  Message[]
 
