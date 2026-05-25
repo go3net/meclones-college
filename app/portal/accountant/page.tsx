@@ -5,7 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { requireRole, getActiveContext } from "@/lib/auth-helpers";
 import {
   Wallet, CreditCard, AlertCircle, Users, ArrowRight, Receipt, Send,
-  ClipboardList, TrendingUp, Phone, Calendar, CheckCircle2,
+  ClipboardList, TrendingUp, Phone, Calendar, CheckCircle2, ScrollText, Building2,
 } from "lucide-react";
 
 export const dynamic = "force-dynamic";
@@ -167,8 +167,14 @@ export default async function AccountantDashboard() {
           <Link href="/portal/accountant/record-payment">
             <Button variant="gold"><Receipt className="h-4 w-4" /> Record payment</Button>
           </Link>
+          <Link href="/portal/accountant/reports">
+            <Button variant="outline"><ScrollText className="h-4 w-4" /> Reports</Button>
+          </Link>
+          <Link href="/portal/accountant/reconciliation">
+            <Button variant="outline"><Building2 className="h-4 w-4" /> Reconcile</Button>
+          </Link>
           <Link href="/portal/accountant/reminders">
-            <Button variant="outline"><Send className="h-4 w-4" /> Send reminders</Button>
+            <Button variant="outline"><Send className="h-4 w-4" /> Reminders</Button>
           </Link>
         </div>
       </div>

@@ -820,11 +820,23 @@ model Payment {
   createdById String?
   notes       String?  @db.Text
 
+  /// Bank reconciliation. Set when the accountant has matched this payment
+  /// against a bank deposit / statement entry. Most useful for TRANSFER /
+  /// POS / CHEQUE methods where the money lands in the bank separately.
+  reconciledAt        DateTime?
+  /// User who marked it reconciled (snapshot — no FK to User).
+  reconciledById      String?
+  reconciledByName    String?
+  /// Free-form bank reference / deposit slip number / statement line ref.
+  bankReference       String?
+  reconciliationNote  String?  @db.Text
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([feeId])
   @@index([status, createdAt])
+  @@index([reconciledAt])
 }
 
 // ============================================================

@@ -3,7 +3,8 @@ import { PortalShell } from "@/components/PortalShell";
 import { Card, CardBody, CardHeader, CardTitle, Badge, Button } from "@/components/ui";
 import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/auth-helpers";
-import { Receipt, Download, Search, ArrowLeft, Phone } from "lucide-react";
+import { Receipt, Download, Search, ArrowLeft, Mail, CheckCircle2, AlertCircle } from "lucide-react";
+import { resendPaymentReceipt } from "./actions";
 
 export const dynamic = "force-dynamic";
 
@@ -40,6 +41,8 @@ type SearchParams = {
   from?: string;
   to?: string;
   page?: string;
+  resent?: string;
+  error?: string;
 };
 
 const PAGE_SIZE = 50;
@@ -122,6 +125,17 @@ export default async function PaymentsLedgerPage({ searchParams }: { searchParam
           <Download className="h-4 w-4" /> Export CSV
         </a>
       </div>
+
+      {searchParams.resent && (
+        <div className="mb-4 rounded-lg bg-emerald-50 border border-emerald-200 px-4 py-2.5 text-sm text-emerald-800 flex items-center gap-2">
+          <CheckCircle2 className="h-4 w-4" /> Receipt resent to {decodeURIComponent(searchParams.resent)}'s parent(s).
+        </div>
+      )}
+      {searchParams.error && (
+        <div className="mb-4 rounded-lg bg-rose-50 border border-rose-200 px-4 py-2.5 text-sm text-rose-800 flex items-center gap-2">
+          <AlertCircle className="h-4 w-4" /> {decodeURIComponent(searchParams.error)}
+        </div>
+      )}
 
       {/* Filters */}
       <Card className="mb-4">
@@ -219,7 +233,17 @@ export default async function PaymentsLedgerPage({ searchParams }: { searchParam
                         <Badge tone={statusTone[p.status]}>{p.status.toLowerCase()}</Badge>
                       </td>
                       <td className="px-4 py-2.5">
-                        <Link href={`/portal/parent/fees/receipt/${p.id}`} className="text-xs font-medium text-brand-700 hover:underline">Receipt</Link>
+                        <div className="flex items-center gap-2 justify-end">
+                          <Link href={`/portal/parent/fees/receipt/${p.id}`} className="text-xs font-medium text-brand-700 hover:underline">Receipt</Link>
+                          {p.status === "SUCCESS" && (
+                            <form action={resendPaymentReceipt}>
+                              <input type="hidden" name="paymentId" value={p.id} />
+                              <button type="submit" title="Re-send receipt by email" className="text-xs font-medium text-slate-500 hover:text-emerald-700 inline-flex items-center gap-1">
+                                <Mail className="h-3 w-3" /> Resend
+                              </button>
+                            </form>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   ))}
