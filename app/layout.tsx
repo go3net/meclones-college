@@ -1,5 +1,5 @@
 import "./globals.css";
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Inter, Playfair_Display } from "next/font/google";
 import { SCHOOL } from "@/lib/constants";
 import { Providers } from "@/components/Providers";
@@ -34,6 +34,26 @@ export const metadata: Metadata = {
     description: `Raising confident, responsible students at ${SCHOOL.name}.`,
   },
   twitter: { card: "summary_large_image" },
+  // PWA niceties — manifest is auto-resolved from app/manifest.ts; the
+  // appleWebApp block makes iOS Safari treat the installed app properly.
+  manifest: "/manifest.webmanifest",
+  appleWebApp: {
+    capable: true,
+    title: SCHOOL.shortName,
+    statusBarStyle: "black-translucent",
+  },
+  applicationName: `${SCHOOL.shortName} Portal`,
+};
+
+export const viewport: Viewport = {
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#0B1F4B" },
+    { media: "(prefers-color-scheme: dark)",  color: "#0B1F4B" },
+  ],
+  width: "device-width",
+  initialScale: 1,
+  // Prevent iOS auto-zoom on input focus; doesn't disable user pinch-zoom.
+  maximumScale: 5,
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
