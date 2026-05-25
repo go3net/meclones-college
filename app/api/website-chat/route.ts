@@ -20,6 +20,7 @@
 import { NextRequest } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 import { buildSchoolKnowledge } from "@/lib/school-knowledge";
+import { staticFaqAnswer, genericFallback } from "@/lib/school-faq";
 import { SCHOOL } from "@/lib/constants";
 
 export const dynamic = "force-dynamic";
@@ -94,11 +95,14 @@ export async function POST(req: NextRequest) {
     if (typeof m.content !== "string" || m.content.length > 4000) return new Response("bad content", { status: 400 });
   }
 
-  // Graceful fallback when no API key.
+  // Graceful fallback when no API key: try the keyword-matched static
+  // FAQ first, then a generic "call/email" message. Either way the
+  // visitor gets a useful answer instead of "I'm not fully wired up".
   if (!process.env.ANTHROPIC_API_KEY) {
-    const fallback = `I'm not fully wired up yet — but the school office is happy to help. Call ${SCHOOL.phone} or email ${SCHOOL.email}.`;
+    const lastUser = [...messages].reverse().find(m => m.role === "user");
+    const answer = (lastUser ? staticFaqAnswer(lastUser.content) : null) ?? genericFallback();
     return new Response(
-      JSON.stringify({ type: "delta", text: fallback }) + "\n" +
+      JSON.stringify({ type: "delta", text: answer }) + "\n" +
       JSON.stringify({ type: "end" }) + "\n",
       { status: 200, headers: { "Content-Type": "application/x-ndjson" } },
     );
