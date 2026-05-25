@@ -12,7 +12,7 @@ import {
   Home, Users, GraduationCap, BookOpen, Calendar, FileText, MessageCircle,
   CreditCard, Brain, Smartphone, Settings, LogOut, Menu, X, Bell, ChevronDown,
   CheckSquare, BookMarked, Banknote, TrendingUp, ClipboardList, Megaphone,
-  UserCircle2, ShieldCheck, KeyRound, Trophy, ScrollText, MessageSquare, HeartPulse, Shield, Building2,
+  UserCircle2, ShieldCheck, KeyRound, Trophy, ScrollText, MessageSquare, HeartPulse, Shield, Building2, Search,
 } from "lucide-react";
 
 interface NavItem { href: string; label: string; icon: any; }
@@ -203,12 +203,34 @@ export function PortalShell({ role, children }: { role: MockRole; children: Reac
 
       {/* Main */}
       <div className="flex-1 flex flex-col min-w-0">
-        <header className="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-4 lg:px-6 sticky top-0 z-20">
+        <header className="h-16 bg-white border-b border-slate-200 flex items-center justify-between gap-3 px-4 lg:px-6 sticky top-0 z-20">
           <button className="lg:hidden text-slate-700" onClick={() => setOpen(true)}><Menu className="h-5 w-5" /></button>
-          <div className="hidden lg:block">
+          <div className="hidden lg:block shrink-0">
             <p className="text-xs text-slate-500">Portal · {roleLabel[effectiveRole]}</p>
           </div>
-          <div className="flex items-center gap-3">
+
+          {/* Global search (staff only) */}
+          {["director", "school_admin", "accountant", "teacher"].includes(effectiveRole) && (
+            <form action="/portal/search" method="GET" className="flex-1 max-w-md hidden md:block">
+              <div className="relative">
+                <Search className="h-4 w-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                <input
+                  type="text"
+                  name="q"
+                  placeholder="Search students, teachers, parents, payments..."
+                  className="w-full pl-9 pr-3 py-1.5 rounded-lg border border-slate-200 bg-slate-50 text-sm focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-300"
+                  minLength={2}
+                />
+              </div>
+            </form>
+          )}
+
+          <div className="flex items-center gap-3 shrink-0">
+            {["director", "school_admin", "accountant", "teacher"].includes(effectiveRole) && (
+              <Link href="/portal/search" className="md:hidden text-slate-500 hover:text-brand-700 p-1.5" aria-label="Search">
+                <Search className="h-5 w-5" />
+              </Link>
+            )}
             <NotificationsBell />
             <div className="relative">
               <button onClick={() => setMenuOpen(!menuOpen)} className="flex items-center gap-2 p-1 pr-2 hover:bg-slate-100 rounded-lg">
