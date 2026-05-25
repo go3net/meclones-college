@@ -1,6 +1,7 @@
 import { PublicHeader } from "@/components/PublicHeader";
 import { PublicFooter } from "@/components/PublicFooter";
 import { WhatsAppFab } from "@/components/WhatsAppFab";
+import { WebsiteChatWidget } from "@/components/WebsiteChatWidget";
 
 export default function PublicLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -9,6 +10,7 @@ export default function PublicLayout({ children }: { children: React.ReactNode }
       <main className="flex-1">{children}</main>
       <PublicFooter />
       <WhatsAppFab />
+      <WebsiteChatWidget />
     </div>
   );
 }
