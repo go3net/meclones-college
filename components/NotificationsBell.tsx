@@ -66,10 +66,55 @@ export function NotificationsBell() {
   };
 
   useEffect(() => {
+    // Prefer SSE — the server pushes a fresh snapshot whenever something
+    // changes (server-side poll, ~5s granularity). Falls back to a 60s
+    // client poll if EventSource isn't available or keeps erroring.
     refresh();
-    // Poll every 60s so badges stay roughly fresh without a websocket.
-    pollRef.current = window.setInterval(refresh, 60_000) as unknown as number;
-    return () => { if (pollRef.current) window.clearInterval(pollRef.current); };
+
+    if (typeof EventSource === "undefined") {
+      pollRef.current = window.setInterval(refresh, 60_000) as unknown as number;
+      return () => { if (pollRef.current) window.clearInterval(pollRef.current); };
+    }
+
+    let es: EventSource | null = null;
+    let fallbackTimer: number | null = null;
+    let attempts = 0;
+
+    const startFallback = () => {
+      if (fallbackTimer) return;
+      fallbackTimer = window.setInterval(refresh, 60_000) as unknown as number;
+    };
+
+    try {
+      es = new EventSource("/api/notifications/stream", { withCredentials: true });
+
+      es.addEventListener("snapshot", e => {
+        try {
+          const data = JSON.parse((e as MessageEvent).data);
+          if (Array.isArray(data.items)) setItems(data.items);
+          if (typeof data.unreadCount === "number") setUnread(data.unreadCount);
+        } catch { /* malformed event */ }
+      });
+
+      es.onopen = () => { attempts = 0; };
+      es.onerror = () => {
+        // EventSource auto-reconnects, but after a few failures fall
+        // back to polling so the bell doesn't go permanently silent.
+        attempts++;
+        if (attempts >= 3) {
+          es?.close();
+          es = null;
+          startFallback();
+        }
+      };
+    } catch {
+      startFallback();
+    }
+
+    return () => {
+      es?.close();
+      if (fallbackTimer) window.clearInterval(fallbackTimer);
+    };
   }, []);
 
   const onOpen = async () => {
