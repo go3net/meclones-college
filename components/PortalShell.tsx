@@ -170,14 +170,21 @@ export function PortalShell({ role, children }: { role: MockRole; children: Reac
     <div className="min-h-screen bg-slate-50 flex">
       {/* Sidebar */}
       <aside className={clsx(
-        "fixed inset-y-0 left-0 z-40 w-64 bg-brand-900 text-slate-100 transform transition-transform lg:translate-x-0 lg:relative lg:flex flex-col",
+        // `flex flex-col` (not `lg:flex`) so the inner <nav>'s flex-1 +
+        // overflow-y-auto actually scroll on mobile — without `display:flex`
+        // on the parent the child has no height constraint and the menu
+        // gets cut off at the viewport instead of scrolling.
+        "fixed inset-y-0 left-0 z-40 w-64 bg-brand-900 text-slate-100 transform transition-transform lg:translate-x-0 lg:relative flex flex-col",
         open ? "translate-x-0" : "-translate-x-full"
       )}>
         <div className="h-16 flex items-center justify-between px-4 border-b border-white/10">
           <Logo variant="light" />
           <button className="lg:hidden text-white" onClick={() => setOpen(false)}><X className="h-5 w-5" /></button>
         </div>
-        <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
+        <nav
+          className="flex-1 px-3 py-4 space-y-1 overflow-y-auto overscroll-contain"
+          style={{ WebkitOverflowScrolling: "touch" } as React.CSSProperties}
+        >
           {nav.map(item => {
             const active = pathname === item.href || pathname.startsWith(item.href + "/");
             return (
