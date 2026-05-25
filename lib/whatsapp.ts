@@ -45,18 +45,180 @@ const nairaFmt = new Intl.NumberFormat("en-NG", { style: "currency", currency: "
 const dateFmt = new Intl.DateTimeFormat("en-NG", { dateStyle: "medium" });
 
 export function formatMainMenu(parentName: string) {
+  return formatParentMenu({ parentName, currentChildName: null, hasMultipleChildren: false });
+}
+
+export function formatParentMenu(input: {
+  parentName: string;
+  currentChildName: string | null;
+  hasMultipleChildren: boolean;
+}) {
+  const childLine = input.currentChildName
+    ? `Currently viewing: *${input.currentChildName}*`
+    : null;
+  const lines = [
+    `Hello ${input.parentName}, welcome back to ${SCHOOL.shortName}.`,
+  ];
+  if (childLine) lines.push(childLine);
+  lines.push("", "What would you like to do?", "");
+  lines.push("1️⃣  Check results");
+  lines.push("2️⃣  Check attendance");
+  lines.push("3️⃣  Fees & make payment");
+  lines.push("4️⃣  Class timetable");
+  lines.push("5️⃣  School announcements");
+  if (input.hasMultipleChildren) lines.push("6️⃣  Switch to another child");
+  lines.push("9️⃣  Speak to a staff member");
+  lines.push("0️⃣  Exit");
+  lines.push("", "Reply with the number of your choice.");
+  return lines.join("\n");
+}
+
+export function formatTeacherMenu(teacherName: string) {
   return [
-    `Hello ${parentName}, welcome to ${SCHOOL.shortName}! How can we help you today?`,
+    `Hello ${teacherName}, ${SCHOOL.shortName} staff line.`,
     "",
-    "1️⃣  Check Result",
-    "2️⃣  Check Attendance",
-    "3️⃣  Check Fee Balance",
-    "4️⃣  School Announcements",
-    "5️⃣  Speak to Admin",
+    "What can I help you with?",
+    "",
+    "1️⃣  My classes",
+    "2️⃣  Today's schedule",
+    "3️⃣  Recent disciplinary cases (my classes)",
+    "4️⃣  School announcements",
+    "9️⃣  Speak to admin office",
     "0️⃣  Exit",
     "",
-    `Reply with the number of your choice.`,
+    "Reply with the number of your choice.",
   ].join("\n");
+}
+
+export function formatChildPicker(children: { admissionNumber: string; name: string; className: string }[]) {
+  const lines = ["You have multiple children registered. Which one?", ""];
+  children.forEach((c, i) => {
+    lines.push(`${i + 1}. *${c.name}* — ${c.className} (${c.admissionNumber})`);
+  });
+  lines.push("", "Reply with the number of the child.");
+  return lines.join("\n");
+}
+
+export function formatTimetable(input: {
+  studentName: string;
+  className: string;
+  byDay: Record<string, Array<{ period: number; subject: string; teacher: string | null; startTime: string | null; endTime: string | null; note: string | null }>>;
+}) {
+  const lines = [`📅 *${input.studentName} — ${input.className} timetable*`, ""];
+  const DAYS: Array<{ key: string; label: string }> = [
+    { key: "MON", label: "Monday" },
+    { key: "TUE", label: "Tuesday" },
+    { key: "WED", label: "Wednesday" },
+    { key: "THU", label: "Thursday" },
+    { key: "FRI", label: "Friday" },
+  ];
+  let any = false;
+  for (const d of DAYS) {
+    const periods = input.byDay[d.key] ?? [];
+    if (periods.length === 0) continue;
+    any = true;
+    lines.push(`*${d.label}*`);
+    for (const p of periods) {
+      const time = p.startTime && p.endTime ? ` (${p.startTime}-${p.endTime})` : "";
+      const sub = p.subject || p.note || "—";
+      lines.push(`  ${p.period}. ${sub}${time}${p.teacher ? ` · ${p.teacher}` : ""}`);
+    }
+    lines.push("");
+  }
+  if (!any) lines.push("No timetable set for this class yet — check back later.");
+  return lines.join("\n").trim();
+}
+
+export function formatPayPrompt(input: {
+  studentName: string;
+  totalOutstanding: number;
+  links: Array<{ feeType: string; amount: number; balance: number; url: string }>;
+  portalUrl: string;
+}) {
+  const lines = [
+    `💳 *Pay fees for ${input.studentName}*`,
+    `Total outstanding: *${nairaFmt.format(input.totalOutstanding)}*`,
+    "",
+  ];
+  if (input.links.length === 0) {
+    lines.push("Nothing outstanding — every fee is paid up. 🎉");
+    return lines.join("\n");
+  }
+  lines.push("Tap any link to pay that fee via Paystack:");
+  input.links.forEach((l, i) => {
+    lines.push("");
+    lines.push(`${i + 1}. *${l.feeType}* — ${nairaFmt.format(l.balance)}`);
+    lines.push(`   ${l.url}`);
+  });
+  lines.push("");
+  lines.push("Or pay any custom amount in the portal:");
+  lines.push(input.portalUrl);
+  return lines.join("\n");
+}
+
+export function formatTeacherClasses(input: {
+  teacherName: string;
+  formOf: Array<{ name: string; arm: string; studentCount: number }>;
+  teaching: Array<{ name: string; arm: string; subjects: string[] }>;
+}) {
+  const lines = [`👩‍🏫 *${input.teacherName} — your classes*`, ""];
+  if (input.formOf.length > 0) {
+    lines.push("*Form teacher of:*");
+    for (const c of input.formOf) {
+      lines.push(`  • ${c.name}${c.arm} (${c.studentCount} students)`);
+    }
+    lines.push("");
+  }
+  if (input.teaching.length > 0) {
+    lines.push("*Subject teaching:*");
+    for (const c of input.teaching) {
+      lines.push(`  • ${c.name}${c.arm}${c.subjects.length > 0 ? ` — ${c.subjects.join(", ")}` : ""}`);
+    }
+  }
+  if (input.formOf.length === 0 && input.teaching.length === 0) {
+    lines.push("You're not assigned to any class yet. Talk to the admin office.");
+  }
+  return lines.join("\n");
+}
+
+export function formatTeacherSchedule(input: {
+  teacherName: string;
+  dayLabel: string;
+  periods: Array<{ period: number; className: string; subject: string; startTime: string | null; endTime: string | null; room: string | null }>;
+}) {
+  const lines = [`⏰ *${input.teacherName} — ${input.dayLabel}*`, ""];
+  if (input.periods.length === 0) {
+    lines.push("No periods scheduled today. 🌞");
+  } else {
+    for (const p of input.periods) {
+      const time = p.startTime && p.endTime ? `${p.startTime}-${p.endTime}` : `Period ${p.period}`;
+      const room = p.room ? ` · Room ${p.room}` : "";
+      lines.push(`${time}  ${p.subject} — ${p.className}${room}`);
+    }
+  }
+  return lines.join("\n");
+}
+
+export function formatRecentDiscipline(cases: Array<{
+  studentName: string;
+  className: string;
+  category: string;
+  severity: string;
+  status: string;
+  date: Date;
+}>) {
+  if (cases.length === 0) {
+    return "🎉 *Clean.* No open disciplinary cases for your classes right now.";
+  }
+  const lines = [`🛡️ *Recent disciplinary cases — your classes*`, ""];
+  for (const c of cases) {
+    const dateLabel = dateFmt.format(c.date);
+    lines.push(`• ${c.studentName} (${c.className}) — ${c.category.replace(/_/g, " ").toLowerCase()}`);
+    lines.push(`  ${c.severity.toLowerCase()} · ${c.status.toLowerCase()} · ${dateLabel}`);
+  }
+  lines.push("");
+  lines.push("Full detail in the portal: " + SCHOOL.website + "/portal/teacher/discipline");
+  return lines.join("\n");
 }
 
 export function formatResults(input: {
