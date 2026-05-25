@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { MessageSquare, X, Send, Sparkles, Loader2 } from "lucide-react";
+import { X, Send, Loader2, Headphones } from "lucide-react";
 import { SCHOOL } from "@/lib/constants";
 
 interface Msg { role: "user" | "assistant"; content: string; }
@@ -12,6 +12,24 @@ const QUICK_PROMPTS = [
   "Can I book a tour?",
   "What programs do you offer?",
 ];
+
+/** Friendly support-agent avatar used for the launcher + chat header. */
+function AssistantAvatar({ size = 36, online = true }: { size?: number; online?: boolean }) {
+  return (
+    <div
+      className="relative shrink-0 rounded-full bg-gradient-to-br from-brand-700 to-brand-900 flex items-center justify-center ring-2 ring-gold-400/30"
+      style={{ width: size, height: size }}
+    >
+      <Headphones className="text-gold-300" style={{ width: size * 0.55, height: size * 0.55 }} />
+      {online && (
+        <span
+          className="absolute bottom-0 right-0 rounded-full bg-emerald-400 ring-2 ring-white"
+          style={{ width: size * 0.28, height: size * 0.28 }}
+        />
+      )}
+    </div>
+  );
+}
 
 const INITIAL_GREETING: Msg = {
   role: "assistant",
@@ -115,18 +133,15 @@ export function WebsiteChatWidget() {
 
   return (
     <>
-      {/* Floating launcher — sits above the existing WhatsApp FAB so both
-          are visible. WhatsApp button is 56px + 20px bottom margin = ~76px,
-          so we land at bottom-24 (96px) for a clean gap. */}
+      {/* Floating launcher — only chat FAB on the public site. */}
       {!open && (
         <button
           onClick={() => setOpen(true)}
-          className="fixed bottom-24 right-5 z-50 inline-flex items-center gap-2 bg-brand-700 hover:bg-brand-800 text-white px-4 py-3 rounded-full shadow-lift font-semibold text-sm transition-all ring-4 ring-white"
-          aria-label="Ask the school assistant"
+          className="fixed bottom-5 right-5 z-50 inline-flex items-center gap-2.5 bg-brand-700 hover:bg-brand-800 text-white pl-2 pr-4 py-2 rounded-full shadow-lift font-semibold text-sm transition-all ring-4 ring-white"
+          aria-label="Chat with the school assistant"
         >
-          <Sparkles className="h-4 w-4 text-gold-300" />
-          <span className="hidden sm:inline">Ask the school</span>
-          <MessageSquare className="h-4 w-4 sm:hidden" />
+          <AssistantAvatar size={36} />
+          <span className="hidden sm:inline">Chat with us</span>
         </button>
       )}
 
@@ -135,14 +150,13 @@ export function WebsiteChatWidget() {
         <div className="fixed bottom-0 right-0 left-0 sm:bottom-5 sm:right-5 sm:left-auto z-50 sm:w-[380px] h-[80vh] sm:h-[560px] sm:max-h-[80vh] bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl flex flex-col border border-slate-200">
           {/* Header */}
           <div className="flex items-center justify-between gap-2 px-4 py-3 bg-gradient-to-br from-brand-800 to-brand-900 text-white rounded-t-2xl">
-            <div className="flex items-center gap-2 min-w-0">
-              <div className="h-9 w-9 rounded-lg bg-gold-400 text-brand-900 flex items-center justify-center font-bold shrink-0">
-                M
-              </div>
+            <div className="flex items-center gap-2.5 min-w-0">
+              <AssistantAvatar size={40} />
               <div className="min-w-0">
                 <p className="text-sm font-semibold truncate">{SCHOOL.shortName} Assistant</p>
-                <p className="text-[11px] text-gold-300 inline-flex items-center gap-1">
-                  <Sparkles className="h-3 w-3" /> AI-powered · usually replies instantly
+                <p className="text-[11px] text-emerald-300 inline-flex items-center gap-1.5">
+                  <span className="inline-block h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                  Online · usually replies instantly
                 </p>
               </div>
             </div>
@@ -206,9 +220,17 @@ export function WebsiteChatWidget() {
                 {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
               </button>
             </div>
-            <p className="text-[10px] text-slate-400 mt-1.5 text-center">
-              For your child's records, log in to the parent portal.
-            </p>
+            <div className="mt-2 flex items-center justify-between gap-2 text-[10px] text-slate-500">
+              <span>For your child's records, log in to the portal.</span>
+              <a
+                href={`https://wa.me/${SCHOOL.whatsapp}?text=${encodeURIComponent(`Hello ${SCHOOL.shortName}, I'd like to speak to someone.`)}`}
+                target="_blank"
+                rel="noreferrer noopener"
+                className="inline-flex items-center gap-1 font-semibold text-emerald-700 hover:text-emerald-800"
+              >
+                Prefer WhatsApp? Tap here →
+              </a>
+            </div>
           </div>
         </div>
       )}

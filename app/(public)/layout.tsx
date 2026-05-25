@@ -1,6 +1,5 @@
 import { PublicHeader } from "@/components/PublicHeader";
 import { PublicFooter } from "@/components/PublicFooter";
-import { WhatsAppFab } from "@/components/WhatsAppFab";
 import { WebsiteChatWidget } from "@/components/WebsiteChatWidget";
 
 export default function PublicLayout({ children }: { children: React.ReactNode }) {
@@ -9,7 +8,8 @@ export default function PublicLayout({ children }: { children: React.ReactNode }
       <PublicHeader />
       <main className="flex-1">{children}</main>
       <PublicFooter />
-      <WhatsAppFab />
+      {/* Single floating chat — the assistant offers a WhatsApp handoff
+          inside the chat itself, so we don't need two competing FABs. */}
       <WebsiteChatWidget />
     </div>
   );
