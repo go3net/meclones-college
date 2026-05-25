@@ -9,7 +9,7 @@ import { Card, CardBody, Button, Input, Label } from "@/components/ui";
 import { Logo } from "@/components/Logo";
 import { ROLE_HOME } from "@/auth.config";
 import { PLACE } from "@/lib/images";
-import { ShieldCheck, AlertCircle, ArrowRight, Lock } from "lucide-react";
+import { ShieldCheck, AlertCircle, ArrowRight, Lock, KeyRound } from "lucide-react";
 
 const DEMO_ACCOUNTS: { role: keyof typeof ROLE_HOME; email: string; label: string }[] = [
   { role: "DIRECTOR", email: "director@meclonescollege.com", label: "Director" },
@@ -38,6 +38,8 @@ function LoginInner() {
   const justReset = params.get("reset") === "1";
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [totpCode, setTotpCode] = useState("");
+  const [showTotp, setShowTotp] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -56,11 +58,19 @@ function LoginInner() {
     const res = await signIn("credentials", {
       email: email.toLowerCase().trim(),
       password,
+      totpCode: totpCode.trim(),
       redirect: false,
     });
 
     if (!res || res.error) {
-      setError("Invalid email or password.");
+      // If 2FA was disabled and we passed no code, that's a normal failure.
+      // If the user already typed a code, hint that it might be wrong.
+      // Without knowing 2FA state up-front we offer a "use code" toggle.
+      if (showTotp && totpCode) {
+        setError("Invalid email, password or 2FA code.");
+      } else {
+        setError("Invalid email or password. If you've enabled 2FA, click 'Use 2FA code' below.");
+      }
       setLoading(false);
       return;
     }
@@ -157,6 +167,32 @@ function LoginInner() {
                 </div>
                 <Input type="password" value={password} onChange={e => setPassword(e.target.value)} required autoComplete="current-password" />
               </div>
+
+              {showTotp ? (
+                <div>
+                  <Label><KeyRound className="h-3 w-3 inline mr-1" /> Two-factor code</Label>
+                  <Input
+                    type="text"
+                    value={totpCode}
+                    onChange={e => setTotpCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                    inputMode="numeric"
+                    autoComplete="one-time-code"
+                    maxLength={6}
+                    pattern="[0-9]{6}"
+                    placeholder="123456"
+                    className="font-mono tracking-widest"
+                  />
+                  <p className="text-[11px] text-slate-500 mt-1">6-digit code from your authenticator app.</p>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setShowTotp(true)}
+                  className="text-xs text-brand-700 hover:underline inline-flex items-center gap-1"
+                >
+                  <KeyRound className="h-3 w-3" /> Use 2FA code
+                </button>
+              )}
               {justReset && !error && (
                 <div className="flex gap-2 text-sm text-emerald-800 bg-emerald-50 border border-emerald-200 rounded-lg p-3">
                   <Lock className="h-4 w-4 mt-0.5 shrink-0" /><span>Password updated. Sign in with your new password.</span>

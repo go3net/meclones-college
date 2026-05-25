@@ -37,6 +37,11 @@ model User {
   emailVerified DateTime?
   image        String?
 
+  /// TOTP (RFC 6238) shared secret. Set during enrolment; required on
+  /// every login when totpEnabledAt is non-null.
+  totpSecret    String?
+  totpEnabledAt DateTime?
+
   student      Student?
   teacher      Teacher?
   parent       Parent?

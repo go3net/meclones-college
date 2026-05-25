@@ -6,7 +6,7 @@ import { Card, CardBody, CardHeader, CardTitle, Button, Input, Label, Badge } fr
 import { prisma } from "@/lib/prisma";
 import { getSessionUser } from "@/lib/auth-helpers";
 import { updateOwnProfile, changeOwnPassword } from "./actions";
-import { ArrowLeft, AlertCircle, CheckCircle2, KeyRound, User as UserIcon, Save, Bell, ChevronRight } from "lucide-react";
+import { ArrowLeft, AlertCircle, CheckCircle2, KeyRound, User as UserIcon, Save, Bell, ChevronRight, Shield } from "lucide-react";
 import { PhotoUpload } from "@/components/PhotoUpload";
 
 export const dynamic = "force-dynamic";
@@ -128,9 +128,14 @@ export default async function MyProfilePage({ searchParams }: { searchParams: Se
         <Card className="lg:col-span-2">
           <CardHeader>
             <CardTitle>Update profile</CardTitle>
-            <Link href="/portal/me/notifications" className="text-xs font-medium text-brand-700 hover:underline inline-flex items-center gap-1">
-              <Bell className="h-3 w-3" /> Email notifications <ChevronRight className="h-3 w-3" />
-            </Link>
+            <div className="flex items-center gap-3">
+              <Link href="/portal/me/notifications" className="text-xs font-medium text-brand-700 hover:underline inline-flex items-center gap-1">
+                <Bell className="h-3 w-3" /> Email notifications
+              </Link>
+              <Link href="/portal/me/security" className="text-xs font-medium text-brand-700 hover:underline inline-flex items-center gap-1">
+                <Shield className="h-3 w-3" /> Two-factor auth <ChevronRight className="h-3 w-3" />
+              </Link>
+            </div>
           </CardHeader>
           <CardBody>
             <form action={updateOwnProfile} className="grid sm:grid-cols-2 gap-4">
