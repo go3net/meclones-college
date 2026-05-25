@@ -8,6 +8,7 @@ import { getSessionUser } from "@/lib/auth-helpers";
 import { notify } from "@/lib/notify";
 import { sendNewMessageThreadEmail } from "@/lib/resend";
 import { SCHOOL } from "@/lib/constants";
+import { canEmail } from "@/lib/notification-prefs";
 
 function readAttachment(formData: FormData) {
   const url = String(formData.get("attachmentUrl") ?? "").trim();
@@ -92,7 +93,7 @@ export async function startThreadAsParent(formData: FormData) {
       href: `/portal/teacher/messages/${thread.id}`,
     }).catch(err => console.error("[messages] notify failed", err));
 
-    if (teacher.user.email) {
+    if (teacher.user.email && (await canEmail(teacher.userId, "emailNewMessage"))) {
       const studentName = d.studentId
         ? (await prisma.student.findUnique({ where: { id: d.studentId }, select: { user: { select: { name: true } } } }))?.user.name
         : null;
@@ -221,7 +222,7 @@ export async function startThreadAsTeacher(formData: FormData) {
       href: `/portal/parent/messages/${thread.id}`,
     }).catch(err => console.error("[messages] notify failed", err));
 
-    if (parent.user.email) {
+    if (parent.user.email && (await canEmail(parent.userId, "emailNewMessage"))) {
       const studentName = (await prisma.student.findUnique({
         where: { id: d.studentId },
         select: { user: { select: { name: true } } },

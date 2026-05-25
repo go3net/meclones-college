@@ -12,6 +12,7 @@ import { loadResultSlipData } from "@/lib/result-slip-data";
 import { renderToBuffer } from "@react-pdf/renderer";
 import { ResultSlipPdf } from "@/components/ResultSlipPdf";
 import { createElement } from "react";
+import { canEmail } from "@/lib/notification-prefs";
 
 /**
  * Publish (or unpublish) all results for a (class × subject × term) batch.
@@ -136,10 +137,11 @@ async function notifyResultsPublished(studentIds: string[], termId: string) {
       console.error("[results] PDF render failed for", s.id, err);
     }
 
-    // Email each linked parent.
+    // Email each linked parent (honouring their notification prefs).
     for (const link of s.parentLinks) {
       const parent = link.parent;
       if (!parent.user.email) continue;
+      if (!(await canEmail(parent.userId, "emailResultsPublished"))) continue;
       try {
         await sendResultsPublishedEmail({
           to: parent.user.email,
@@ -156,8 +158,8 @@ async function notifyResultsPublished(studentIds: string[], termId: string) {
       }
     }
 
-    // Also email the student directly if they have an email.
-    if (s.user.email) {
+    // Also email the student directly if they have an email (honouring prefs).
+    if (s.user.email && (await canEmail(s.userId, "emailResultsPublished"))) {
       try {
         await sendResultsPublishedEmail({
           to: s.user.email,

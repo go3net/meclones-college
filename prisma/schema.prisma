@@ -45,6 +45,10 @@ model User {
   /// role users, super-admin can flip these on/off.
   permissions  AdminPermissions?
 
+  /// Per-user email opt-outs. Lazy-created on first email send so we
+  /// don't migrate a row per user when feature lands.
+  notificationPrefs NotificationPrefs?
+
   whatsappSessions WhatsAppSession[]
   announcements    Announcement[]   @relation("AnnouncementAuthor")
   complaintsFiled  Complaint[]      @relation("ComplaintAuthor")
@@ -136,6 +140,32 @@ model PasswordResetToken {
   createdAt DateTime @default(now())
 
   @@index([email])
+}
+
+/// Per-user email notification preferences. One row per User; lazy-created
+/// on first toggle so unconfigured users behave as if every default were on.
+/// Critical safety emails (password reset, welcome, payment receipt,
+/// disciplinary case filed) are NOT opt-out-able — they always send.
+model NotificationPrefs {
+  id     String @id @default(cuid())
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId String @unique
+
+  /// Result published for one of your children / yourself (student).
+  emailResultsPublished   Boolean @default(true)
+  /// New fee added to your child's account.
+  emailFeeCharged         Boolean @default(true)
+  /// A disciplinary case was resolved (NOT the initial filing — that always sends).
+  emailDisciplinaryResolved Boolean @default(true)
+  /// First message in a new parent ↔ teacher thread (replies never email).
+  emailNewMessage         Boolean @default(true)
+  /// School announcement reached your audience (ALL / PARENTS / STAFF).
+  emailAnnouncement       Boolean @default(true)
+  /// Complaint you filed has been resolved.
+  emailComplaintReplied   Boolean @default(true)
+
+  updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now())
 }
 
 /// Per-admin permission flags. Defaults are permissive (true) for now —

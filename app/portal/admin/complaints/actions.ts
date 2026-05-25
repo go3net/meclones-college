@@ -8,6 +8,7 @@ import { sendComplaintRepliedEmail } from "@/lib/resend";
 import { notify } from "@/lib/notify";
 import { auditLog } from "@/lib/audit";
 import { SCHOOL } from "@/lib/constants";
+import { canEmail } from "@/lib/notification-prefs";
 
 export async function setComplaintStatus(formData: FormData) {
   await requireRole(["ADMIN", "DIRECTOR", "SUPER_ADMIN"]);
@@ -39,7 +40,12 @@ export async function setComplaintStatus(formData: FormData) {
   if (status === "RESOLVED" && resolutionNote) {
     const recipient = updated.author?.email ?? updated.authorEmail;
     const recipientName = updated.author?.name ?? updated.authorName;
-    if (recipient) {
+    // Honour notification prefs for known users; un-snapshotted complaints
+    // (author already deleted) always email so the resolution still reaches them.
+    const allowEmail = updated.authorId
+      ? await canEmail(updated.authorId, "emailComplaintReplied")
+      : true;
+    if (recipient && allowEmail) {
       const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL ?? SCHOOL.website).replace(/\/$/, "");
       sendComplaintRepliedEmail({
         to: recipient,

@@ -10,6 +10,7 @@ import { notify } from "@/lib/notify";
 import { sendDisciplinaryCaseFiledEmail, sendDisciplinaryResolvedEmail } from "@/lib/resend";
 import { SCHOOL } from "@/lib/constants";
 import { CATEGORY_LABEL, SEVERITY_LABEL, SANCTION_LABEL } from "@/lib/discipline";
+import { canEmail } from "@/lib/notification-prefs";
 
 const CATEGORIES = [
   "FIGHTING", "BULLYING", "ABSENTEEISM", "LATENESS", "UNIFORM",
@@ -288,14 +289,15 @@ export async function resolveDisciplinaryCase(formData: FormData) {
     }).catch(err => console.error("[discipline] notify failed", err));
   }
 
-  // Email parents on resolution too.
-  const parentEmails = existing!.student.parentLinks
-    .map(l => ({ email: l.parent.user.email, name: l.parent.user.name }))
+  // Email parents on resolution too (honouring their prefs).
+  const parentTargets = existing!.student.parentLinks
+    .map(l => ({ userId: l.parent.userId, email: l.parent.user.email, name: l.parent.user.name }))
     .filter(p => Boolean(p.email));
-  if (parentEmails.length > 0) {
+  if (parentTargets.length > 0) {
     const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL ?? SCHOOL.website).replace(/\/$/, "");
     const caseUrl = `${siteUrl}/portal/parent/discipline/${d.id}`;
-    for (const p of parentEmails) {
+    for (const p of parentTargets) {
+      if (!(await canEmail(p.userId, "emailDisciplinaryResolved"))) continue;
       sendDisciplinaryResolvedEmail({
         to: p.email,
         parentName: p.name,

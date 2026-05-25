@@ -10,6 +10,7 @@ import { sendFeeChargedEmail } from "@/lib/resend";
 import { notify } from "@/lib/notify";
 import { auditLog } from "@/lib/audit";
 import { SCHOOL } from "@/lib/constants";
+import { canEmail } from "@/lib/notification-prefs";
 
 const LineItemSchema = z.object({ feeType: z.string().min(1), amount: z.coerce.number().min(0) });
 const StructureSchema = z.object({
@@ -184,6 +185,7 @@ async function notifyParentsAfterCharge(
       const p = link.parent;
       parentUserIds.add(p.userId);
       if (!p.user.email) continue;
+      if (!(await canEmail(p.userId, "emailFeeCharged"))) continue;
       try {
         await sendFeeChargedEmail({
           to: p.user.email,
