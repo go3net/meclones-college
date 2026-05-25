@@ -1,12 +1,13 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { cookies } from "next/headers";
 import { PortalShell } from "@/components/PortalShell";
 import { Card, CardBody, CardHeader, CardTitle, Button, Input, Label, Badge } from "@/components/ui";
 import { prisma } from "@/lib/prisma";
 import { getSessionUser } from "@/lib/auth-helpers";
-import { startTotpEnrolment, confirmTotpEnrolment, disableTotp, cancelTotpEnrolment } from "./actions";
-import { totpQrDataUrl } from "@/lib/totp";
-import { ArrowLeft, Shield, CheckCircle2, AlertCircle, ShieldCheck, ShieldOff, KeyRound, X } from "lucide-react";
+import { startTotpEnrolment, confirmTotpEnrolment, disableTotp, cancelTotpEnrolment, regenerateCodes } from "./actions";
+import { totpQrDataUrl, unusedRecoveryCodeCount } from "@/lib/totp";
+import { ArrowLeft, Shield, CheckCircle2, AlertCircle, ShieldCheck, ShieldOff, KeyRound, X, LifeBuoy, Printer } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
@@ -20,7 +21,7 @@ const SHELL_ROLE: Record<string, "director" | "school_admin" | "accountant" | "t
   PARENT: "parent",
 };
 
-type SearchParams = { step?: string; saved?: string; error?: string };
+type SearchParams = { step?: string; saved?: string; error?: string; codes?: string };
 
 const dateTimeFmt = new Intl.DateTimeFormat("en-NG", { dateStyle: "medium", timeStyle: "short" });
 
@@ -41,6 +42,22 @@ export default async function SecurityPage({ searchParams }: { searchParams: Sea
   const qrDataUrl = enrolling && dbUser.totpSecret
     ? await totpQrDataUrl(dbUser.totpSecret, dbUser.email)
     : null;
+
+  // Pull recovery-code state. The "show once" cookie is set by enrolment +
+  // regenerate flows; reading it here clears it so refresh doesn't keep
+  // showing the same codes.
+  const cookieStore = cookies();
+  const freshCookie = cookieStore.get("2fa_codes_once");
+  let freshCodes: string[] | null = null;
+  if (freshCookie && searchParams.codes === "fresh") {
+    try {
+      freshCodes = JSON.parse(freshCookie.value);
+    } catch {
+      freshCodes = null;
+    }
+    cookieStore.delete({ name: "2fa_codes_once", path: "/portal/me/security" });
+  }
+  const remainingCodes = enabled ? await unusedRecoveryCodeCount(user.id) : 0;
 
   const shellRole = SHELL_ROLE[user.role] ?? "parent";
 
@@ -77,6 +94,42 @@ export default async function SecurityPage({ searchParams }: { searchParams: Sea
         </div>
       )}
 
+      {freshCodes && freshCodes.length > 0 && (
+        <Card className="mb-6 border-amber-300">
+          <CardHeader>
+            <CardTitle><LifeBuoy className="h-4 w-4 inline mr-1 text-amber-600" /> Your recovery codes</CardTitle>
+            <Badge tone="warning">Shown once</Badge>
+          </CardHeader>
+          <CardBody>
+            <div className="rounded-lg bg-amber-50 border border-amber-200 px-3 py-2.5 text-sm text-amber-900 mb-4">
+              <strong>Save these now.</strong> They won't be shown again. Each code works exactly once and lets you sign in if you lose access to your authenticator app. Print them, paste them into a password manager, or save them somewhere safe.
+            </div>
+
+            <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 mb-4">
+              {freshCodes.map((c, idx) => (
+                <code key={idx} className="font-mono text-sm bg-slate-50 border border-slate-200 rounded px-2 py-1.5 text-center tracking-wider text-slate-800">
+                  {c}
+                </code>
+              ))}
+            </div>
+
+            <details className="text-xs text-slate-600">
+              <summary className="cursor-pointer hover:text-slate-900">Printable copy / download</summary>
+              <pre className="mt-2 p-3 bg-slate-50 border border-slate-200 rounded text-[11px] font-mono whitespace-pre">
+{`Meclones College Lekki — Two-Factor Recovery Codes
+Account: ${dbUser.email}
+Generated: ${new Date().toISOString()}
+
+${freshCodes.map((c, i) => `${(i + 1).toString().padStart(2)}.  ${c}`).join("\n")}
+
+Each code can be used exactly once to sign in if your authenticator
+app is unavailable. Keep this paper somewhere safe.`}
+              </pre>
+            </details>
+          </CardBody>
+        </Card>
+      )}
+
       <Card className="mb-6">
         <CardHeader>
           <CardTitle>
@@ -93,6 +146,33 @@ export default async function SecurityPage({ searchParams }: { searchParams: Sea
                 Enabled on <strong>{dateTimeFmt.format(dbUser.totpEnabledAt!)}</strong>.
                 You'll be asked for a 6-digit code from your authenticator app every time you sign in.
               </p>
+
+              <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-xs">
+                <p className="flex items-center justify-between gap-2 flex-wrap">
+                  <span>
+                    <LifeBuoy className="h-3.5 w-3.5 inline mr-1 text-amber-600" />
+                    Recovery codes: <strong className={remainingCodes <= 2 ? "text-rose-700" : "text-slate-900"}>{remainingCodes} of 10 left</strong>
+                  </span>
+                  {remainingCodes <= 2 && (
+                    <span className="text-rose-700 font-medium">Low — regenerate soon.</span>
+                  )}
+                </p>
+              </div>
+
+              <details className="rounded-lg border border-slate-200 p-3">
+                <summary className="cursor-pointer text-sm font-medium text-brand-900">Regenerate recovery codes</summary>
+                <form action={regenerateCodes} className="space-y-3 mt-3 max-w-sm">
+                  <p className="text-xs text-slate-500">
+                    Replaces your existing codes with a fresh batch of 10. Any unused old codes will stop working. Use this if you think your codes were lost or seen.
+                  </p>
+                  <div>
+                    <Label>Enter your password to regenerate</Label>
+                    <Input name="password" type="password" required minLength={1} placeholder="Current password" />
+                  </div>
+                  <Button type="submit" variant="outline"><KeyRound className="h-4 w-4" /> Generate new codes</Button>
+                </form>
+              </details>
+
               <form action={disableTotp} className="space-y-3 max-w-sm pt-2 border-t border-slate-100">
                 <div>
                   <Label>Enter your password to disable 2FA</Label>

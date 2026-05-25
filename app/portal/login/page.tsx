@@ -174,15 +174,13 @@ function LoginInner() {
                   <Input
                     type="text"
                     value={totpCode}
-                    onChange={e => setTotpCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
-                    inputMode="numeric"
+                    onChange={e => setTotpCode(e.target.value.slice(0, 11))}
                     autoComplete="one-time-code"
-                    maxLength={6}
-                    pattern="[0-9]{6}"
-                    placeholder="123456"
+                    maxLength={11}
+                    placeholder="123456 or xxxxx-xxxxx"
                     className="font-mono tracking-widest"
                   />
-                  <p className="text-[11px] text-slate-500 mt-1">6-digit code from your authenticator app.</p>
+                  <p className="text-[11px] text-slate-500 mt-1">6-digit code from your authenticator app, or one of your printed recovery codes.</p>
                 </div>
               ) : (
                 <button

@@ -132,6 +132,20 @@ model AuditLog {
   @@index([targetType, targetId])
 }
 
+/// One-time recovery codes for 2FA. Issued in batches (typically 10) when
+/// the user enrols and again whenever they regenerate. Stored SHA-256
+/// hashed; the raw code is shown once at issue time and never again.
+model TwoFactorRecoveryCode {
+  id        String   @id @default(cuid())
+  userId    String
+  /// SHA-256 of the raw code; the raw value is shown to the user once.
+  codeHash  String   @unique
+  usedAt    DateTime?
+  createdAt DateTime @default(now())
+
+  @@index([userId, usedAt])
+}
+
 /// One-time tokens for password reset. Tokens are randomly generated,
 /// SHA-256 hashed for storage, and expire 1 hour from creation.
 model PasswordResetToken {

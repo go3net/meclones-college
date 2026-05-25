@@ -4,7 +4,7 @@ import bcrypt from "bcryptjs";
 import { z } from "zod";
 import { authConfig } from "./auth.config";
 import { prisma } from "./lib/prisma";
-import { verifyTotpCode } from "./lib/totp";
+import { verifyTotpCode, consumeRecoveryCode } from "./lib/totp";
 
 // NOTE: We use JWT session strategy (set in auth.config.ts) — the Prisma
 // adapter is intentionally NOT attached. The adapter exists to persist
@@ -66,10 +66,18 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         const ok = await bcrypt.compare(password, user.passwordHash);
         if (!ok) return null;
 
-        // 2FA: enforced when the user has enrolled.
+        // 2FA: enforced when the user has enrolled. Accept either a 6-digit
+        // TOTP code OR a 10-char recovery code (xxxxx-xxxxx). Recovery
+        // codes are consumed on use.
         if (user.totpEnabledAt && user.totpSecret) {
-          if (!totpCode) return null; // login form will show "code required" via generic error
-          if (!verifyTotpCode(user.totpSecret, totpCode)) return null;
+          if (!totpCode) return null;
+          const looksLikeRecovery = /[a-z]/i.test(totpCode); // TOTP is all digits
+          if (looksLikeRecovery) {
+            const ok = await consumeRecoveryCode(user.id, totpCode);
+            if (!ok) return null;
+          } else if (!verifyTotpCode(user.totpSecret, totpCode)) {
+            return null;
+          }
         }
 
         return {

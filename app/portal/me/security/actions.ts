@@ -6,7 +6,8 @@ import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 import { getSessionUser } from "@/lib/auth-helpers";
 import { auditLog } from "@/lib/audit";
-import { generateTotpSecret, verifyTotpCode } from "@/lib/totp";
+import { generateTotpSecret, verifyTotpCode, regenerateRecoveryCodes, clearRecoveryCodes } from "@/lib/totp";
+import { cookies } from "next/headers";
 
 /**
  * Step 1: start enrolment. Generates a fresh secret, stores it on the
@@ -60,6 +61,18 @@ export async function confirmTotpEnrolment(formData: FormData) {
     data: { totpEnabledAt: new Date() },
   });
 
+  // Issue a fresh batch of recovery codes and stash them in a short-lived
+  // server cookie so the next render of /security can show them ONCE.
+  // After that they're gone forever — the user has to regenerate to see new ones.
+  const codes = await regenerateRecoveryCodes(user.id);
+  cookies().set("2fa_codes_once", JSON.stringify(codes), {
+    httpOnly: true,
+    sameSite: "lax",
+    secure: process.env.NODE_ENV === "production",
+    maxAge: 600, // 10 min — plenty of time to print/copy
+    path: "/portal/me/security",
+  });
+
   auditLog({
     action: "user.2fa_enabled",
     targetType: "User",
@@ -67,7 +80,46 @@ export async function confirmTotpEnrolment(formData: FormData) {
   });
 
   revalidatePath("/portal/me/security");
-  redirect("/portal/me/security?saved=1");
+  redirect("/portal/me/security?saved=1&codes=fresh");
+}
+
+/**
+ * Regenerate the user's recovery codes. Replaces any existing batch.
+ * Requires the user's password — same gate as disable.
+ */
+export async function regenerateCodes(formData: FormData) {
+  const user = await getSessionUser();
+  if (!user) redirect("/portal/login");
+  const password = String(formData.get("password") ?? "");
+
+  const dbUser = await prisma.user.findUnique({
+    where: { id: user.id },
+    select: { passwordHash: true, totpEnabledAt: true },
+  });
+  if (!dbUser?.totpEnabledAt) {
+    redirect("/portal/me/security?error=" + encodeURIComponent("Enable 2FA first."));
+  }
+  if (!(await bcrypt.compare(password, dbUser!.passwordHash))) {
+    redirect("/portal/me/security?error=" + encodeURIComponent("Wrong password."));
+  }
+
+  const codes = await regenerateRecoveryCodes(user.id);
+  cookies().set("2fa_codes_once", JSON.stringify(codes), {
+    httpOnly: true,
+    sameSite: "lax",
+    secure: process.env.NODE_ENV === "production",
+    maxAge: 600,
+    path: "/portal/me/security",
+  });
+
+  auditLog({
+    action: "user.2fa_recovery_codes_regenerated",
+    targetType: "User",
+    targetId: user.id,
+  });
+
+  revalidatePath("/portal/me/security");
+  redirect("/portal/me/security?codes=fresh");
 }
 
 /**
@@ -94,6 +146,7 @@ export async function disableTotp(formData: FormData) {
     where: { id: user.id },
     data: { totpSecret: null, totpEnabledAt: null },
   });
+  await clearRecoveryCodes(user.id);
 
   auditLog({
     action: "user.2fa_disabled",

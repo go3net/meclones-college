@@ -6,7 +6,9 @@
 
 import { authenticator } from "otplib";
 import { toDataURL as qrToDataUrl } from "qrcode";
+import { randomBytes, createHash } from "node:crypto";
 import { SCHOOL } from "./constants";
+import { prisma } from "./prisma";
 
 const ISSUER = SCHOOL.shortName;
 
@@ -52,4 +54,72 @@ export function verifyTotpCode(secret: string, code: string): boolean {
   } catch {
     return false;
   }
+}
+
+// ─── Recovery codes ──────────────────────────────────────────────────
+
+/** How many recovery codes to issue per regeneration. */
+export const RECOVERY_CODE_COUNT = 10;
+
+function hashRecoveryCode(raw: string): string {
+  // Normalise on the hashed value so user-typed casing / dashes don't matter.
+  const normal = raw.replace(/[^a-zA-Z0-9]/g, "").toLowerCase();
+  return createHash("sha256").update(normal).digest("hex");
+}
+
+/**
+ * Build a printable recovery code. 10 chars, lowercase a–z + 2–9 (no
+ * 0/1/o/l to keep them readable in print). Format: `xxxxx-xxxxx`.
+ */
+function generateRawRecoveryCode(): string {
+  const ALPHABET = "abcdefghijkmnpqrstuvwxyz23456789"; // no 0/1/o/l
+  const bytes = randomBytes(10);
+  let raw = "";
+  for (const b of bytes) raw += ALPHABET[b % ALPHABET.length];
+  return raw.slice(0, 5) + "-" + raw.slice(5, 10);
+}
+
+/**
+ * Replace every existing recovery code for the user with a fresh batch.
+ * Returns the raw codes — these are shown to the user exactly once.
+ */
+export async function regenerateRecoveryCodes(userId: string): Promise<string[]> {
+  const raws: string[] = [];
+  for (let i = 0; i < RECOVERY_CODE_COUNT; i++) raws.push(generateRawRecoveryCode());
+
+  // Wipe and re-create atomically so we never end up with a half-rotated set.
+  await prisma.$transaction([
+    prisma.twoFactorRecoveryCode.deleteMany({ where: { userId } }),
+    prisma.twoFactorRecoveryCode.createMany({
+      data: raws.map(raw => ({ userId, codeHash: hashRecoveryCode(raw) })),
+    }),
+  ]);
+
+  return raws;
+}
+
+/**
+ * Validate a user-typed recovery code. Returns true (and marks the code
+ * used) on a hit; false otherwise. Already-used codes never match.
+ */
+export async function consumeRecoveryCode(userId: string, raw: string): Promise<boolean> {
+  const hash = hashRecoveryCode(raw);
+  const row = await prisma.twoFactorRecoveryCode.findUnique({ where: { codeHash: hash } });
+  if (!row || row.userId !== userId || row.usedAt) return false;
+
+  await prisma.twoFactorRecoveryCode.update({
+    where: { id: row.id },
+    data: { usedAt: new Date() },
+  });
+  return true;
+}
+
+/** Count how many recovery codes the user has left. */
+export async function unusedRecoveryCodeCount(userId: string): Promise<number> {
+  return prisma.twoFactorRecoveryCode.count({ where: { userId, usedAt: null } });
+}
+
+/** Delete every recovery code for the user (called on 2FA disable). */
+export async function clearRecoveryCodes(userId: string) {
+  await prisma.twoFactorRecoveryCode.deleteMany({ where: { userId } });
 }
