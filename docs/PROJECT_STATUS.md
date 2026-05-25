@@ -1,7 +1,7 @@
 # Meclones College Lekki — Project Status
 
 > **Read this first** when picking up the project in a fresh Claude session.
-> Updated through commit `79a23b3` (2026-05-25).
+> Updated through commit `f24ae39` (2026-05-25).
 
 ---
 
@@ -29,8 +29,9 @@
 | Media       | Cloudinary (server proxy upload at `/api/upload`) |
 | Payments    | Paystack (REST, no SDK)                       |
 | Email       | Resend (live — RESEND_API_KEY set on Railway)  |
-| PDF         | `@react-pdf/renderer` — server-rendered result slips |
-| 2FA         | `otplib` + `qrcode` — optional TOTP per user   |
+| PDF         | `@react-pdf/renderer` — result slips + finance reports |
+| 2FA         | `otplib` + `qrcode` — optional TOTP per user + recovery codes |
+| Website AI  | `@anthropic-ai/sdk` — chatbot widget on public site |
 | WhatsApp    | Both: in-Next.js Meta Cloud API bot AT `/api/whatsapp/meta` + n8n REST endpoints |
 | Hosting     | Railway                                       |
 
@@ -137,13 +138,17 @@ PARENT        parent@meclonescollege.com          (Dr. Aisha Bello)
 
 ```
 auth/identity     User (with totpSecret + totpEnabledAt for 2FA),
-                  AdminPermissions, PasswordResetToken, NotificationPrefs
+                  AdminPermissions, PasswordResetToken, NotificationPrefs,
+                  TwoFactorRecoveryCode
 people            Student, Parent, ParentStudent, Teacher
 academic          Class, Subject, ClassSubject, SubjectTeacher,
                   ClassTeacher, AcademicSession, Term
-records           Result, Attendance, Fee, FeeStructure, Payment,
-                  StudentNote, Award, HealthRecord, DisciplinaryCase
-messaging         MessageThread, Message (with attachment fields)
+records           Result, Attendance, Fee, FeeStructure, Payment
+                  (with reconciliation fields), StudentNote, Award,
+                  HealthRecord, DisciplinaryCase, StudentTermReport
+                  (class teacher + principal comments)
+messaging         MessageThread (+ parentLastReadAt/teacherLastReadAt
+                  for read receipts), Message (with attachment fields)
 schedule          TimetableEntry
 content           Announcement, GalleryImage, BlogPost
 admissions        Admission (from public website form)
@@ -405,28 +410,94 @@ External Paystack dashboard config:
 - Login form has a "Use 2FA code" toggle that reveals a 6-digit input (numeric inputMode + one-time-code autocomplete). Error copy hints at the toggle on first failure.
 - Audit: `user.2fa_enabled`, `user.2fa_disabled`.
 
+### 2FA recovery codes (2026-05-25)
+- New `TwoFactorRecoveryCode` model. SHA-256-hashed (raw values are shown once, never retrievable).
+- 10 codes issued per batch in `xxxxx-xxxxx` format using a no-ambiguous-chars alphabet (no `0/1/o/l`).
+- On enrolment confirm: codes auto-generated and stashed in a short-lived `2fa_codes_once` cookie so the next page render shows them once. Cookie is `httpOnly`, scoped to `/portal/me/security`, 10-min TTL, deleted on read.
+- Regenerate flow on the security page — replaces the whole batch, requires the user's password.
+- Login: `auth.ts` accepts either a 6-digit TOTP code OR a `xxxxx-xxxxx` recovery code; recovery codes are consumed atomically via `consumeRecoveryCode`. Login form input now accepts up to 11 chars and copy says "6-digit code or one of your recovery codes".
+- Audit: `user.2fa_recovery_codes_regenerated`.
+
+### Accountant panel overhaul (2026-05-25)
+- Was bare-bones (dashboard + debtors); now a real finance workspace.
+- **Dashboard**: term collection % hero with progress bar + this-month / today payment totals; per-class collection bars colour-coded by health (≥80% emerald, ≥50% amber, else rose); per-fee-type breakdown; recent payments feed; top defaulters with parent contact + tap-to-call + WhatsApp deeplink.
+- **Payments ledger** at `/portal/accountant/payments` — chronological, filterable (search / method / status / date range), 50/page pagination, CSV export at `/api/accountant/payments/csv`.
+- **Manual payment entry** at `/portal/accountant/record-payment` — cash / transfer / POS / cheque; routes through `lib/apply-payment.ts` so the same code path runs as Paystack (idempotent on reference, creates Payment row, updates Fee, bell-pings, sends receipt). Audit `payment.manual_recorded`.
+- **Reminders** at `/portal/accountant/reminders` — per-class debtor preview with reachable-parent count; compose form with optional custom message; bulk bell + email blast. New template `sendFeeReminderEmail`.
+
+### Accountant reports + reconciliation + receipt resend (2026-05-25)
+- **Schema**: `Payment` gains `reconciledAt`, `reconciledById`, `reconciledByName`, `bankReference`, `reconciliationNote` + index on `reconciledAt`.
+- **Finance Report PDF** (`@react-pdf/renderer`) at `/api/accountant/finance-report.pdf` + on-screen preview at `/portal/accountant/reports`. Date range presets (today / 7d / month / 90d / custom). PDF sections: KPI strip → method breakdown → per-class breakdown → per-fee-type → top 15 debtors with parent contact → line-item payments (capped 200 rows).
+- **Reconciliation** at `/portal/accountant/reconciliation`. Two tabs (to reconcile / reconciled); method filter (usually TRANSFER/POS/CHEQUE); multi-select + bulk mark with bank reference + note; undo per row. Audit `payment.reconciled` / `payment.unreconciled`.
+- **Resend receipt** — button on every SUCCESS row in the ledger. Action `resendPaymentReceipt` re-emails to every linked parent + student (skips synthetic `@meclones.local` addresses). Audit `payment.receipt_resent`.
+
+### Global search (2026-05-25)
+- Staff-only (DIRECTOR / ADMIN / ACCOUNTANT / TEACHER). Parents/students get bounced.
+- `/portal/search?q=...` queries six entity types in parallel: students, teachers, parents, classes, subjects, disciplinary cases, payments. Teacher results scope to own classes.
+- Search box embedded in the `PortalShell` header (md+ screens), with a mobile shortcut icon on smaller. Both submit to the same page.
+- Each entity has its own card; click-through goes to the role-appropriate detail page (e.g. teacher hits `/portal/teacher/students/[id]`, admin hits `/portal/admin/students/[id]`).
+
+### WhatsApp bot v2 — phone auto-auth + teacher + payments + timetable (2026-05-25)
+- Major FSM rewrite (`lib/whatsapp-fsm.ts`, ~920 lines).
+- **Phone-based auto-auth**: on first inbound from a phone number, we normalise + try to match `User.phone` (handles `+234…` / `0…` / 10-digit variants). Found → auto-bind session. Role determines flow.
+- **Parents**: greeted with name + currently-viewed child; multi-child parents see a "Switch to another child" menu option that flips into `CHOOSE_CHILD` state.
+- **Teachers**: separate menu — My classes / Today's schedule / Recent discipline (mine) / Announcements / Speak to admin.
+- **Pay Now**: option 3 lists outstanding fees + per-fee Paystack init links (calls `initTransaction` with the parent's email + `WA-<feeId>-<timestamp>` reference). Idempotent on reference like the web flow.
+- **Timetable**: option 4 returns a per-day Mon-Fri breakdown for the child's class.
+- New formatters: `formatParentMenu`, `formatTeacherMenu`, `formatChildPicker`, `formatTimetable`, `formatPayPrompt`, `formatTeacherClasses`, `formatTeacherSchedule`, `formatRecentDiscipline`.
+- Reset tokens unchanged: `menu / main / 0 / exit / back / cancel`. Staff request keywords (`9 / admin / help / human`) escalate immediately.
+
+### Website AI chatbot (2026-05-25)
+- `@anthropic-ai/sdk` with a Claude Haiku-class model.
+- Floating chat widget on the public site (`components/WebsiteChatWidget.tsx`); persists conversation in `sessionStorage` so a refresh doesn't lose it.
+- Streaming `/api/website-chat/route.ts` endpoint with system prompt seeded from `lib/school-knowledge.ts` — admission process, fees, programs, contact, calendar, transportation, uniform policy, etc.
+- Aggressively grounded in actual school data (`SCHOOL` constants); the model is instructed to escalate to phone/email when it doesn't know.
+- Optional: when a visitor leaves contact details ("call me on 080...") the chatbot can persist a `ContactMessage` for follow-up (not auto-triggered; left as a future improvement).
+- Falls back to a static FAQ when `ANTHROPIC_API_KEY` is not set, so the widget still works in staging.
+
+### Read receipts on parent ↔ teacher threads (2026-05-25)
+- Schema: `MessageThread.parentLastReadAt` + `teacherLastReadAt`.
+- `markThreadRead` now stamps the appropriate timestamp alongside the existing unread-counter zero-out.
+- `ThreadView` accepts `peerLastReadAt`; scans messages newest-backward to find the last own-message with `createdAt <= peer's stamp` and renders a `CheckCheck` icon + "Seen <time>" tag on that bubble only (no clutter).
+
+### Report-card overhaul — class teacher + principal comments + gradebook (2026-05-25)
+- New `StudentTermReport` model (1 row per student × term × session) holds the class teacher's overall comment + the principal's comment with author snapshots. Separate from per-subject `Result.comment`.
+- **Class teacher comments** at `/portal/teacher/comments` — form teacher writes a textarea per student in their homeroom. One submit handles the whole class. Auth-gated to `classTeacherId`.
+- **Homeroom gradebook** at `/portal/teacher/homeroom-gradebook` — read-only matrix (students × subjects) with totals, colour-coded grades, class position computed from sum of totals. Sticky first column. Header: students / subjects / class avg / scoring complete %.
+- **Principal comments** at `/portal/director/comments` — director picks any class, sees the class teacher's note as context, writes their own remark per student.
+- **Result slip** (HTML + PDF) now renders a "Comments" section between Awards and Signatures: slate-bordered class teacher box, gold-bordered principal box, with author names on the signature lines.
+- Audit: `term_report.class_teacher_comments_saved`, `term_report.principal_comments_saved`.
+
+### Bulk exports + portable backup (2026-05-25)
+- New `/portal/director/exports` landing page with cards for every download.
+- Shared `lib/csv.ts` — RFC 4180 escaping + response helper + date stamp.
+- CSV endpoints (ADMIN+, audit-logged):
+  - `/api/admin/export/students` — active student roll + parent contacts. `?includeGraduated=1` to add alumni.
+  - `/api/admin/export/teachers` — subjects, form-class duty, classes, contact.
+  - `/api/admin/export/parents` — linked children + contact + WhatsApp opt-in.
+  - `/api/admin/export/attendance` — per-student counts for the active term.
+  - `/api/admin/export/results` — long-format result rows for the active term (toggle `?publishedOnly=1`). Pivot in Excel for the broadsheet.
+- **Full DB backup** at `/api/admin/export/backup` (DIRECTOR / SUPER_ADMIN only) — single JSON of every domain table with `schemaVersion` header. Excludes `passwordHash` + `totpSecret`. Notifications + audit log capped at 10k rows. Audit `export.full_backup`.
+
 ---
 
 ## 8 · Outstanding work — by priority
 
 ### 🔴 Needs Mose's action (no code work left)
-- **WhatsApp bot — production go-live** — code is shipped; Mose still needs to: (1) create a Meta Business app, (2) set `WHATSAPP_VERIFY_TOKEN` / `WHATSAPP_PHONE_NUMBER_ID` / `WHATSAPP_ACCESS_TOKEN` on Railway, (3) configure the webhook in Meta with URL `https://meclones-college-production.up.railway.app/api/whatsapp/meta` and the same verify token, (4) submit for app review if going outside the test recipients list.
+- **WhatsApp bot — production go-live** — code is shipped; Mose still needs to: (1) create a Meta Business app with WhatsApp Cloud API, (2) set `WHATSAPP_VERIFY_TOKEN` / `WHATSAPP_PHONE_NUMBER_ID` / `WHATSAPP_ACCESS_TOKEN` on Railway, (3) configure the webhook in Meta with URL `https://meclones-college-production.up.railway.app/api/whatsapp/meta` and the same verify token, (4) make sure every parent's `User.phone` is set to their actual WhatsApp number so phone auto-auth lands them in the parent menu instead of asking for an admission #.
+- **Anthropic API key** — set `ANTHROPIC_API_KEY` on Railway to switch the website chatbot off the static FAQ fallback and onto live LLM answers.
 
 ### 🟡 Worth doing next
-- **2FA recovery codes** — currently a lost phone means an admin has to manually wipe `totpSecret`/`totpEnabledAt` in the DB. One-time recovery codes (10 single-use, base32) would let users self-recover.
-- **WhatsApp bot — more menu depth** — current menu goes one level deep for Results (term picker). Could add: per-subject drill-down, fee receipt download links, complaint filing, parent password reset, multi-child switching.
-- **WhatsApp bot — interactive message types** — Meta supports interactive list + button payloads. Currently using plain text only. Upgrading feels more like a modern bot but adds complexity.
-- **Read receipts on messages** — denormalised counters already exist; add a `readAt` on Message + show "Seen" indicator when peer's last-read is past your message.
-- **Notification email digests** — parents could opt for a daily/weekly digest instead of per-event emails to further reduce volume.
+- **WhatsApp interactive message types** — Meta supports buttons + list payloads. The current bot uses plain text only; upgrading would feel snappier (tap buttons instead of typing numbers) but adds complexity.
+- **Notification email digests** — parents could opt for daily/weekly digests instead of per-event emails to further reduce volume.
+- **Mobile sidebar UX** — the sidebar has grown long (10+ items per role). A bottom tab bar on mobile for the 4 most-used routes per role would be a meaningful upgrade.
+- **Admin disciplinary statistics dashboard** — trends by class, recurring offenders, sanction effectiveness over time.
 
 ### 🟢 Polish / nice-to-haves
-- Notifications: persistence is solid but polling is 60s; could upgrade to Server-Sent Events.
-- Make session cookie reflect new profile photo without re-login (JWT refresh on update).
-- Mobile sidebar UX (lots of items, gets long).
+- SSE bell — replace 60s polling with Server-Sent Events for instant notification delivery.
+- JWT session-cookie refresh after profile photo / name change (no need to sign out/in).
 - Per-page loading skeletons.
-- Global search bar.
-- Admin-side disciplinary statistics dashboard (trends by class, recurring offenders, sanction effectiveness).
-- Backup / restore tooling.
+- Cron-scheduled JSON backup upload to Cloudinary so the snapshot exists off-platform too.
 - Multi-language UI (Yoruba / Igbo / Hausa).
 
 ---
