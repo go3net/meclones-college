@@ -68,7 +68,7 @@ export default async function ResultSlipPage({ params, searchParams }: Props) {
     orderBy: { subject: { name: "asc" } },
   });
 
-  const [attendance, awards] = await Promise.all([
+  const [attendance, awards, termReport] = await Promise.all([
     prisma.attendance.findMany({
       where: { studentId: student.id, termId: term.id },
       select: { status: true },
@@ -77,6 +77,13 @@ export default async function ResultSlipPage({ params, searchParams }: Props) {
       where: { studentId: student.id, OR: [{ termId: term.id }, { termId: null }] },
       orderBy: { awardedAt: "desc" },
       take: 8,
+    }),
+    prisma.studentTermReport.findUnique({
+      where: { studentId_termId_sessionId: { studentId: student.id, termId: term.id, sessionId: term.sessionId } },
+      select: {
+        classTeacherComment: true, classTeacherByName: true,
+        principalComment: true, principalByName: true,
+      },
     }),
   ]);
 
@@ -250,15 +257,42 @@ export default async function ResultSlipPage({ params, searchParams }: Props) {
           </>
         )}
 
+        {/* Comments — class teacher + principal */}
+        {(termReport?.classTeacherComment || termReport?.principalComment) && (
+          <>
+            <h3 className="font-display text-lg font-bold text-brand-900 mb-2">Comments</h3>
+            <div className="space-y-3 mb-6">
+              {termReport.classTeacherComment && (
+                <div className="border border-slate-200 bg-slate-50 rounded-lg p-3">
+                  <p className="text-[11px] uppercase tracking-wide text-slate-500 font-semibold">Class Teacher's Comment</p>
+                  <p className="text-sm text-slate-800 mt-1.5 leading-relaxed whitespace-pre-wrap">{termReport.classTeacherComment}</p>
+                  {termReport.classTeacherByName && (
+                    <p className="text-[11px] text-slate-500 italic mt-2">— {termReport.classTeacherByName}</p>
+                  )}
+                </div>
+              )}
+              {termReport.principalComment && (
+                <div className="border border-gold-200 bg-gold-50 rounded-lg p-3">
+                  <p className="text-[11px] uppercase tracking-wide text-gold-700 font-semibold">Principal's Comment</p>
+                  <p className="text-sm text-slate-800 mt-1.5 leading-relaxed whitespace-pre-wrap">{termReport.principalComment}</p>
+                  {termReport.principalByName && (
+                    <p className="text-[11px] text-slate-600 italic mt-2">— {termReport.principalByName}</p>
+                  )}
+                </div>
+              )}
+            </div>
+          </>
+        )}
+
         {/* Signatures */}
         <div className="grid grid-cols-2 gap-8 mt-12 pt-4 border-t border-slate-200 text-sm">
           <div>
             <div className="h-12 border-b border-slate-300 mb-1" />
-            <p className="text-xs text-slate-500">Class Teacher</p>
+            <p className="text-xs text-slate-500">Class Teacher{termReport?.classTeacherByName && ` (${termReport.classTeacherByName})`}</p>
           </div>
           <div>
             <div className="h-12 border-b border-slate-300 mb-1" />
-            <p className="text-xs text-slate-500">Principal / Director</p>
+            <p className="text-xs text-slate-500">Principal / Director{termReport?.principalByName && ` (${termReport.principalByName})`}</p>
           </div>
         </div>
 

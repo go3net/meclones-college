@@ -93,6 +93,18 @@ const styles = StyleSheet.create({
   awardTitle: { fontSize: 10, color: BRAND, fontFamily: "Helvetica-Bold", marginTop: 2 },
   awardCitation: { fontSize: 8, color: SLATE_500, fontStyle: "italic", marginTop: 1 },
 
+  // Comment boxes
+  commentBlock: {
+    borderWidth: 1, borderColor: SLATE_200, borderRadius: 4, padding: 8,
+    marginBottom: 8, backgroundColor: "#f8fafc",
+  },
+  commentLabel: {
+    fontSize: 8, color: SLATE_500, textTransform: "uppercase",
+    fontFamily: "Helvetica-Bold", letterSpacing: 0.5,
+  },
+  commentBody: { fontSize: 9, color: SLATE_700, marginTop: 3, lineHeight: 1.4 },
+  commentAuthor: { fontSize: 7, color: SLATE_500, fontStyle: "italic", marginTop: 4 },
+
   // Signatures
   sigRow: { flexDirection: "row", gap: 24, marginTop: 30, paddingTop: 8, borderTopWidth: 1, borderTopColor: SLATE_200 },
   sigBlock: { flex: 1 },
@@ -133,6 +145,12 @@ export interface ResultSlipData {
     stars: number;
     citation: string | null;
   }>;
+  comments: {
+    classTeacher: string | null;
+    classTeacherByName: string | null;
+    principal: string | null;
+    principalByName: string | null;
+  };
 }
 
 export function ResultSlipPdf({ data }: { data: ResultSlipData }) {
@@ -308,6 +326,31 @@ export function ResultSlipPdf({ data }: { data: ResultSlipData }) {
                 {a.citation && <Text style={styles.awardCitation}>"{a.citation}"</Text>}
               </View>
             ))}
+          </>
+        )}
+
+        {/* Comments (class teacher + principal) */}
+        {(data.comments.classTeacher || data.comments.principal) && (
+          <>
+            <Text style={styles.sectionTitle}>Comments</Text>
+            {data.comments.classTeacher && (
+              <View style={styles.commentBlock} wrap={false}>
+                <Text style={styles.commentLabel}>Class Teacher's Comment</Text>
+                <Text style={styles.commentBody}>{data.comments.classTeacher}</Text>
+                {data.comments.classTeacherByName && (
+                  <Text style={styles.commentAuthor}>— {data.comments.classTeacherByName}</Text>
+                )}
+              </View>
+            )}
+            {data.comments.principal && (
+              <View style={[styles.commentBlock, { backgroundColor: "#fffbeb", borderColor: "#fde68a" }]} wrap={false}>
+                <Text style={styles.commentLabel}>Principal's Comment</Text>
+                <Text style={styles.commentBody}>{data.comments.principal}</Text>
+                {data.comments.principalByName && (
+                  <Text style={styles.commentAuthor}>— {data.comments.principalByName}</Text>
+                )}
+              </View>
+            )}
           </>
         )}
 

@@ -246,6 +246,7 @@ model Student {
   messageThreads MessageThread[] @relation("ThreadStudent")
   healthRecord   HealthRecord?
   disciplinaryCases DisciplinaryCase[]
+  termReports    StudentTermReport[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -670,6 +671,7 @@ model AcademicSession {
   results  Result[]
   fees     Fee[]
   awards   Award[]
+  termReports StudentTermReport[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -694,6 +696,7 @@ model Term {
   attendance Attendance[]
   fees       Fee[]
   awards     Award[]
+  termReports StudentTermReport[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -731,6 +734,39 @@ model Result {
   updatedAt DateTime @updatedAt
 
   @@unique([studentId, subjectId, termId, sessionId])
+  @@index([termId, sessionId])
+}
+
+/// Per-student, per-term report-card narrative. Holds the class teacher's
+/// overall comment + the principal/director's comment — separate from the
+/// per-subject Result.comment because these are written once per student
+/// per term, not per subject.
+model StudentTermReport {
+  id        String  @id @default(cuid())
+  student   Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  studentId String
+  term      Term    @relation(fields: [termId], references: [id], onDelete: Cascade)
+  termId    String
+  session   AcademicSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  sessionId String
+
+  /// Form / class teacher's overall remark. Written by the teacher who is
+  /// the classTeacherId of the student's class.
+  classTeacherComment   String?  @db.Text
+  classTeacherById      String?
+  classTeacherByName    String?
+  classTeacherAt        DateTime?
+
+  /// Principal / director's overall remark.
+  principalComment      String?  @db.Text
+  principalById         String?
+  principalByName       String?
+  principalAt           DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([studentId, termId, sessionId])
   @@index([termId, sessionId])
 }
 

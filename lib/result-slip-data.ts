@@ -27,7 +27,7 @@ export async function loadResultSlipData(
   ]);
   if (!student || !term) return null;
 
-  const [results, attendance, awards, classSize] = await Promise.all([
+  const [results, attendance, awards, classSize, termReport] = await Promise.all([
     prisma.result.findMany({
       where: { studentId, termId, isPublished: true },
       include: { subject: { select: { name: true, code: true } } },
@@ -43,6 +43,13 @@ export async function loadResultSlipData(
       take: 8,
     }),
     student.classId ? prisma.student.count({ where: { classId: student.classId } }) : Promise.resolve(0),
+    prisma.studentTermReport.findUnique({
+      where: { studentId_termId_sessionId: { studentId, termId, sessionId: term.sessionId } },
+      select: {
+        classTeacherComment: true, classTeacherByName: true, classTeacherAt: true,
+        principalComment: true, principalByName: true, principalAt: true,
+      },
+    }),
   ]);
 
   const presentCount = attendance.filter(a => a.status === "PRESENT").length;
@@ -86,5 +93,11 @@ export async function loadResultSlipData(
       stars: a.stars,
       citation: a.citation,
     })),
+    comments: {
+      classTeacher: termReport?.classTeacherComment ?? null,
+      classTeacherByName: termReport?.classTeacherByName ?? null,
+      principal: termReport?.principalComment ?? null,
+      principalByName: termReport?.principalByName ?? null,
+    },
   };
 }

@@ -41,6 +41,7 @@ const NAV_BY_ROLE: Record<MockRole, NavItem[]> = {
     { href: "/portal/admin/classes", label: "Classes", icon: ClipboardList },
     { href: "/portal/admin/subjects", label: "Subjects", icon: BookMarked },
     { href: "/portal/admin/results", label: "Results", icon: FileText },
+    { href: "/portal/director/comments", label: "Principal Comments", icon: MessageSquare },
     { href: "/portal/admin/awards", label: "Awards", icon: Trophy },
     { href: "/portal/admin/fees", label: "Fees", icon: Banknote },
     { href: "/portal/admin/applications", label: "Admissions", icon: ClipboardList },
@@ -80,6 +81,8 @@ const NAV_BY_ROLE: Record<MockRole, NavItem[]> = {
   teacher: [
     { href: "/portal/teacher", label: "Dashboard", icon: Home },
     { href: "/portal/teacher/roster", label: "Homeroom", icon: Users },
+    { href: "/portal/teacher/homeroom-gradebook", label: "Gradebook", icon: ScrollText },
+    { href: "/portal/teacher/comments", label: "Report comments", icon: MessageSquare },
     { href: "/portal/teacher/classes", label: "My Classes", icon: Users },
     { href: "/portal/teacher/timetable", label: "Schedule", icon: Calendar },
     { href: "/portal/teacher/attendance", label: "Attendance", icon: CheckSquare },
