@@ -15,13 +15,18 @@ export function generateRawToken(): string {
  * Create and persist a reset token for an email. Returns the raw token —
  * the caller embeds it in the email link. The DB only ever stores the hash.
  *
- * Tokens expire 1 hour after creation. Older unused tokens for the same
- * email are invalidated so only the latest link works.
+ * Tokens default to 1-hour expiry. Pass `ttlHours` for longer-lived
+ * tokens — onboarding/welcome flows use 7 days. Older unused tokens for
+ * the same email are invalidated so only the latest link works.
  */
-export async function createResetToken(email: string) {
+export async function createResetToken(
+  email: string,
+  opts?: { ttlHours?: number },
+) {
+  const ttlHours = opts?.ttlHours ?? 1;
   const raw = generateRawToken();
   const tokenHash = hashToken(raw);
-  const expiresAt = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
+  const expiresAt = new Date(Date.now() + ttlHours * 60 * 60 * 1000);
 
   await prisma.passwordResetToken.updateMany({
     where: { email: email.toLowerCase(), usedAt: null },

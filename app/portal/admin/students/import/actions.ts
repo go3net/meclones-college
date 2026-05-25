@@ -6,6 +6,9 @@ import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/auth-helpers";
 import { auditLog } from "@/lib/audit";
+import { createResetToken } from "@/lib/password-reset";
+import { sendWelcomeEmail } from "@/lib/resend";
+import { SCHOOL } from "@/lib/constants";
 
 const DEFAULT_PASSWORD = process.env.SEED_PASSWORD ?? "Meclones123!";
 
@@ -158,7 +161,12 @@ export async function importStudentsCsv(formData: FormData): Promise<void> {
         },
       });
 
+      let newParentToWelcome: { email: string; name: string; admissionNumber: string; className: string } | null = null;
+
       if (data.parentEmail && data.parentName) {
+        const existingParentUser = await prisma.user.findUnique({ where: { email: data.parentEmail }, select: { id: true } });
+        const wasNewParentUser = !existingParentUser;
+
         const parentUser = await prisma.user.upsert({
           where: { email: data.parentEmail },
           update: { name: data.parentName, phone: data.parentPhone || null, role: "PARENT" as never, isActive: true },
@@ -181,6 +189,35 @@ export async function importStudentsCsv(formData: FormData): Promise<void> {
           update: { relation: data.parentRelation || "Parent" },
           create: { parentId: parent.id, studentId: student.id, relation: data.parentRelation || "Parent" },
         });
+
+        if (wasNewParentUser) {
+          newParentToWelcome = {
+            email: data.parentEmail,
+            name: data.parentName,
+            admissionNumber,
+            className: `${cls.name}${cls.arm}`,
+          };
+        }
+      }
+
+      // Fire-and-forget welcome email for every parent we just created.
+      // Awaiting inside the loop would slow large imports + risk Resend
+      // rate-limits stalling the whole job.
+      if (newParentToWelcome) {
+        const target = newParentToWelcome;
+        const studentName = fullName;
+        const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL ?? SCHOOL.website).replace(/\/$/, "");
+        createResetToken(target.email, { ttlHours: 24 * 7 })
+          .then(token => sendWelcomeEmail({
+            to: target.email,
+            recipientName: target.name,
+            role: "PARENT",
+            loginEmail: target.email,
+            setPasswordUrl: `${siteUrl}/portal/reset-password/${token}`,
+            loginUrl: `${siteUrl}/portal/login`,
+            children: [{ name: studentName, admissionNumber: target.admissionNumber, className: target.className }],
+          }))
+          .catch(err => console.error("[students/import] welcome email failed", target.email, err));
       }
 
       result.ok++;

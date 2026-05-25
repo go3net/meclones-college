@@ -6,6 +6,9 @@ import { z } from "zod";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/auth-helpers";
+import { createResetToken } from "@/lib/password-reset";
+import { sendWelcomeEmail } from "@/lib/resend";
+import { SCHOOL } from "@/lib/constants";
 
 const Schema = z.object({
   name: z.string().min(2),
@@ -67,6 +70,33 @@ export async function createParent(formData: FormData) {
     await prisma.parentStudent.create({
       data: { parentId: parent.id, studentId: sid, relation: "Parent" },
     });
+  }
+
+  // Welcome email with "Set your password" link (7-day TTL).
+  try {
+    const token = await createResetToken(d.email, { ttlHours: 24 * 7 });
+    const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL ?? SCHOOL.website).replace(/\/$/, "");
+    const linkedChildren = studentIds.length > 0
+      ? await prisma.student.findMany({
+          where: { id: { in: studentIds } },
+          include: { user: { select: { name: true } }, classRef: { select: { name: true, arm: true } } },
+        })
+      : [];
+    await sendWelcomeEmail({
+      to: d.email,
+      recipientName: d.name,
+      role: "PARENT",
+      loginEmail: d.email,
+      setPasswordUrl: `${siteUrl}/portal/reset-password/${token}`,
+      loginUrl: `${siteUrl}/portal/login`,
+      children: linkedChildren.map(c => ({
+        name: c.user.name,
+        admissionNumber: c.admissionNumber,
+        className: c.classRef ? `${c.classRef.name}${c.classRef.arm}` : "—",
+      })),
+    });
+  } catch (err) {
+    console.error("[parents] welcome email failed", err);
   }
 
   revalidatePath("/portal/admin/parents");

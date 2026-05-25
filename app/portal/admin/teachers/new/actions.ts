@@ -5,6 +5,9 @@ import { redirect } from "next/navigation";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/auth-helpers";
+import { createResetToken } from "@/lib/password-reset";
+import { sendWelcomeEmail } from "@/lib/resend";
+import { SCHOOL } from "@/lib/constants";
 
 const DEFAULT_PASSWORD = process.env.SEED_PASSWORD ?? "Meclones123!";
 
@@ -23,6 +26,10 @@ export async function createTeacher(formData: FormData) {
   if (!name || !email) throw new Error("Name and email are required.");
 
   const passwordHash = await bcrypt.hash(DEFAULT_PASSWORD, 10);
+
+  // Did the User already exist? (Drives whether we send a welcome email.)
+  const existingUser = await prisma.user.findUnique({ where: { email }, select: { id: true } });
+  const isNewUser = !existingUser;
 
   const user = await prisma.user.upsert({
     where: { email },
@@ -73,6 +80,24 @@ export async function createTeacher(formData: FormData) {
       where: { id: formTeacherOf },
       data: { classTeacherId: teacher.id },
     });
+  }
+
+  // Welcome email — only for truly new teachers.
+  if (isNewUser) {
+    try {
+      const token = await createResetToken(email, { ttlHours: 24 * 7 });
+      const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL ?? SCHOOL.website).replace(/\/$/, "");
+      await sendWelcomeEmail({
+        to: email,
+        recipientName: name,
+        role: "TEACHER",
+        loginEmail: email,
+        setPasswordUrl: `${siteUrl}/portal/reset-password/${token}`,
+        loginUrl: `${siteUrl}/portal/login`,
+      });
+    } catch (err) {
+      console.error("[teachers] welcome email failed", err);
+    }
   }
 
   revalidatePath("/portal/admin/teachers");

@@ -5,6 +5,9 @@ import { redirect } from "next/navigation";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/auth-helpers";
+import { createResetToken } from "@/lib/password-reset";
+import { sendWelcomeEmail } from "@/lib/resend";
+import { SCHOOL } from "@/lib/constants";
 
 const DEFAULT_PASSWORD = process.env.SEED_PASSWORD ?? "Meclones123!";
 
@@ -80,6 +83,9 @@ export async function createStudent(formData: FormData) {
   // Optional parent: if a parentEmail was provided, upsert a Parent User +
   // Parent row + link.
   if (parentEmail && parentName) {
+    const existingParentUser = await prisma.user.findUnique({ where: { email: parentEmail }, select: { id: true } });
+    const isNewParentUser = !existingParentUser;
+
     const parentUser = await prisma.user.upsert({
       where: { email: parentEmail },
       update: { name: parentName, phone: parentPhone || null, role: "PARENT" as never, isActive: true },
@@ -102,6 +108,29 @@ export async function createStudent(formData: FormData) {
       update: {},
       create: { parentId: parent.id, studentId: student.id, relation: "Parent" },
     });
+
+    // Welcome email only when we actually created the parent's User.
+    if (isNewParentUser) {
+      try {
+        const token = await createResetToken(parentEmail, { ttlHours: 24 * 7 });
+        const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL ?? SCHOOL.website).replace(/\/$/, "");
+        await sendWelcomeEmail({
+          to: parentEmail,
+          recipientName: parentName,
+          role: "PARENT",
+          loginEmail: parentEmail,
+          setPasswordUrl: `${siteUrl}/portal/reset-password/${token}`,
+          loginUrl: `${siteUrl}/portal/login`,
+          children: [{
+            name: fullName,
+            admissionNumber,
+            className: `${cls.name}${cls.arm}`,
+          }],
+        });
+      } catch (err) {
+        console.error("[students] parent welcome email failed", err);
+      }
+    }
   }
 
   revalidatePath("/portal/admin/students");

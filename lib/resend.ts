@@ -274,6 +274,75 @@ export async function sendComplaintRepliedEmail(input: {
   return c.emails.send({ from: FROM, to: input.to, subject: emailSubject, html });
 }
 
+export async function sendWelcomeEmail(input: {
+  to: string;
+  recipientName: string;
+  role: "PARENT" | "TEACHER" | "STAFF";
+  loginEmail: string;
+  setPasswordUrl: string;
+  loginUrl: string;
+  /** Optional list of linked children for parent welcomes. */
+  children?: Array<{ name: string; admissionNumber: string; className: string }>;
+}) {
+  const roleLabel = input.role === "PARENT" ? "parent" : input.role === "TEACHER" ? "teacher" : "staff member";
+  const subject = `Welcome to ${SCHOOL.shortName} — set up your portal account`;
+
+  const childrenBlock = input.children && input.children.length > 0
+    ? `<div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:6px; padding:12px 14px; margin:16px 0;">
+        <p style="margin:0 0 8px; font-size:12px; color:#475569; text-transform:uppercase; letter-spacing:0.04em; font-weight:600;">
+          Linked to your account
+        </p>
+        ${input.children.map(c => `
+          <p style="margin:4px 0; font-size:13px;">
+            <strong style="color:#0B1F4B;">${escapeHtml(c.name)}</strong>
+            <span style="color:#64748b; font-family:monospace;"> · ${escapeHtml(c.admissionNumber)}</span>
+            <span style="color:#64748b;"> · ${escapeHtml(c.className)}</span>
+          </p>
+        `).join("")}
+      </div>`
+    : "";
+
+  const html = `
+    <div style="font-family: Inter, Arial, sans-serif; color:#1a2c5a; max-width:560px; margin:0 auto; padding:24px;">
+      <div style="border-bottom:3px solid #0B1F4B; padding-bottom:12px; margin-bottom:20px;">
+        <h2 style="color:#0B1F4B; font-family: Georgia, serif; margin:0;">${SCHOOL.name}</h2>
+        <p style="font-size:12px; color:#5e3e17; font-weight:600; margin:4px 0 0;">${SCHOOL.tagline}</p>
+      </div>
+
+      <h3 style="color:#0B1F4B; font-family: Georgia, serif;">Welcome, ${escapeHtml(input.recipientName)}!</h3>
+      <p>Your ${roleLabel} account on the ${SCHOOL.shortName} portal has been created. To get started, please set a password — the link below is valid for the next 7 days.</p>
+
+      <p style="margin:24px 0;">
+        <a href="${input.setPasswordUrl}" style="display:inline-block; background:#D4A017; color:#0B1F4B; padding:12px 28px; border-radius:6px; text-decoration:none; font-weight:700;">Set your password</a>
+      </p>
+
+      <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:6px; padding:12px 14px; margin:16px 0;">
+        <p style="margin:0; font-size:13px; color:#475569;">
+          <strong>Your login email:</strong> <span style="color:#0B1F4B;">${escapeHtml(input.loginEmail)}</span>
+        </p>
+        <p style="margin:6px 0 0; font-size:12px; color:#64748b;">
+          Once you've set a password, sign in at <a href="${input.loginUrl}" style="color:#0B1F4B;">${input.loginUrl}</a>.
+        </p>
+      </div>
+
+      ${childrenBlock}
+
+      <p style="font-size:13px; color:#475569; margin-top:20px;">If you weren't expecting this email, simply ignore it — no account changes happen unless you click the link above.</p>
+
+      <hr style="border:none; border-top:1px solid #e5e7eb; margin:24px 0;" />
+      <p style="font-size:12px; color:#64748b;">
+        ${SCHOOL.name}<br/>${SCHOOL.address}<br/>${SCHOOL.phone} · ${SCHOOL.email}
+      </p>
+    </div>
+  `;
+  const c = client();
+  if (!c) {
+    console.log("[resend stub] sendWelcomeEmail", { to: input.to, role: input.role });
+    return { id: "stub" };
+  }
+  return c.emails.send({ from: FROM, to: input.to, subject, html });
+}
+
 export async function sendDisciplinaryCaseFiledEmail(input: {
   to: string | string[];
   parentName: string;
