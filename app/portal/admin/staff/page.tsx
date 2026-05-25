@@ -1,9 +1,9 @@
 import { PortalShell } from "@/components/PortalShell";
-import { Card, CardBody, CardHeader, CardTitle, Badge, StatCard, Input, Button } from "@/components/ui";
+import { Card, CardBody, CardHeader, CardTitle, Badge, StatCard, Input, Button, Label, Select } from "@/components/ui";
 import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/auth-helpers";
-import { resetUserPassword, toggleUserActive } from "./actions";
-import { Users, KeyRound, CheckCircle2, AlertCircle, ShieldCheck, ShieldOff, Search } from "lucide-react";
+import { resetUserPassword, toggleUserActive, createStaffUser, resendWelcomeEmail } from "./actions";
+import { Users, KeyRound, CheckCircle2, AlertCircle, ShieldCheck, ShieldOff, Search, UserPlus, Mail } from "lucide-react";
 import Link from "next/link";
 
 export const dynamic = "force-dynamic";
@@ -20,10 +20,11 @@ const roleTone: Record<string, "neutral" | "info" | "warning" | "success" | "gol
   STUDENT: "warning",
 };
 
-type SearchParams = { q?: string; role?: string; reset?: string; error?: string };
+type SearchParams = { q?: string; role?: string; reset?: string; error?: string; added?: string; welcomed?: string };
 
 export default async function StaffPanelPage({ searchParams }: { searchParams: SearchParams }) {
-  await requireRole(["ADMIN", "DIRECTOR", "SUPER_ADMIN"]);
+  const acting = await requireRole(["ADMIN", "DIRECTOR", "SUPER_ADMIN"]);
+  const canCreateStaff = acting.role === "DIRECTOR" || acting.role === "SUPER_ADMIN";
 
   const q = (searchParams.q ?? "").trim();
   const roleFilter = (searchParams.role ?? "ALL").toUpperCase();
@@ -68,6 +69,16 @@ export default async function StaffPanelPage({ searchParams }: { searchParams: S
           <CheckCircle2 className="h-4 w-4" /> Password reset for {decodeURIComponent(searchParams.reset)}.
         </div>
       )}
+      {searchParams.added && (
+        <div className="mb-4 rounded-lg bg-emerald-50 border border-emerald-200 px-4 py-2.5 text-sm text-emerald-800 flex items-center gap-2">
+          <CheckCircle2 className="h-4 w-4" /> {decodeURIComponent(searchParams.added)} added — welcome email sent.
+        </div>
+      )}
+      {searchParams.welcomed && (
+        <div className="mb-4 rounded-lg bg-emerald-50 border border-emerald-200 px-4 py-2.5 text-sm text-emerald-800 flex items-center gap-2">
+          <CheckCircle2 className="h-4 w-4" /> Welcome email re-sent to {decodeURIComponent(searchParams.welcomed)}.
+        </div>
+      )}
       {searchParams.error && (
         <div className="mb-4 rounded-lg bg-rose-50 border border-rose-200 px-4 py-2.5 text-sm text-rose-800 flex items-center gap-2">
           <AlertCircle className="h-4 w-4" /> {decodeURIComponent(searchParams.error)}
@@ -81,6 +92,45 @@ export default async function StaffPanelPage({ searchParams }: { searchParams: S
         <StatCard label="Students" value={counts.STUDENT ?? 0} accent="gold" />
         <StatCard label="Parents" value={counts.PARENT ?? 0} accent="amber" />
       </div>
+
+      {canCreateStaff && (
+        <Card className="mb-4">
+          <CardHeader>
+            <CardTitle><UserPlus className="h-4 w-4 inline mr-1" /> Create staff account</CardTitle>
+            <Badge tone="gold">Director / Super-admin only</Badge>
+          </CardHeader>
+          <CardBody>
+            <form action={createStaffUser} className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3 text-sm">
+              <div>
+                <Label>Full name *</Label>
+                <Input name="name" required minLength={2} placeholder="e.g. Mr. Tunde Williams" />
+              </div>
+              <div>
+                <Label>Email *</Label>
+                <Input name="email" type="email" required placeholder="name@meclonescollege.com" />
+              </div>
+              <div>
+                <Label>Phone</Label>
+                <Input name="phone" placeholder="+234..." />
+              </div>
+              <div>
+                <Label>Role *</Label>
+                <Select name="role" required defaultValue="ACCOUNTANT">
+                  <option value="ACCOUNTANT">Accountant</option>
+                  <option value="ADMIN">Admin</option>
+                  <option value="DIRECTOR">Director</option>
+                </Select>
+              </div>
+              <div className="sm:col-span-2 lg:col-span-4 flex items-center justify-between gap-3 pt-1">
+                <p className="text-xs text-slate-500">
+                  A welcome email with a 7-day "Set your password" link will be sent. The user can't log in until they set a password.
+                </p>
+                <Button type="submit" variant="gold"><UserPlus className="h-4 w-4" /> Create account</Button>
+              </div>
+            </form>
+          </CardBody>
+        </Card>
+      )}
 
       <Card className="mb-4">
         <CardBody className="py-3">
@@ -132,6 +182,12 @@ export default async function StaffPanelPage({ searchParams }: { searchParams: S
                   </div>
 
                   <div className="flex flex-wrap items-center gap-2 justify-end">
+                    {u.role !== "STUDENT" && !u.email.endsWith("@meclones.local") && (
+                      <form action={resendWelcomeEmail}>
+                        <input type="hidden" name="userId" value={u.id} />
+                        <Button type="submit" variant="outline" className="text-xs"><Mail className="h-3 w-3" /> Resend welcome</Button>
+                      </form>
+                    )}
                     <form action={resetUserPassword} className="flex items-center gap-1.5">
                       <input type="hidden" name="userId" value={u.id} />
                       <Input name="newPassword" type="text" placeholder="New password" minLength={8} required className="w-44 text-xs" />
