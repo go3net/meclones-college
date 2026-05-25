@@ -4,7 +4,7 @@ import { Card, CardBody, CardHeader, CardTitle, Badge, StatCard, Button } from "
 import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/auth-helpers";
 import { CATEGORY_LABEL, SEVERITY_LABEL, SEVERITY_TONE, STATUS_LABEL, STATUS_TONE, SANCTION_LABEL } from "@/lib/discipline";
-import { Plus, Shield, AlertTriangle, CheckCircle2, ClipboardList } from "lucide-react";
+import { Plus, Shield, AlertTriangle, CheckCircle2, ClipboardList, TrendingUp } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
@@ -60,9 +60,14 @@ export default async function AdminDisciplinePage({ searchParams }: { searchPara
           <h1 className="text-2xl font-bold text-brand-900">Disciplinary cases</h1>
           <p className="text-sm text-slate-500">Formal records of incidents, sanctions and parent acknowledgements.</p>
         </div>
-        <Link href="/portal/admin/discipline/new" className="inline-flex items-center gap-2 bg-gold-500 hover:bg-gold-600 text-brand-900 text-sm font-semibold px-4 py-2 rounded-lg shadow-sm">
-          <Plus className="h-4 w-4" /> Report incident
-        </Link>
+        <div className="flex items-center gap-2 flex-wrap">
+          <Link href="/portal/admin/discipline/stats" className="inline-flex items-center gap-2 bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 text-sm font-semibold px-4 py-2 rounded-lg">
+            <TrendingUp className="h-4 w-4" /> Statistics
+          </Link>
+          <Link href="/portal/admin/discipline/new" className="inline-flex items-center gap-2 bg-gold-500 hover:bg-gold-600 text-brand-900 text-sm font-semibold px-4 py-2 rounded-lg shadow-sm">
+            <Plus className="h-4 w-4" /> Report incident
+          </Link>
+        </div>
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
