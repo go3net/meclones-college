@@ -12,7 +12,7 @@ import {
   Home, Users, GraduationCap, BookOpen, Calendar, FileText, MessageCircle,
   CreditCard, Brain, Smartphone, Settings, LogOut, Menu, X, Bell, ChevronDown,
   CheckSquare, BookMarked, Banknote, TrendingUp, ClipboardList, Megaphone,
-  UserCircle2, ShieldCheck, KeyRound, Trophy, ScrollText, MessageSquare, HeartPulse, Shield, Building2, Search,
+  UserCircle2, ShieldCheck, KeyRound, Trophy, ScrollText, MessageSquare, HeartPulse, Shield, Building2, Search, Download,
 } from "lucide-react";
 
 interface NavItem { href: string; label: string; icon: any; }
@@ -55,6 +55,7 @@ const NAV_BY_ROLE: Record<MockRole, NavItem[]> = {
     { href: "/portal/director/sessions", label: "Sessions", icon: Calendar },
     { href: "/portal/director/promotions", label: "Promotions", icon: TrendingUp },
     { href: "/portal/director/audit", label: "Audit Log", icon: ScrollText },
+    { href: "/portal/director/exports", label: "Reports & exports", icon: Download },
     { href: "/portal/whatsapp", label: "WhatsApp Logs", icon: Smartphone },
     { href: "/portal/director/settings", label: "Settings", icon: Settings },
   ],
