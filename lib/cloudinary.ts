@@ -26,6 +26,43 @@ export async function uploadBase64(file: string, folder = "meclones") {
 }
 
 /**
+ * Upload an opaque buffer (e.g. a JSON DB backup) as `resource_type: "raw"`.
+ * Skips the smart-detection of `uploadAttachment` so 1 GB JSON files don't
+ * trip Cloudinary's image-transform path. Public ID includes the filename
+ * for human-readable cloudinary URLs.
+ */
+export async function uploadRawBuffer(
+  buffer: Buffer,
+  filename: string,
+  opts?: { folder?: string },
+) {
+  if (!process.env.CLOUDINARY_CLOUD_NAME) {
+    console.log("[cloudinary stub] uploadRawBuffer", { filename, bytes: buffer.length });
+    return { secure_url: "", public_id: "", bytes: buffer.length };
+  }
+  const c = getCloudinary();
+  const folder = opts?.folder ?? "meclones/backups";
+  const safeName = filename.replace(/[^a-zA-Z0-9_.-]/g, "_").slice(0, 200);
+
+  return new Promise<{ secure_url: string; public_id: string; bytes: number }>((resolve, reject) => {
+    const stream = c.uploader.upload_stream(
+      {
+        folder,
+        resource_type: "raw",
+        use_filename: true,
+        filename_override: safeName,
+        unique_filename: true,
+      },
+      (err, result) => {
+        if (err || !result) return reject(err ?? new Error("Upload failed"));
+        resolve({ secure_url: result.secure_url, public_id: result.public_id, bytes: result.bytes ?? buffer.length });
+      },
+    );
+    stream.end(buffer);
+  });
+}
+
+/**
  * Upload a buffer to Cloudinary as a generic attachment (images or PDFs
  * sent in messages, complaint evidence, etc.). Uses `resource_type: "auto"`
  * so Cloudinary picks raw vs image based on the bytes. No transforms.

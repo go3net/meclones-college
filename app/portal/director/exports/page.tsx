@@ -5,7 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { requireRole, getActiveContext } from "@/lib/auth-helpers";
 import {
   ArrowLeft, Download, FileText, Users, GraduationCap, UserCircle2,
-  CalendarCheck, Database, AlertCircle, ScrollText,
+  Database, AlertCircle, ScrollText, Cloud, CheckCircle2, XCircle, Clock,
 } from "lucide-react";
 
 export const dynamic = "force-dynamic";
@@ -15,12 +15,38 @@ export default async function ExportsPage() {
   const isDirectorPlus = user.role !== "ADMIN";
   const { term, session } = await getActiveContext();
 
-  const [studentCount, teacherCount, parentCount, classCount] = await Promise.all([
+  const [studentCount, teacherCount, parentCount, classCount, lastCronBackup, lastCronFailure] = await Promise.all([
     prisma.student.count({ where: { graduatedAt: null } }),
     prisma.teacher.count(),
     prisma.parent.count(),
     prisma.class.count(),
+    prisma.auditLog.findFirst({
+      where: { action: "backup.cron_success" },
+      orderBy: { createdAt: "desc" },
+      select: { createdAt: true, metadata: true },
+    }),
+    prisma.auditLog.findFirst({
+      where: { action: "backup.cron_failed" },
+      orderBy: { createdAt: "desc" },
+      select: { createdAt: true, metadata: true },
+    }),
   ]);
+
+  const dateTimeFmt = new Intl.DateTimeFormat("en-NG", { dateStyle: "medium", timeStyle: "short" });
+  const lastBackupBytes = lastCronBackup?.metadata && typeof lastCronBackup.metadata === "object"
+    ? (lastCronBackup.metadata as { bytes?: number }).bytes ?? null
+    : null;
+  const lastBackupUrl = lastCronBackup?.metadata && typeof lastCronBackup.metadata === "object"
+    ? (lastCronBackup.metadata as { url?: string }).url ?? null
+    : null;
+  const failedAfterLastSuccess = lastCronFailure && lastCronBackup
+    ? lastCronFailure.createdAt > lastCronBackup.createdAt
+    : Boolean(lastCronFailure && !lastCronBackup);
+  function formatBytes(n: number): string {
+    if (n < 1024) return `${n} B`;
+    if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
+    return `${(n / 1024 / 1024).toFixed(1)} MB`;
+  }
 
   return (
     <PortalShell role="director">
@@ -102,6 +128,61 @@ export default async function ExportsPage() {
           filename={`meclones_payments_${new Date().toISOString().slice(0, 10)}.csv`}
         />
       </div>
+
+      {isDirectorPlus && (
+        <Card className="mb-4 border-emerald-200">
+          <CardHeader>
+            <CardTitle><Cloud className="h-4 w-4 inline mr-1 text-emerald-700" /> Scheduled off-platform backup</CardTitle>
+            {lastCronBackup ? (
+              <Badge tone={failedAfterLastSuccess ? "warning" : "success"}>
+                {failedAfterLastSuccess ? "Last attempt failed" : "Healthy"}
+              </Badge>
+            ) : (
+              <Badge tone="neutral">Not scheduled yet</Badge>
+            )}
+          </CardHeader>
+          <CardBody className="text-sm space-y-3">
+            <p className="text-slate-700">
+              A cron job can hit <code className="bg-slate-100 px-1 rounded text-xs">/api/cron/backup</code> on a schedule and push the JSON snapshot to Cloudinary, off Railway entirely. Cheap insurance against the worst case.
+            </p>
+
+            {lastCronBackup ? (
+              <div className="rounded-lg bg-emerald-50 border border-emerald-200 px-3 py-2">
+                <p className="text-emerald-800 flex items-center gap-2">
+                  <CheckCircle2 className="h-4 w-4" />
+                  Last successful backup: <strong>{dateTimeFmt.format(lastCronBackup.createdAt)}</strong>
+                  {lastBackupBytes && <span className="text-emerald-700">· {formatBytes(lastBackupBytes)}</span>}
+                </p>
+                {lastBackupUrl && (
+                  <p className="text-[11px] text-emerald-700 mt-1 font-mono break-all">{lastBackupUrl}</p>
+                )}
+              </div>
+            ) : (
+              <div className="rounded-lg bg-slate-50 border border-slate-200 px-3 py-2 text-slate-700 flex items-center gap-2">
+                <Clock className="h-4 w-4 text-slate-500" />
+                No automated backup has run yet. Configure the schedule on Railway (or any cron platform) to start.
+              </div>
+            )}
+
+            {failedAfterLastSuccess && lastCronFailure && (
+              <div className="rounded-lg bg-rose-50 border border-rose-200 px-3 py-2 text-rose-800 flex items-center gap-2">
+                <XCircle className="h-4 w-4" />
+                Last attempt failed at <strong>{dateTimeFmt.format(lastCronFailure.createdAt)}</strong>. Check server logs.
+              </div>
+            )}
+
+            <details className="text-xs text-slate-600">
+              <summary className="cursor-pointer hover:text-slate-900 font-medium">How to schedule it</summary>
+              <ol className="mt-2 list-decimal list-inside space-y-1">
+                <li>Set <code className="bg-slate-100 px-1 rounded">CRON_SECRET</code> on Railway (any random 32+ char string).</li>
+                <li>Add a cron service in your Railway project that runs daily.</li>
+                <li>Command: <code className="bg-slate-100 px-1 rounded">curl -X POST -H "Authorization: Bearer $CRON_SECRET" https://meclones-college-production.up.railway.app/api/cron/backup</code></li>
+                <li>Backup files appear in your Cloudinary account under <code className="bg-slate-100 px-1 rounded">meclones/backups/</code>.</li>
+              </ol>
+            </details>
+          </CardBody>
+        </Card>
+      )}
 
       {isDirectorPlus ? (
         <Card className="border-amber-200">
