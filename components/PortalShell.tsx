@@ -7,6 +7,7 @@ import { useSession, signOut } from "next-auth/react";
 import type { Role as MockRole } from "@/lib/mock-data";
 import { Logo } from "./Logo";
 import { NotificationsBell } from "./NotificationsBell";
+import { MobileBottomNav } from "./MobileBottomNav";
 import clsx from "clsx";
 import {
   Home, Users, GraduationCap, BookOpen, Calendar, FileText, MessageCircle,
@@ -261,8 +262,9 @@ export function PortalShell({ role, children }: { role: MockRole; children: Reac
             </div>
           </div>
         </header>
-        <main className="flex-1 p-4 lg:p-6 max-w-full overflow-x-auto">{children}</main>
+        <main className="flex-1 p-4 lg:p-6 pb-20 lg:pb-6 max-w-full overflow-x-auto">{children}</main>
       </div>
+      <MobileBottomNav role={effectiveRole} />
     </div>
   );
 }
