@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { ArrowRight, Calendar, FileText, CheckCircle2, Phone, Mail } from "lucide-react";
-import { getSampleSchool, type SampleSchool } from "../../data";
+import { getSampleSchool, hexAlpha, type SampleSchool } from "../../data";
 
 export default function SampleSchoolAdmissions({ params }: { params: { school: string } }) {
   const school = getSampleSchool(params.school);
@@ -9,25 +9,27 @@ export default function SampleSchoolAdmissions({ params }: { params: { school: s
 
   return (
     <>
-      {/* Page header */}
+      {/* Hero with imagery */}
       <section
-        className="py-14 sm:py-20 border-b"
+        className="relative overflow-hidden"
         style={{
-          backgroundColor: school.theme.surface,
-          borderColor: `${school.theme.primary}1A`,
+          backgroundImage: `linear-gradient(135deg, ${hexAlpha(school.theme.primary, 0.9)} 0%, ${hexAlpha(school.theme.primary, 0.6)} 100%), url('${school.imagery.admissions}')`,
+          backgroundSize: "cover",
+          backgroundPosition: "center",
+          color: school.theme.onPrimary,
         }}
       >
-        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="relative max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-20 sm:py-32">
           <p className="text-xs uppercase tracking-[0.22em] font-semibold mb-3" style={{ color: school.theme.accent }}>Admissions</p>
-          <h1 className={`text-4xl sm:text-5xl ${school.theme.headingClass} max-w-3xl`} style={{ color: school.theme.primary }}>
+          <h1 className={`text-4xl sm:text-5xl lg:text-6xl ${school.theme.headingClass} max-w-3xl leading-tight drop-shadow-lg`}>
             Join the {school.shortName} family.
           </h1>
-          <p className="mt-5 text-lg opacity-80 max-w-2xl leading-relaxed">
+          <p className="mt-6 text-lg sm:text-xl opacity-90 max-w-2xl leading-relaxed">
             Applications for the 2026/27 academic session are open. We admit students into JSS 1, JSS 2, and SS 1 in the September intake; mid-year transfers are considered case by case.
           </p>
-          <div className="mt-7 inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-semibold"
+          <div className="mt-7 inline-flex items-center gap-2 px-5 py-2.5 rounded-full text-sm font-bold shadow-lg"
             style={{ backgroundColor: school.theme.accent, color: school.theme.primary }}>
-            <Calendar className="h-4 w-4" /> Next assessment day: <span className="font-bold">Saturday, 14 March</span>
+            <Calendar className="h-4 w-4" /> Next assessment day: <span className="font-extrabold">Saturday, 14 March</span>
           </div>
         </div>
       </section>

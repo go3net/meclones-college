@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { ArrowRight, Quote, Users, GraduationCap, Heart, Building2 } from "lucide-react";
-import { getSampleSchool } from "../../data";
+import { getSampleSchool, hexAlpha } from "../../data";
 
 export default function SampleSchoolAbout({ params }: { params: { school: string } }) {
   const school = getSampleSchool(params.school);
@@ -9,22 +9,24 @@ export default function SampleSchoolAbout({ params }: { params: { school: string
 
   return (
     <>
-      {/* Page header */}
+      {/* Hero with imagery */}
       <section
-        className="py-14 sm:py-20 border-b"
+        className="relative overflow-hidden"
         style={{
-          backgroundColor: school.theme.surface,
-          borderColor: `${school.theme.primary}1A`,
+          backgroundImage: `linear-gradient(135deg, ${hexAlpha(school.theme.primary, 0.9)} 0%, ${hexAlpha(school.theme.primary, 0.65)} 100%), url('${school.imagery.about}')`,
+          backgroundSize: "cover",
+          backgroundPosition: "center",
+          color: school.theme.onPrimary,
         }}
       >
-        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="relative max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-20 sm:py-32">
           <p className="text-xs uppercase tracking-[0.22em] font-semibold mb-3" style={{ color: school.theme.accent }}>
             About {school.shortName}
           </p>
-          <h1 className={`text-4xl sm:text-5xl ${school.theme.headingClass} max-w-3xl`} style={{ color: school.theme.primary }}>
+          <h1 className={`text-4xl sm:text-5xl lg:text-6xl ${school.theme.headingClass} max-w-3xl leading-tight drop-shadow-lg`}>
             A school built around character, scholarship, and a sense of place.
           </h1>
-          <p className="mt-5 text-lg opacity-80 max-w-2xl leading-relaxed">{school.pitch}</p>
+          <p className="mt-6 text-lg sm:text-xl opacity-90 max-w-2xl leading-relaxed">{school.pitch}</p>
         </div>
       </section>
 
@@ -46,6 +48,19 @@ export default function SampleSchoolAbout({ params }: { params: { school: string
               We are not the largest school in {school.state}. We do not try to be. We are, however, deliberate. About who we admit. About what we teach. About the kind of people we want our graduates to become.
             </p>
           </div>
+        </div>
+      </section>
+
+      {/* Image collage strip */}
+      <section className="pb-4">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
+          {[...school.imagery.campus, school.imagery.about].map((src, i) => (
+            <div
+              key={i}
+              className="aspect-square rounded-2xl shadow-md hover:shadow-xl transition-shadow"
+              style={{ backgroundImage: `url('${src}')`, backgroundSize: "cover", backgroundPosition: "center" }}
+            />
+          ))}
         </div>
       </section>
 

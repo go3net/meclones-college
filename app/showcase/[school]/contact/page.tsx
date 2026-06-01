@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import { ArrowRight, Phone, Mail, MapPin, Clock, MessageSquare } from "lucide-react";
-import { getSampleSchool, type SampleSchool } from "../../data";
+import { getSampleSchool, hexAlpha, type SampleSchool } from "../../data";
 
 export default function SampleSchoolContact({ params }: { params: { school: string } }) {
   const school = getSampleSchool(params.school);
@@ -8,20 +8,22 @@ export default function SampleSchoolContact({ params }: { params: { school: stri
 
   return (
     <>
-      {/* Page header */}
+      {/* Hero with imagery */}
       <section
-        className="py-14 sm:py-20 border-b"
+        className="relative overflow-hidden"
         style={{
-          backgroundColor: school.theme.surface,
-          borderColor: `${school.theme.primary}1A`,
+          backgroundImage: `linear-gradient(135deg, ${hexAlpha(school.theme.primary, 0.9)} 0%, ${hexAlpha(school.theme.primary, 0.6)} 100%), url('${school.imagery.campus[1]}')`,
+          backgroundSize: "cover",
+          backgroundPosition: "center",
+          color: school.theme.onPrimary,
         }}
       >
-        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="relative max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-20 sm:py-28">
           <p className="text-xs uppercase tracking-[0.22em] font-semibold mb-3" style={{ color: school.theme.accent }}>Contact</p>
-          <h1 className={`text-4xl sm:text-5xl ${school.theme.headingClass} max-w-3xl`} style={{ color: school.theme.primary }}>
+          <h1 className={`text-4xl sm:text-5xl lg:text-6xl ${school.theme.headingClass} max-w-3xl leading-tight drop-shadow-lg`}>
             Get in touch with the {school.shortName} office.
           </h1>
-          <p className="mt-5 text-lg opacity-80 max-w-2xl leading-relaxed">
+          <p className="mt-6 text-lg sm:text-xl opacity-90 max-w-2xl leading-relaxed">
             Whether you're enquiring about admissions, requesting a school tour, or just want to know more — we'd love to hear from you.
           </p>
         </div>

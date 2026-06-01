@@ -15,6 +15,17 @@
 export type SampleHeroStyle = "fullbleed-dark" | "split-warm" | "minimal-light";
 export type SampleVibe = "modern" | "classical" | "premium";
 
+/**
+ * Unsplash CDN photo URLs. Stable as long as the photographer doesn't
+ * unpublish — every section that uses one layers a CSS gradient on top
+ * so even if a single photo 404s the layout remains intentional.
+ *
+ * Format: `https://images.unsplash.com/photo-{ID}?w=...&q=...&auto=format&fit=crop`
+ */
+function img(id: string, w: number = 1600, q: number = 80): string {
+  return `https://images.unsplash.com/photo-${id}?w=${w}&q=${q}&auto=format&fit=crop`;
+}
+
 export interface SampleSchool {
   slug: string;
   name: string;
@@ -30,6 +41,22 @@ export interface SampleSchool {
   cardBlurb: string;
   vibe: SampleVibe;
   heroStyle: SampleHeroStyle;
+  imagery: {
+    /** Wide hero background — used on the home page hero */
+    hero: string;
+    /** Used as the index-card preview */
+    card: string;
+    /** Hero strip on the about page */
+    about: string;
+    /** Strip used on the admissions page */
+    admissions: string;
+    /** Three campus-life photos used in a grid on home */
+    campus: [string, string, string];
+    /** Photo of the head — used in testimonial */
+    headshot: string;
+    /** Name + role of the speaker */
+    testimonial: { name: string; role: string; quote: string };
+  };
   theme: {
     /** Primary brand colour for header, CTAs, links */
     primary: string;
@@ -79,6 +106,23 @@ export const SAMPLE_SCHOOLS: SampleSchool[] = [
     cardBlurb: "Modern, ambitious, STEM-anchored — for the school that wants a sharp, contemporary brand.",
     vibe: "modern",
     heroStyle: "fullbleed-dark",
+    imagery: {
+      hero: img("1607013251379-e6eecfffe234", 2000),
+      card: img("1571260899304-425eee4c7efc", 900),
+      about: img("1581090700227-1e37b190418e", 1800),
+      admissions: img("1523240795612-9a054b0db644", 1800),
+      campus: [
+        img("1571260899304-425eee4c7efc", 800),
+        img("1532619675605-1ede6c2ed2b0", 800),
+        img("1503676260728-1c00da094a0b", 800),
+      ],
+      headshot: img("1507003211169-0a1dd7228f2d", 320),
+      testimonial: {
+        name: "Dr. Adekunle Bello",
+        role: "Head of Academics, Falcon Academy",
+        quote: "We don't grade students on what they can memorise. We grade them on what they can make, defend, and improve. The portal lets us track that work in a way Excel never could.",
+      },
+    },
     theme: {
       primary: "#0F172A",
       accent: "#E11D48",
@@ -142,6 +186,23 @@ export const SAMPLE_SCHOOLS: SampleSchool[] = [
     cardBlurb: "Traditional, warm, character-led — for the school that leans on heritage and serif typography.",
     vibe: "classical",
     heroStyle: "split-warm",
+    imagery: {
+      hero: img("1592280771190-3e2e4d571952", 2000),
+      card: img("1497486751825-1233686d5d80", 900),
+      about: img("1497486751825-1233686d5d80", 1800),
+      admissions: img("1523580494863-6f3031224c94", 1800),
+      campus: [
+        img("1481627834876-b7833e8f5570", 800),
+        img("1571019613454-1cb2f99b2d8b", 800),
+        img("1497486751825-1233686d5d80", 800),
+      ],
+      headshot: img("1573496359142-b8d87734a5a2", 320),
+      testimonial: {
+        name: "Mrs. Folake Adeyemi",
+        role: "Headmistress, Sunrise Preparatory School",
+        quote: "Three decades on, our conviction has not changed: a first-class mind without character is half an education. Every parent's portal reflects that — conduct sits beside scholarship.",
+      },
+    },
     theme: {
       primary: "#166534",
       accent: "#D97706",
@@ -205,6 +266,23 @@ export const SAMPLE_SCHOOLS: SampleSchool[] = [
     cardBlurb: "Minimalist, premium, Cambridge pathway — for the school positioning itself at the top of the market.",
     vibe: "premium",
     heroStyle: "minimal-light",
+    imagery: {
+      hero: img("1485827404703-89b55fcc595e", 2000),
+      card: img("1554995207-c18c203602cb", 900),
+      about: img("1523050854058-8df90110c9f1", 1800),
+      admissions: img("1606761568499-6d2451b23c66", 1800),
+      campus: [
+        img("1554995207-c18c203602cb", 800),
+        img("1606761568499-6d2451b23c66", 800),
+        img("1523240795612-9a054b0db644", 800),
+      ],
+      headshot: img("1560250097-0b93528c311a", 320),
+      testimonial: {
+        name: "Mr. Chukwuma Eze",
+        role: "Principal, Northgate International School",
+        quote: "Our graduates matriculate at Oxford, McGill, and UCT. The portal lets our admissions team treat Cambridge-pathway transcripts with the rigour they demand — and lets parents see exactly where their child stands at any moment.",
+      },
+    },
     theme: {
       primary: "#18181B",
       accent: "#CA8A04",
@@ -255,3 +333,29 @@ export const SAMPLE_SCHOOLS: SampleSchool[] = [
 export function getSampleSchool(slug: string): SampleSchool | undefined {
   return SAMPLE_SCHOOLS.find(s => s.slug === slug);
 }
+
+/**
+ * Quick hex-to-rgba helper for inline gradient overlays on top of
+ * background images. Assumes #RRGGBB.
+ */
+export function hexAlpha(hex: string, alpha: number): string {
+  const v = hex.replace("#", "");
+  const r = parseInt(v.slice(0, 2), 16);
+  const g = parseInt(v.slice(2, 4), 16);
+  const b = parseInt(v.slice(4, 6), 16);
+  return `rgba(${r},${g},${b},${alpha})`;
+}
+
+/**
+ * Shared photography used outside the per-school definitions —
+ * showcase index hero, /for-schools landing imagery, etc.
+ */
+export const SHARED_IMAGERY = {
+  showcaseHero: img("1523240795612-9a054b0db644", 2000),
+  forSchoolsHero: img("1503676260728-1c00da094a0b", 2000),
+  portalDevice: img("1551836022-d5d88e9218df", 1400),
+  campusLife: img("1571019613454-1cb2f99b2d8b", 1400),
+  classroom: img("1580582932707-520aed937b7b", 1400),
+  parentMeeting: img("1573497019418-b400bb3ab074", 1400),
+} as const;
+

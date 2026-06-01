@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Button } from "@/components/ui";
 import { SCHOOL } from "@/lib/constants";
+import { SHARED_IMAGERY } from "@/app/showcase/data";
 import { DemoRequestForm } from "./DemoRequestForm";
 import {
   Sparkles, CheckCircle2, Users, CreditCard, MessageSquare, BookOpen,
@@ -162,20 +163,27 @@ const FAQ = [
 export default function ForSchoolsPage() {
   return (
     <div className="bg-white">
-      {/* Hero */}
-      <section className="relative bg-gradient-to-br from-brand-900 via-brand-800 to-brand-700 text-white overflow-hidden">
-        <div className="absolute inset-0 opacity-10 bg-[radial-gradient(ellipse_at_top_right,_white,transparent_60%)]" />
-        <div className="relative max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-16 sm:py-24">
-          <div className="inline-flex items-center gap-2 bg-gold-400/15 text-gold-300 px-3 py-1 rounded-full text-xs font-semibold mb-5">
+      {/* Hero with full-bleed photograph */}
+      <section
+        className="relative text-white overflow-hidden"
+        style={{
+          backgroundImage: `linear-gradient(135deg, rgba(11,31,75,0.92) 0%, rgba(11,31,75,0.78) 50%, rgba(26,44,90,0.85) 100%), url('${SHARED_IMAGERY.forSchoolsHero}')`,
+          backgroundSize: "cover",
+          backgroundPosition: "center",
+        }}
+      >
+        <div className="absolute inset-0 opacity-20 bg-[radial-gradient(ellipse_at_top_right,_#D4A017,transparent_55%)] pointer-events-none" />
+        <div className="relative max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-20 sm:py-32">
+          <div className="inline-flex items-center gap-2 bg-gold-400/15 border border-gold-400/40 text-gold-300 px-4 py-1.5 rounded-full text-xs font-semibold mb-6 backdrop-blur">
             <Sparkles className="h-3.5 w-3.5" /> Now selling to Nigerian schools
           </div>
-          <h1 className="font-display text-4xl sm:text-5xl lg:text-6xl font-bold leading-tight max-w-3xl">
+          <h1 className="font-display text-4xl sm:text-5xl lg:text-7xl font-bold leading-[1.06] max-w-4xl drop-shadow-lg">
             The complete portal your school office actually <span className="text-gold-300">runs on.</span>
           </h1>
-          <p className="mt-5 text-lg text-slate-200 max-w-2xl">
+          <p className="mt-6 text-lg sm:text-xl text-slate-100 max-w-2xl leading-relaxed">
             Built with Nigerian schools in mind: Paystack payments, WhatsApp bot, real PDF result slips, parent-teacher messaging, finance reports, multi-branch support. Live in days, not months.
           </p>
-          <div className="mt-8 flex flex-wrap gap-3">
+          <div className="mt-9 flex flex-wrap gap-3">
             <a href="#demo">
               <Button variant="gold" className="text-base px-6 py-3">
                 Request a demo <ArrowRight className="h-4 w-4" />
@@ -194,25 +202,28 @@ export default function ForSchoolsPage() {
           </div>
 
           {/* Trust strip */}
-          <div className="mt-12 grid grid-cols-2 sm:grid-cols-4 gap-6 max-w-2xl">
+          <div className="mt-14 grid grid-cols-2 sm:grid-cols-4 gap-6 max-w-3xl border-t border-white/15 pt-8">
             <div>
-              <p className="text-3xl font-bold text-gold-300">10+</p>
-              <p className="text-xs text-slate-300 mt-1">Built-in modules</p>
+              <p className="font-display text-3xl sm:text-4xl font-bold text-gold-300">10+</p>
+              <p className="text-xs text-slate-300 mt-1 uppercase tracking-wider">Built-in modules</p>
             </div>
             <div>
-              <p className="text-3xl font-bold text-gold-300">3–5 days</p>
-              <p className="text-xs text-slate-300 mt-1">Onboarding</p>
+              <p className="font-display text-3xl sm:text-4xl font-bold text-gold-300">3–5 days</p>
+              <p className="text-xs text-slate-300 mt-1 uppercase tracking-wider">Onboarding</p>
             </div>
             <div>
-              <p className="text-3xl font-bold text-gold-300">100%</p>
-              <p className="text-xs text-slate-300 mt-1">Your data, exportable</p>
+              <p className="font-display text-3xl sm:text-4xl font-bold text-gold-300">100%</p>
+              <p className="text-xs text-slate-300 mt-1 uppercase tracking-wider">Your data, exportable</p>
             </div>
             <div>
-              <p className="text-3xl font-bold text-gold-300">N0</p>
-              <p className="text-xs text-slate-300 mt-1">% of your fees taken</p>
+              <p className="font-display text-3xl sm:text-4xl font-bold text-gold-300">₦0</p>
+              <p className="text-xs text-slate-300 mt-1 uppercase tracking-wider">% of fees taken</p>
             </div>
           </div>
         </div>
+
+        {/* Fade into next section */}
+        <div className="absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-white to-transparent pointer-events-none" />
       </section>
 
       {/* Features grid */}
@@ -241,30 +252,59 @@ export default function ForSchoolsPage() {
       </section>
 
       {/* Showcase strip — link to /showcase */}
-      <section className="py-12 sm:py-16 bg-gradient-to-br from-slate-50 to-white border-t border-slate-200">
-        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="rounded-2xl bg-white border border-slate-200 p-7 sm:p-10 shadow-card">
-            <div className="grid lg:grid-cols-[1fr_auto] gap-6 items-center">
-              <div>
-                <p className="text-xs uppercase tracking-wide font-semibold text-gold-700 mb-2">No website yet? We do those too.</p>
-                <h3 className="font-display text-2xl sm:text-3xl font-bold text-brand-900 mb-3">Click around three sample school websites</h3>
-                <p className="text-slate-700 leading-relaxed max-w-2xl">
-                  Every site we build is designed from scratch around your school's brand — never recycled. To prove it, here are three completely different sample sites you can tour live. Pick the one closest to your vibe and we'll start from there.
-                </p>
-                <ul className="mt-4 grid sm:grid-cols-3 gap-2 text-sm text-slate-600">
-                  <li className="flex items-center gap-2"><span className="h-2 w-2 rounded-full bg-rose-500" /> Modern · STEM-forward</li>
-                  <li className="flex items-center gap-2"><span className="h-2 w-2 rounded-full bg-emerald-700" /> Classical · character-led</li>
-                  <li className="flex items-center gap-2"><span className="h-2 w-2 rounded-full bg-amber-600" /> Premium · Cambridge pathway</li>
-                </ul>
-              </div>
-              <div className="flex-shrink-0">
-                <Link href="/showcase">
-                  <Button variant="primary" className="text-base px-6 py-3 w-full lg:w-auto">
-                    Tour the samples <ArrowRight className="h-4 w-4" />
-                  </Button>
-                </Link>
-              </div>
-            </div>
+      <section className="py-16 sm:py-20 bg-gradient-to-br from-slate-100 to-white border-t border-slate-200">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-10">
+            <p className="text-xs uppercase tracking-[0.18em] font-semibold text-gold-700 mb-2">No website yet? We build those too.</p>
+            <h2 className="font-display text-3xl sm:text-4xl font-bold text-brand-900">Three sample school sites, three different identities</h2>
+            <p className="mt-3 text-slate-600 max-w-2xl mx-auto">
+              Every site we build is designed from scratch around your school's brand. Click any of these to tour the full sample site.
+            </p>
+          </div>
+
+          {/* Three photographic preview cards */}
+          <div className="grid md:grid-cols-3 gap-5 mb-8">
+            {[
+              { slug: "falcon-academy", name: "Falcon Academy", vibe: "Modern · STEM", img: "https://images.unsplash.com/photo-1571260899304-425eee4c7efc?w=900&q=80&auto=format&fit=crop", primary: "#0F172A", accent: "#E11D48" },
+              { slug: "sunrise-prep", name: "Sunrise Preparatory", vibe: "Classical · Character", img: "https://images.unsplash.com/photo-1497486751825-1233686d5d80?w=900&q=80&auto=format&fit=crop", primary: "#166534", accent: "#D97706" },
+              { slug: "northgate-international", name: "Northgate International", vibe: "Premium · Cambridge", img: "https://images.unsplash.com/photo-1554995207-c18c203602cb?w=900&q=80&auto=format&fit=crop", primary: "#18181B", accent: "#CA8A04" },
+            ].map(s => (
+              <Link
+                key={s.slug}
+                href={`/showcase/${s.slug}`}
+                className="group rounded-2xl overflow-hidden border border-slate-200 bg-white hover:shadow-2xl hover:-translate-y-1 transition-all duration-300"
+              >
+                <div
+                  className="aspect-[16/10] relative"
+                  style={{
+                    backgroundImage: `linear-gradient(135deg, ${s.primary}CC 0%, ${s.primary}66 100%), url('${s.img}')`,
+                    backgroundSize: "cover",
+                    backgroundPosition: "center",
+                  }}
+                >
+                  <div className="absolute bottom-4 left-4 right-4 text-white">
+                    <span className="inline-block text-[10px] uppercase tracking-[0.15em] font-semibold px-2 py-1 rounded-full backdrop-blur bg-white/20 mb-2" style={{ color: "#fff" }}>
+                      {s.vibe}
+                    </span>
+                    <p className="font-display text-lg font-bold drop-shadow-md">{s.name}</p>
+                  </div>
+                </div>
+                <div className="p-4 flex items-center justify-between bg-white">
+                  <span className="text-xs text-slate-500">Sample design</span>
+                  <span className="text-sm font-semibold text-brand-700 inline-flex items-center gap-1 group-hover:text-brand-900">
+                    Tour <ArrowRight className="h-3.5 w-3.5 group-hover:translate-x-0.5 transition-transform" />
+                  </span>
+                </div>
+              </Link>
+            ))}
+          </div>
+
+          <div className="text-center">
+            <Link href="/showcase">
+              <Button variant="primary" className="text-base px-7 py-3">
+                Open the full showcase <ArrowRight className="h-4 w-4" />
+              </Button>
+            </Link>
           </div>
         </div>
       </section>
@@ -340,26 +380,50 @@ export default function ForSchoolsPage() {
               </ul>
             </div>
 
-            <div className="bg-gradient-to-br from-brand-50 to-gold-50 border border-brand-100 rounded-2xl p-8">
-              <p className="font-display text-2xl font-bold text-brand-900 mb-4">Currently powering</p>
-              <div className="flex items-center gap-3 mb-3">
-                <div className="h-12 w-12 rounded-lg bg-brand-900 text-gold-300 flex items-center justify-center font-bold font-display text-2xl">M</div>
-                <div>
-                  <p className="font-semibold text-brand-900">{SCHOOL.name}</p>
-                  <p className="text-xs text-slate-600">{SCHOOL.addressShort}</p>
+            <div className="relative rounded-2xl overflow-hidden shadow-xl">
+              <div
+                className="aspect-[4/5] relative"
+                style={{
+                  backgroundImage: `linear-gradient(180deg, rgba(11,31,75,0.15) 0%, rgba(11,31,75,0.92) 100%), url('${SHARED_IMAGERY.parentMeeting}')`,
+                  backgroundSize: "cover",
+                  backgroundPosition: "center",
+                }}
+              >
+                <div className="absolute top-5 left-5 inline-flex items-center gap-2 bg-white/15 backdrop-blur border border-white/25 text-white px-3 py-1.5 rounded-full text-xs font-semibold">
+                  <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
+                  Currently powering
+                </div>
+
+                <div className="absolute bottom-0 left-0 right-0 p-7 text-white">
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="h-12 w-12 rounded-xl bg-gold-400 text-brand-900 flex items-center justify-center font-bold font-display text-2xl shrink-0 shadow-lg">M</div>
+                    <div>
+                      <p className="font-display text-lg font-bold drop-shadow">{SCHOOL.name}</p>
+                      <p className="text-xs opacity-80">{SCHOOL.addressShort}</p>
+                    </div>
+                  </div>
+                  <p className="text-sm leading-relaxed italic border-l-2 border-gold-400 pl-4 mt-4">
+                    "Mose set up our entire portal in a week. Parents love being able to pay fees from their phone and chat directly with class teachers."
+                  </p>
+                  <p className="text-xs uppercase tracking-wider mt-3 text-gold-300 font-semibold">— Director, {SCHOOL.shortName}</p>
                 </div>
               </div>
-              <p className="text-sm text-slate-700 mt-4 italic">
-                "Mose set up our entire portal in a week. Parents love being able to pay fees from their phone and chat directly with class teachers." — Director, {SCHOOL.shortName}
-              </p>
             </div>
           </div>
         </div>
       </section>
 
       {/* Demo request form */}
-      <section id="demo" className="bg-brand-900 text-white py-16 sm:py-20">
-        <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
+      <section
+        id="demo"
+        className="relative text-white py-16 sm:py-24 overflow-hidden"
+        style={{
+          backgroundImage: `linear-gradient(135deg, rgba(11,31,75,0.96) 0%, rgba(11,31,75,0.88) 100%), url('${SHARED_IMAGERY.classroom}')`,
+          backgroundSize: "cover",
+          backgroundPosition: "center",
+        }}
+      >
+        <div className="relative max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-10">
             <p className="text-xs uppercase tracking-wide font-semibold text-gold-300 mb-2">Get started</p>
             <h2 className="font-display text-3xl sm:text-4xl font-bold">See it running in your school</h2>
