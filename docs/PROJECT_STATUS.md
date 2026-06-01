@@ -570,6 +570,20 @@ External Paystack dashboard config:
 - 7-question FAQ accordion covering common objections (replacement vs co-existence with existing website, data import, Paystack take-rate, customisation, ownership).
 - Lives under `(public)/` so customer white-label deployments with `ENABLE_PUBLIC_SITE=false` never show it — only Mose's canonical Meclones site has it.
 
+### Live sample-school showcase · `/showcase` (2026-06-01)
+- **Anti-template move:** the pitch concern "if we show one sample, every prospect thinks we sell the same site to everyone" is solved by showing three completely different fully-clickable sample school websites side-by-side.
+- Three samples, each with home / about / admissions / contact:
+  - **Falcon Academy** (`/showcase/falcon-academy`) — modern, navy + crimson, STEM-forward, sans-serif, dark full-bleed hero.
+  - **Sunrise Preparatory School** (`/showcase/sunrise-prep`) — classical, forest-green + warm-gold, character-led, serif, split-hero with crest panel.
+  - **Northgate International** (`/showcase/northgate-international`) — premium minimalist, charcoal + gold, Cambridge pathway, light sans, generous whitespace.
+- All copy is fictional. Every page of every sample carries a persistent amber "Sample design — not a real school" banner with a back link to `/showcase` and a CTA to `/for-schools#demo` — so a prospect can never accidentally take it for a customer deploy.
+- Architecture: `app/showcase/data.ts` is the single source of truth for school definitions (theme hex values, fonts, copy, admissions steps, news items, achievements). The `[school]/` dynamic route picks one of three hero variants (`fullbleed-dark` / `split-warm` / `minimal-light`) based on the entry's `heroStyle`. Adding a fourth sample = drop another entry in `data.ts`, no other code changes.
+- `/showcase` index page is the picker — three cards with palette swatches, plus a two-up "portal only vs website + portal" CTA block so prospects know they can buy just the portal if they already have a website.
+- Each sample's header includes a "Parent portal" button → `/portal/login`, demonstrating the portal sits behind every site we build.
+- Wired into `/for-schools` two ways: a third hero CTA "See sample school sites" and a full-width showcase strip between the features grid and pricing.
+- Lives at the top level (`app/showcase/`, not `app/(public)/showcase/`) so each sample carries its own header/footer instead of inheriting Meclones's `PublicHeader`. Still gated by `PUBLIC_SITE_ENABLED` so portal-only customer deploys redirect to `/portal/login`.
+- `generateStaticParams` pre-renders all 12 sample pages (3 schools × 4 pages) at build time — zero runtime cost.
+
 ---
 
 ## 8 · Outstanding work — by priority

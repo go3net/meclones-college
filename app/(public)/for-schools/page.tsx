@@ -181,6 +181,11 @@ export default function ForSchoolsPage() {
                 Request a demo <ArrowRight className="h-4 w-4" />
               </Button>
             </a>
+            <Link href="/showcase">
+              <Button variant="outline" className="text-base px-6 py-3 bg-white/5 text-white border-white/30 hover:bg-white/10">
+                See sample school sites
+              </Button>
+            </Link>
             <a href="#pricing">
               <Button variant="outline" className="text-base px-6 py-3 bg-white/5 text-white border-white/30 hover:bg-white/10">
                 See pricing
@@ -231,6 +236,35 @@ export default function ForSchoolsPage() {
                 <p className="text-sm text-slate-600 leading-relaxed">{f.body}</p>
               </div>
             ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Showcase strip — link to /showcase */}
+      <section className="py-12 sm:py-16 bg-gradient-to-br from-slate-50 to-white border-t border-slate-200">
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="rounded-2xl bg-white border border-slate-200 p-7 sm:p-10 shadow-card">
+            <div className="grid lg:grid-cols-[1fr_auto] gap-6 items-center">
+              <div>
+                <p className="text-xs uppercase tracking-wide font-semibold text-gold-700 mb-2">No website yet? We do those too.</p>
+                <h3 className="font-display text-2xl sm:text-3xl font-bold text-brand-900 mb-3">Click around three sample school websites</h3>
+                <p className="text-slate-700 leading-relaxed max-w-2xl">
+                  Every site we build is designed from scratch around your school's brand — never recycled. To prove it, here are three completely different sample sites you can tour live. Pick the one closest to your vibe and we'll start from there.
+                </p>
+                <ul className="mt-4 grid sm:grid-cols-3 gap-2 text-sm text-slate-600">
+                  <li className="flex items-center gap-2"><span className="h-2 w-2 rounded-full bg-rose-500" /> Modern · STEM-forward</li>
+                  <li className="flex items-center gap-2"><span className="h-2 w-2 rounded-full bg-emerald-700" /> Classical · character-led</li>
+                  <li className="flex items-center gap-2"><span className="h-2 w-2 rounded-full bg-amber-600" /> Premium · Cambridge pathway</li>
+                </ul>
+              </div>
+              <div className="flex-shrink-0">
+                <Link href="/showcase">
+                  <Button variant="primary" className="text-base px-6 py-3 w-full lg:w-auto">
+                    Tour the samples <ArrowRight className="h-4 w-4" />
+                  </Button>
+                </Link>
+              </div>
+            </div>
           </div>
         </div>
       </section>
