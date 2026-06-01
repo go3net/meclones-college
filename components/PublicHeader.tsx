@@ -21,6 +21,7 @@ const NAV = [
   { href: "/gallery", label: "Gallery" },
   { href: "/news", label: "News" },
   { href: "/parents", label: "Parents" },
+  { href: "/for-schools", label: "For Schools" },
   { href: "/contact", label: "Contact" },
 ];
 
