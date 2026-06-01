@@ -115,10 +115,12 @@ const ADMISSIONS_DATA = [
 // HELPERS
 // ============================================================
 
+const SCHOOL_CODE = (process.env.SCHOOL_CODE ?? "MCL").trim();
+
 function admissionNumberFor(className: string, arm: string, seq: number) {
-  // MCL/JSS1A/2526/001  /  MCL/SS3A/2526/001 etc.
+  // e.g. MCL/JSS1A/2526/001 — prefix swappable via SCHOOL_CODE env var.
   const compact = className.replace(/\s+/g, "") + arm;
-  return `MCL/${compact}/2526/${String(seq).padStart(3, "0")}`;
+  return `${SCHOOL_CODE}/${compact}/2526/${String(seq).padStart(3, "0")}`;
 }
 
 function daysAgo(n: number) {

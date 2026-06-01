@@ -8,7 +8,7 @@ import { requireRole } from "@/lib/auth-helpers";
 import { auditLog } from "@/lib/audit";
 import { createResetToken } from "@/lib/password-reset";
 import { sendWelcomeEmail } from "@/lib/resend";
-import { SCHOOL } from "@/lib/constants";
+import { SCHOOL, SCHOOL_CODE } from "@/lib/constants";
 
 const DEFAULT_PASSWORD = process.env.SEED_PASSWORD ?? "Meclones123!";
 
@@ -132,7 +132,7 @@ export async function importStudentsCsv(formData: FormData): Promise<void> {
       if (!cls) throw new Error(`Class "${data.className} ${data.classArm}" not found`);
 
       const fullName = `${data.firstName} ${data.lastName}`;
-      const prefix = `MCL/${cls.name.replace(/\s+/g, "")}${cls.arm}/2526/`;
+      const prefix = `${SCHOOL_CODE}/${cls.name.replace(/\s+/g, "")}${cls.arm}/2526/`;
       const existingCount = await prisma.student.count({ where: { admissionNumber: { startsWith: prefix } } });
       const admissionNumber = `${prefix}${String(existingCount + 1).padStart(3, "0")}`;
       const studentEmail = `student.${slugify(admissionNumber)}@meclones.local`;

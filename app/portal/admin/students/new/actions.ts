@@ -7,7 +7,7 @@ import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/auth-helpers";
 import { createResetToken } from "@/lib/password-reset";
 import { sendWelcomeEmail } from "@/lib/resend";
-import { SCHOOL } from "@/lib/constants";
+import { SCHOOL, SCHOOL_CODE } from "@/lib/constants";
 
 const DEFAULT_PASSWORD = process.env.SEED_PASSWORD ?? "Meclones123!";
 
@@ -36,7 +36,7 @@ export async function createStudent(formData: FormData) {
   if (!cls) throw new Error("Class not found.");
 
   // Compute next admission number for this class+arm. Pattern MCL/<CLASSARM>/2526/<seq>.
-  const prefix = `MCL/${cls.name.replace(/\s+/g, "")}${cls.arm}/2526/`;
+  const prefix = `${SCHOOL_CODE}/${cls.name.replace(/\s+/g, "")}${cls.arm}/2526/`;
   const existingCount = await prisma.student.count({
     where: { admissionNumber: { startsWith: prefix } },
   });
