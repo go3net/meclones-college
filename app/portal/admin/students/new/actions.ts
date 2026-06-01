@@ -8,6 +8,7 @@ import { requireRole } from "@/lib/auth-helpers";
 import { createResetToken } from "@/lib/password-reset";
 import { sendWelcomeEmail } from "@/lib/resend";
 import { SCHOOL, SCHOOL_CODE } from "@/lib/constants";
+import { resolveBranchIdForCreate } from "@/lib/branch";
 
 const DEFAULT_PASSWORD = process.env.SEED_PASSWORD ?? "Meclones123!";
 
@@ -62,10 +63,15 @@ export async function createStudent(formData: FormData) {
     },
   });
 
+  // Inherit branch from the picked class (always set), so students are
+  // never orphaned from a branch. Falls back to the Main branch when
+  // the class doesn't have one yet (legacy data).
+  const branchId = cls.branchId ?? (await resolveBranchIdForCreate());
+
   const student = await prisma.student.upsert({
     where: { userId: studentUser.id },
     update: {
-      admissionNumber, classId: cls.id,
+      admissionNumber, classId: cls.id, branchId,
       gender: (gender === "MALE" || gender === "FEMALE") ? gender : undefined,
       dob: dob ? new Date(dob) : null,
       photoUrl: photoUrl ?? undefined,
@@ -74,6 +80,7 @@ export async function createStudent(formData: FormData) {
       admissionNumber,
       userId: studentUser.id,
       classId: cls.id,
+      branchId,
       gender: (gender === "MALE" || gender === "FEMALE") ? gender : undefined,
       dob: dob ? new Date(dob) : null,
       photoUrl,

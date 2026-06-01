@@ -3,6 +3,7 @@ import { PortalShell } from "@/components/PortalShell";
 import { Card, CardBody, CardHeader, CardTitle, Badge } from "@/components/ui";
 import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/auth-helpers";
+import { byActiveBranch } from "@/lib/branch";
 import { Users, Plus, Search, CheckCircle2, Upload } from "lucide-react";
 
 export const dynamic = "force-dynamic";
@@ -17,18 +18,24 @@ export default async function AdminStudentsPage({ searchParams }: { searchParams
   const q = (searchParams.q ?? "").trim();
   const classFilter = (searchParams.classId ?? "").trim();
 
+  // Multi-branch scope: filter to the active branch when one is picked.
+  // Single-branch deployments end up with an empty fragment.
+  const branchFilter = byActiveBranch();
+
   const [classes, totalStudents] = await Promise.all([
     prisma.class.findMany({
+      where: branchFilter,
       orderBy: [{ name: "asc" }, { arm: "asc" }],
       include: { _count: { select: { students: { where: { graduatedAt: null } } } } },
     }),
-    prisma.student.count({ where: { graduatedAt: null } }),
+    prisma.student.count({ where: { graduatedAt: null, ...branchFilter } }),
   ]);
 
   // Hide graduated alumni from the active students list by default.
   // Manage them under Director → Promotions.
   const where = {
     graduatedAt: null,
+    ...branchFilter,
     ...(classFilter ? { classId: classFilter } : {}),
     ...(q ? {
       OR: [

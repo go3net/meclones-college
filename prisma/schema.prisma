@@ -220,6 +220,39 @@ enum Gender {
   FEMALE
 }
 
+/// School branch / campus. Single-school customers only ever have one
+/// "Main" branch which is auto-created on first boot — they never see
+/// the feature. Multi-branch school groups (Lekki / Ikeja / Ibadan etc.)
+/// add more from /portal/admin/branches and everything below scopes by
+/// branchId.
+///
+/// Branches are sibling locations of the SAME school. For separate
+/// schools entirely, deploy separate portals.
+model Branch {
+  id        String  @id @default(cuid())
+  /// Short uppercase code, e.g. "LKI", "IKJ". Used in URLs / filenames.
+  code      String  @unique
+  name      String  // e.g. "Lekki Campus"
+  address   String?
+  phone     String?
+  email     String?
+  /// Only one branch can be flagged isMain; serves as the fallback for
+  /// any record without an explicit branchId.
+  isMain    Boolean @default(false)
+  isActive  Boolean @default(true)
+
+  students      Student[]
+  teachers      Teacher[]
+  classes       Class[]
+  feeStructures FeeStructure[]
+  announcements Announcement[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([isActive])
+}
+
 model Student {
   id              String   @id @default(cuid())
   admissionNumber String   @unique
@@ -227,6 +260,10 @@ model Student {
   userId          String   @unique
   classRef        Class?   @relation(fields: [classId], references: [id])
   classId         String?
+  /// Optional at the DB layer — defaults to the Main branch in app code.
+  /// Multi-branch deployments use this to scope every list view.
+  branch          Branch?  @relation(fields: [branchId], references: [id])
+  branchId        String?
   photoUrl        String?
   dob             DateTime?
   gender          Gender?
@@ -482,6 +519,11 @@ model Teacher {
   user    User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   userId  String   @unique
   bio     String?
+  /// Teacher's primary branch. Multi-branch schools could grant the
+  /// same teacher access to multiple branches in future via a join
+  /// table; today this is the simple 1:1 case.
+  branch    Branch? @relation(fields: [branchId], references: [id])
+  branchId  String?
 
   classTeacherOf Class[]    @relation("ClassTeacher")
   subjects       SubjectTeacher[]
@@ -511,6 +553,10 @@ model Class {
   level     Level
   classTeacher   Teacher? @relation("ClassTeacher", fields: [classTeacherId], references: [id])
   classTeacherId String?
+  /// Which branch this class belongs to. Optional at the DB layer for
+  /// migration safety; app code defaults to Main on creation.
+  branch    Branch?  @relation(fields: [branchId], references: [id])
+  branchId  String?
 
   students        Student[]
   subjects        ClassSubject[]
@@ -522,7 +568,12 @@ model Class {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@unique([name, arm])
+  /// Class name+arm must be unique within a branch (so "JSS 1A Lekki"
+  /// and "JSS 1A Ikeja" can both exist). When branchId is null we still
+  /// want global uniqueness — handled in code, not the DB constraint,
+  /// since SQL nulls don't dedupe.
+  @@unique([branchId, name, arm])
+  @@index([branchId])
 }
 
 /// A 2-way conversation between one Parent and one Teacher, optionally
@@ -811,9 +862,14 @@ model FeeStructure {
   /// JSON array of {feeType, amount} line items.
   items Json
   isDefault Boolean @default(false)
+  /// Optional branch scope. Null = applies to all branches.
+  branch    Branch? @relation(fields: [branchId], references: [id])
+  branchId  String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  @@index([branchId])
 }
 
 model Fee {
@@ -917,11 +973,15 @@ model Announcement {
   authorId       String?
   publishedAt    DateTime?
   sendWhatsApp   Boolean  @default(false)
+  /// Optional branch scope. Null = visible across every branch.
+  branch         Branch?  @relation(fields: [branchId], references: [id])
+  branchId       String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([audience])
+  @@index([branchId])
 }
 
 // ============================================================

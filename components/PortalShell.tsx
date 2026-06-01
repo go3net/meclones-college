@@ -8,6 +8,7 @@ import type { Role as MockRole } from "@/lib/mock-data";
 import { Logo } from "./Logo";
 import { NotificationsBell } from "./NotificationsBell";
 import { MobileBottomNav } from "./MobileBottomNav";
+import { BranchSwitcher } from "./BranchSwitcher";
 import { PwaInstallPrompt } from "./PwaInstallPrompt";
 import clsx from "clsx";
 import {
@@ -57,6 +58,7 @@ const NAV_BY_ROLE: Record<MockRole, NavItem[]> = {
     { href: "/portal/director/sessions", label: "Sessions", icon: Calendar },
     { href: "/portal/director/promotions", label: "Promotions", icon: TrendingUp },
     { href: "/portal/director/audit", label: "Audit Log", icon: ScrollText },
+    { href: "/portal/admin/branches", label: "Branches", icon: Building2 },
     { href: "/portal/director/exports", label: "Reports & exports", icon: Download },
     { href: "/portal/whatsapp", label: "WhatsApp Logs", icon: Smartphone },
     { href: "/portal/director/settings", label: "Settings", icon: Settings },
@@ -239,6 +241,10 @@ export function PortalShell({ role, children }: { role: MockRole; children: Reac
           )}
 
           <div className="flex items-center gap-3 shrink-0">
+            {/* Branch switcher — only renders for staff with 2+ branches */}
+            {["director", "school_admin", "accountant"].includes(effectiveRole) && (
+              <BranchSwitcher />
+            )}
             {["director", "school_admin", "accountant", "teacher"].includes(effectiveRole) && (
               <Link href="/portal/search" className="md:hidden text-slate-500 hover:text-brand-700 p-1.5" aria-label="Search">
                 <Search className="h-5 w-5" />

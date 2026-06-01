@@ -8,6 +8,7 @@ import { requireRole } from "@/lib/auth-helpers";
 import { createResetToken } from "@/lib/password-reset";
 import { sendWelcomeEmail } from "@/lib/resend";
 import { SCHOOL } from "@/lib/constants";
+import { resolveBranchIdForCreate } from "@/lib/branch";
 
 const DEFAULT_PASSWORD = process.env.SEED_PASSWORD ?? "Meclones123!";
 
@@ -45,10 +46,11 @@ export async function createTeacher(formData: FormData) {
     },
   });
 
+  const branchId = await resolveBranchIdForCreate();
   const teacher = await prisma.teacher.upsert({
     where: { userId: user.id },
-    update: { bio: bio || undefined },
-    create: { userId: user.id, bio: bio || undefined },
+    update: { bio: bio || undefined, branchId },
+    create: { userId: user.id, bio: bio || undefined, branchId },
   });
 
   // Reset and re-create subject/class links so editing is idempotent.

@@ -3,6 +3,7 @@ import { PortalShell } from "@/components/PortalShell";
 import { Card, CardBody, CardHeader, CardTitle, Badge, StatCard, Button } from "@/components/ui";
 import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/auth-helpers";
+import { byActiveBranch } from "@/lib/branch";
 import { deleteClass } from "./actions";
 import { GraduationCap, Plus, CheckCircle2, AlertCircle, Users, BookOpen, Edit, Trash2 } from "lucide-react";
 
@@ -14,10 +15,12 @@ export default async function AdminClassesPage({ searchParams }: { searchParams:
   await requireRole(["ADMIN", "DIRECTOR", "SUPER_ADMIN"]);
 
   const classes = await prisma.class.findMany({
+    where: byActiveBranch(),
     orderBy: [{ name: "asc" }, { arm: "asc" }],
     include: {
       classTeacher: { include: { user: { select: { name: true } } } },
       subjects: { include: { subject: { select: { code: true, name: true } } } },
+      branch: { select: { name: true, code: true } },
       _count: { select: { students: true } },
     },
   });

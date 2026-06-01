@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/auth-helpers";
+import { resolveBranchIdForCreate } from "@/lib/branch";
 
 const ClassSchema = z.object({
   name: z.string().min(1, "Class name required (e.g. 'JSS 1')"),
@@ -31,9 +32,15 @@ export async function createClass(formData: FormData) {
   }
   const d = parsed.data;
 
-  const exists = await prisma.class.findUnique({ where: { name_arm: { name: d.name, arm: d.arm } } });
+  const branchId = await resolveBranchIdForCreate();
+
+  // Uniqueness is per-branch: (branchId, name, arm) — so JSS 1A can
+  // exist in Lekki AND Ikeja, but not twice in the same branch.
+  const exists = await prisma.class.findFirst({
+    where: { branchId, name: d.name, arm: d.arm },
+  });
   if (exists) {
-    redirect(`/portal/admin/classes/new?error=${encodeURIComponent("That class+arm already exists.")}`);
+    redirect(`/portal/admin/classes/new?error=${encodeURIComponent("That class+arm already exists in this branch.")}`);
   }
 
   const created = await prisma.class.create({
@@ -42,6 +49,7 @@ export async function createClass(formData: FormData) {
       arm: d.arm,
       level: d.level,
       classTeacherId: d.classTeacherId || null,
+      branchId,
     },
   });
 

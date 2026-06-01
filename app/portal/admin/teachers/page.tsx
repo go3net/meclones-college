@@ -2,6 +2,7 @@ import { PortalShell } from "@/components/PortalShell";
 import { Card, CardBody, CardHeader, CardTitle, Badge, StatCard } from "@/components/ui";
 import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/auth-helpers";
+import { byActiveBranch } from "@/lib/branch";
 import { GraduationCap, Plus, Search, CheckCircle2, BookOpen, Users } from "lucide-react";
 import Link from "next/link";
 
@@ -17,16 +18,19 @@ export default async function AdminTeachersPage({ searchParams }: { searchParams
   const q = (searchParams.q ?? "").trim();
   const subjectFilter = (searchParams.subjectId ?? "").trim();
 
+  const branchFilter = byActiveBranch();
+
   const [subjects, totalTeachers, formTeacherCount] = await Promise.all([
     prisma.subject.findMany({
       orderBy: { name: "asc" },
       include: { _count: { select: { teachers: true } } },
     }),
-    prisma.teacher.count(),
-    prisma.class.count({ where: { classTeacherId: { not: null } } }),
+    prisma.teacher.count({ where: branchFilter }),
+    prisma.class.count({ where: { classTeacherId: { not: null }, ...branchFilter } }),
   ]);
 
   const where = {
+    ...branchFilter,
     ...(subjectFilter ? { subjects: { some: { subjectId: subjectFilter } } } : {}),
     ...(q ? {
       user: {
