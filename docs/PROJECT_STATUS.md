@@ -1,7 +1,13 @@
 # Meclones College Lekki — Project Status
 
 > **Read this first** when picking up the project in a fresh Claude session.
-> Updated through commit `f24ae39` (2026-05-25).
+> Updated through commit `3206c75` (2026-05-25).
+>
+> ## ⚠ Strategic context — read this before you build anything
+>
+> This codebase is no longer just Meclones' deployment. It's a **white-label B2B SaaS template** Mose is selling to other Nigerian schools. The Meclones instance is the canonical reference deploy; every other school gets a fork with env vars overridden + a DB seeded for them. See §11 (Resell architecture) before adding hardcoded values anywhere — almost everything should be either env-driven or DB-driven so it survives across customers.
+>
+> Sales landing page: `/for-schools`. Setup guide: `docs/RESELL_SETUP.md`.
 
 ---
 
@@ -31,7 +37,9 @@
 | Email       | Resend (live — RESEND_API_KEY set on Railway)  |
 | PDF         | `@react-pdf/renderer` — result slips + finance reports |
 | 2FA         | `otplib` + `qrcode` — optional TOTP per user + recovery codes |
-| Website AI  | `@anthropic-ai/sdk` — chatbot widget on public site |
+| Website AI  | `@anthropic-ai/sdk` — Sonnet 4.5 chatbot on public site (key live) |
+| Realtime    | Server-Sent Events for the notification bell    |
+| PWA         | manifest.ts + appleWebApp metadata; installable |
 | WhatsApp    | Both: in-Next.js Meta Cloud API bot AT `/api/whatsapp/meta` + n8n REST endpoints |
 | Hosting     | Railway                                       |
 
@@ -140,17 +148,21 @@ PARENT        parent@meclonescollege.com          (Dr. Aisha Bello)
 auth/identity     User (with totpSecret + totpEnabledAt for 2FA),
                   AdminPermissions, PasswordResetToken, NotificationPrefs,
                   TwoFactorRecoveryCode
-people            Student, Parent, ParentStudent, Teacher
-academic          Class, Subject, ClassSubject, SubjectTeacher,
+people            Student (+ branchId), Parent, ParentStudent,
+                  Teacher (+ branchId)
+academic          Class (+ branchId, unique on (branchId,name,arm)),
+                  Subject, ClassSubject, SubjectTeacher,
                   ClassTeacher, AcademicSession, Term
-records           Result, Attendance, Fee, FeeStructure, Payment
-                  (with reconciliation fields), StudentNote, Award,
-                  HealthRecord, DisciplinaryCase, StudentTermReport
+records           Result, Attendance, Fee, FeeStructure (+ branchId),
+                  Payment (with reconciliation fields), StudentNote,
+                  Award, HealthRecord, DisciplinaryCase, StudentTermReport
                   (class teacher + principal comments)
-messaging         MessageThread (+ parentLastReadAt/teacherLastReadAt
+messaging         MessageThread (+ parentLastReadAt / teacherLastReadAt
                   for read receipts), Message (with attachment fields)
 schedule          TimetableEntry
-content           Announcement, GalleryImage, BlogPost
+multi-tenant      Branch, SchoolBrand (singleton logo + colors),
+                  KnowledgeSection (chatbot KB)
+content           Announcement (+ branchId), GalleryImage, BlogPost
 admissions        Admission (from public website form)
 website           ContactMessage
 library           Book, BookRequest
@@ -479,26 +491,127 @@ External Paystack dashboard config:
   - `/api/admin/export/results` — long-format result rows for the active term (toggle `?publishedOnly=1`). Pivot in Excel for the broadsheet.
 - **Full DB backup** at `/api/admin/export/backup` (DIRECTOR / SUPER_ADMIN only) — single JSON of every domain table with `schemaVersion` header. Excludes `passwordHash` + `totpSecret`. Notifications + audit log capped at 10k rows. Audit `export.full_backup`.
 
+### Mobile UX: bottom tab bar + scrollable sidebar (2026-05-25)
+- New `<MobileBottomNav>` component renders for parent / teacher / student roles only on mobile (`<md`). 4 tabs each — Home, primary action, secondary action, Messages-or-Fees depending on role.
+- PortalShell main padding bumped (`pb-20 lg:pb-6`) so content isn't hidden behind the bottom bar.
+- Bottom bar uses `env(safe-area-inset-bottom)` so iOS notches don't eat tabs.
+- Bug fix: sidebar `<aside>` was `lg:flex flex-col` — meant the inner nav's `flex-1 overflow-y-auto` didn't activate on mobile and long sidebars got cut off. Changed to `flex flex-col` always; added `overscroll-contain` and `-webkit-overflow-scrolling: touch`. Now scrolls smoothly with rubber-banding contained.
+
+### Admin disciplinary stats (2026-05-25)
+- `/portal/admin/discipline/stats` — analytics page admin/director/super-admin.
+- Time-scope filter: current term / current session / all time. Uses Term.startDate + Session.startDate where set; coarse 90-day / 12-month fallbacks.
+- Headline tiles + 6-month CSS-only trend bars (major/severe overlay in rose).
+- Status × severity panel; by-category and by-sanction horizontal bars.
+- Per-class hot spots table with cases per 10 students.
+- Recurring-offenders top-15 list with click-through to student admin page.
+
+### JWT session refresh on profile edit (2026-05-25)
+- `auth.config.ts` `jwt()` callback now handles `trigger === "update"` from `useSession().update({ name, image })`. Merges new display fields into the JWT without a sign-out round-trip.
+- `<ProfileSessionRefresher>` client component on the profile page calls `update()` when the URL has `?updated=1` (set by the server action's redirect after save), then strips the query so a manual refresh doesn't re-fire.
+- Sidebar avatar / header name now refresh immediately after a profile save.
+
+### SSE notification bell (2026-05-25)
+- New `/api/notifications/stream` endpoint returns `text/event-stream`. Server re-queries DB every 5s and pushes `event: snapshot` only when the snapshot hash changes. Heartbeat comment every 25s keeps reverse-proxies from killing the connection.
+- `NotificationsBell` consumes `EventSource`; auto-falls back to the existing 60s polling refresh after 3 failures so the bell never goes permanently silent.
+
+### Cron-scheduled JSON backup (2026-05-25)
+- Backup-building extracted into `lib/backup.ts` so manual + cron endpoints stay in lock-step.
+- New `/api/cron/backup` accepts GET/POST with Bearer auth (`CRON_SECRET`) — generates the same JSON snapshot as the on-demand export, uploads to Cloudinary as a raw file under `meclones/backups/`. Audit `backup.cron_success` / `backup.cron_failed`.
+- `/portal/director/exports` shows the last successful + last failed backup timestamps with a "How to schedule it" expandable guide.
+- New `uploadRawBuffer()` helper in `lib/cloudinary.ts` uses `resource_type: "raw"` so JSON files aren't image-processed.
+
+### Loading skeletons (2026-05-25)
+- `components/Skeleton.tsx` ships `SkeletonBox / StatTile / StatRow / Card / Table / Header / PageSkeleton` primitives.
+- `loading.tsx` files dropped into all high-traffic route segments: parent/teacher/admin/director/accountant/student dashboards + every admin list page + the payments ledger + the homeroom roster.
+- Replaces the blank-page-→-flash-of-content with a graceful shimmer while server components fetch.
+
+### PWA — installable portal (2026-05-25)
+- `app/manifest.ts` (Next.js metadata API) exposes the manifest as `/manifest.webmanifest`.
+- Root layout sets `appleWebApp` + `manifest` + theme color metadata.
+- New `<PwaInstallPrompt>` component shows the install banner on supported browsers.
+
+### Public chat polish (2026-05-25)
+- Removed the duplicate WhatsApp FAB from the public layout; the chatbot now has a WhatsApp shortcut footer link inside it (one CTA, not two competing FABs).
+- Chatbot launcher + header use a human-friendly avatar (Headphones icon, with an online green dot) instead of the abstract Sparkles + M monogram.
+- Static FAQ fallback (`lib/school-faq.ts`) — 10 keyword-matched answers for the most common public-website questions, used when `ANTHROPIC_API_KEY` isn't set OR when the LLM call fails. No more "I'm not fully wired up" stub.
+- Chatbot model upgraded to **Claude Sonnet 4.5** (was Haiku 4.5). Max tokens 2048. System prompt rebuilt with a concrete "two jobs" framing + Nigerian-English tone instructions + per-question-type handling rules + a hard "never do" list (no invented fees, no fake teacher names, no asking for passwords).
+
+### White-label resell · Phase 1 — env-driven identity (2026-05-25)
+- `lib/constants.ts` `SCHOOL` block now reads from `SCHOOL_NAME`, `SCHOOL_PHONE`, `SCHOOL_EMAIL`, `SCHOOL_ADDRESS`, `SCHOOL_SHORT_NAME`, `SCHOOL_TAGLINE`, `SCHOOL_HOURS`, `SCHOOL_WEBSITE`, `SCHOOL_WHATSAPP`, `SCHOOL_FACEBOOK / INSTAGRAM / TWITTER / YOUTUBE / LINKEDIN`, `SCHOOL_STATS_*`. Meclones defaults preserved.
+- New `SCHOOL_CODE` env var replaces hardcoded `"MCL"` admission-number prefix. Threaded through the seed script + student create + bulk import.
+- New `PUBLIC_SITE_ENABLED` flag (env `ENABLE_PUBLIC_SITE`). When false, every route under `(public)/` redirects to `/portal/login` — schools that already have their own website point a subdomain at the deployment and only the portal lives there.
+- `docs/RESELL_SETUP.md` — step-by-step guide for spinning up a new school customer in ~30 minutes (env vars, Railway setup, Paystack + Cloudinary + Resend + Anthropic, seeding, custom domain DNS, per-customer cost estimate).
+
+### White-label resell · Phase 2 — multi-branch / multi-campus (2026-05-25)
+- New `Branch` model (`code`, `name`, `address`, `phone`, `email`, `isMain`, `isActive`). Optional `branchId` added to Student / Teacher / Class / FeeStructure / Announcement. Optional at DB layer so `prisma db push` doesn't need migrations; app code defaults to Main on every create.
+- Class unique constraint changed from `(name, arm)` → `(branchId, name, arm)` so JSS 1A can exist in both Lekki and Ikeja.
+- `lib/branch.ts` helpers: `ensureMainBranch` (idempotent first-boot create), `getActiveBranchIdFromCookie`, `byActiveBranch` (Prisma where-clause fragment), `resolveBranchIdForCreate` (Main fallback for inserts), `listBranches`, `activeBranchCount`.
+- `/portal/admin/branches` (DIRECTOR / SUPER_ADMIN only) — CRUD page with add form, inline edit, activate/deactivate. Main branch can't be deactivated.
+- `<BranchSwitcher>` chip in portal header — client component that hits `/api/branches` on mount; auto-hidden when there are fewer than two active branches (single-branch deployments never see it).
+- Setting the switcher writes a `branch` cookie via `setActiveBranch` server action. Lists at `/portal/admin/students`, `teachers`, and `classes` filter via `byActiveBranch()`. New records inherit the active branch.
+- Audit log: `branch.create / update / activate / deactivate`.
+
+### White-label resell · Phase 3 — chatbot KB in DB + logo upload + brand admin (2026-05-25)
+- New `KnowledgeSection` model (key, title, body, sortOrder, isActive). `buildSchoolKnowledge()` in `lib/school-knowledge.ts` is now async — reads active sections from DB, falls back to the hardcoded Meclones template when the table is empty.
+- `/portal/admin/knowledge` — admin UI for the chatbot's knowledge base. List/create/edit/activate/delete/reorder sections. One-click "Seed default sections" button copies the Meclones template into the DB so customers have something to edit instead of starting blank.
+- Chatbot route now builds the system prompt fresh per request (one extra DB hit) so admin edits propagate without a redeploy.
+- New `SchoolBrand` singleton (id=`"default"`): `logoUrl`, `logoSquareUrl`, `primaryHex`, `accentHex`.
+- `/portal/director/branding` (DIRECTOR / SUPER_ADMIN only) — logo upload (PNG/JPG/WebP/SVG, 2 MB, via new `/api/upload/logo` → Cloudinary `meclones/branding/`) for both wide + square variants, plus primary + accent hex picker with live swatch.
+- `<Logo>` component is now a client component that fetches `/api/brand` once (module-level promise memo); renders the uploaded wide logo if present, falls back to a square-logo-or-monogram badge using **`SCHOOL.shortName`'s first letter** so a school called "Greensprings" shows "G" not "M".
+- Audit log: `knowledge.create / update / activate / deactivate / delete / seed_defaults` and `brand.update / brand.clear`.
+
+### Sales landing page · `/for-schools` (2026-05-25)
+- Marketing page Mose can point prospective school customers at: `https://meclonescollege.com/for-schools`.
+- Hero with two CTAs (request demo / see pricing) + 4 trust stats (modules count, onboarding time, data-portability, fee-take = N0).
+- 8-up feature grid covering every shipped module.
+- 4 pricing tiers (Starter / Pro / Multi-branch / Enterprise) with Naira-per-term prices.
+- 'Built for Nigerian schools' section + Meclones testimonial card.
+- Demo request form (client component) — posts to existing `/api/contact` with role='Prospective school operator' so the email arrives tagged. No schema changes needed.
+- 7-question FAQ accordion covering common objections (replacement vs co-existence with existing website, data import, Paystack take-rate, customisation, ownership).
+- Lives under `(public)/` so customer white-label deployments with `ENABLE_PUBLIC_SITE=false` never show it — only Mose's canonical Meclones site has it.
+
 ---
 
 ## 8 · Outstanding work — by priority
 
 ### 🔴 Needs Mose's action (no code work left)
-- **WhatsApp bot — production go-live** — code is shipped; Mose still needs to: (1) create a Meta Business app with WhatsApp Cloud API, (2) set `WHATSAPP_VERIFY_TOKEN` / `WHATSAPP_PHONE_NUMBER_ID` / `WHATSAPP_ACCESS_TOKEN` on Railway, (3) configure the webhook in Meta with URL `https://meclones-college-production.up.railway.app/api/whatsapp/meta` and the same verify token, (4) make sure every parent's `User.phone` is set to their actual WhatsApp number so phone auto-auth lands them in the parent menu instead of asking for an admission #.
-- **Anthropic API key** — set `ANTHROPIC_API_KEY` on Railway to switch the website chatbot off the static FAQ fallback and onto live LLM answers.
+- **WhatsApp bot — production go-live** — code is shipped; Mose still needs to: (1) create a Meta Business app with WhatsApp Cloud API, (2) set `WHATSAPP_VERIFY_TOKEN` / `WHATSAPP_PHONE_NUMBER_ID` / `WHATSAPP_ACCESS_TOKEN` on Railway, (3) configure the webhook in Meta with URL `https://meclones-college-production.up.railway.app/api/whatsapp/meta` and the same verify token, (4) make sure every parent's `User.phone` is set to their actual WhatsApp number.
+- **Scheduled backup cron job** — set `CRON_SECRET` on Railway + add a daily cron service hitting `POST /api/cron/backup` with `Authorization: Bearer $CRON_SECRET`. Backups will then auto-upload to Cloudinary nightly.
+- **Anthropic key** — already set; if it ever gets revoked, the chatbot falls back to the static FAQ in `lib/school-faq.ts`.
 
-### 🟡 Worth doing next
-- **WhatsApp interactive message types** — Meta supports buttons + list payloads. The current bot uses plain text only; upgrading would feel snappier (tap buttons instead of typing numbers) but adds complexity.
+### 🟡 Worth doing next (resell-relevant)
+- **Phase 3.5 — runtime Tailwind palette swap** — `SchoolBrand.primaryHex / accentHex` are stored but not yet wired into Tailwind utilities at runtime. Defer until a real customer asks for full re-coloring; the brand admin page already accepts and previews the values.
+- **WhatsApp interactive message types** — Meta supports buttons + list payloads. Current bot uses plain text only.
 - **Notification email digests** — parents could opt for daily/weekly digests instead of per-event emails to further reduce volume.
-- **Mobile sidebar UX** — the sidebar has grown long (10+ items per role). A bottom tab bar on mobile for the 4 most-used routes per role would be a meaningful upgrade.
-- **Admin disciplinary statistics dashboard** — trends by class, recurring offenders, sanction effectiveness over time.
 
 ### 🟢 Polish / nice-to-haves
-- SSE bell — replace 60s polling with Server-Sent Events for instant notification delivery.
-- JWT session-cookie refresh after profile photo / name change (no need to sign out/in).
-- Per-page loading skeletons.
-- Cron-scheduled JSON backup upload to Cloudinary so the snapshot exists off-platform too.
 - Multi-language UI (Yoruba / Igbo / Hausa).
+- Inter-branch student transfer flow (today admins do it manually by changing classId).
+- Per-branch fee structures (schema supports it; UI doesn't surface the picker yet).
+
+---
+
+## 11 · Resell architecture (read before adding features)
+
+The codebase serves two audiences simultaneously:
+
+1. **Meclones College Lekki** — the canonical deployment at https://meclones-college-production.up.railway.app. Has the marketing site (`ENABLE_PUBLIC_SITE=true`) + the portal.
+2. **Other school customers** — fork the repo (or use it as a template), set their own env vars, deploy on a separate Railway project pointing at their own Postgres + Cloudinary + Paystack accounts. Usually `ENABLE_PUBLIC_SITE=false` so only the portal is live at e.g. `portal.theirschool.com`.
+
+**Rules when adding features:**
+- **Never hardcode school-specific values.** Use `SCHOOL.*` from `lib/constants.ts` (which already reads env). For new values, add an env var with a Meclones-defaulting fallback in that file.
+- **Never assume the marketing site is live.** Code that depends on `(public)/` routes should respect `PUBLIC_SITE_ENABLED` from `lib/constants.ts`.
+- **Branch-scope new records.** When creating Student / Teacher / Class / FeeStructure / Announcement, set `branchId` via `resolveBranchIdForCreate()`. When listing, filter via `byActiveBranch()` for staff routes.
+- **Chatbot answers** — if you need to teach the bot something school-specific, add it as a `KnowledgeSection` so customers can edit it. Don't bake it into `lib/school-knowledge.ts` unless it applies universally.
+- **Audit-log per-customer-relevant actions.** The audit log is part of the data export every school exports; meaningful action names help auditors.
+
+**Pricing tiers** (informal — not enforced in code):
+- Starter: ~₦80–150k/term · 1 campus · ≤ 300 students
+- Pro: ~₦200–350k/term · 1 campus · unlimited students · WhatsApp + AI chatbot
+- Multi-branch: ~₦400–700k/term · up to 5 campuses
+- Enterprise: ₦800k+/term · custom
+
+See `docs/RESELL_SETUP.md` for the actual deployment checklist.
 
 ---
 
