@@ -3,13 +3,44 @@
  * AI chatbot so Claude answers visitors with accurate, school-specific
  * information rather than generic / hallucinated answers.
  *
- * Edit this file when the school's policies, programs, calendar, or
- * contact details change. The chatbot re-reads it on every request.
+ * Two sources, in priority order:
+ *   1. KnowledgeSection rows in the DB (active, sorted by sortOrder).
+ *      The director / admin edits these from /portal/admin/knowledge —
+ *      this is where multi-tenant customers customise the bot per-school.
+ *   2. The hardcoded fallback below — used when the table is empty
+ *      (fresh deploy with no edits yet) so the bot is never useless.
  */
 
 import { SCHOOL, STATS, PROGRAMS, EXAMS } from "./constants";
+import { prisma } from "./prisma";
 
-export function buildSchoolKnowledge(): string {
+/**
+ * Async loader used by the chatbot. Reads DB-stored sections + concatenates
+ * them; falls back to `defaultKnowledge()` when the table is empty.
+ *
+ * Best-effort: if the DB hiccups, we still return the static fallback so
+ * the chatbot keeps answering.
+ */
+export async function buildSchoolKnowledge(): Promise<string> {
+  try {
+    const sections = await prisma.knowledgeSection.findMany({
+      where: { isActive: true },
+      orderBy: { sortOrder: "asc" },
+    });
+    if (sections.length === 0) return defaultKnowledge();
+    return sections.map(s => `# ${s.title}\n\n${s.body.trim()}`).join("\n\n");
+  } catch (err) {
+    console.error("[school-knowledge] DB read failed — falling back", err);
+    return defaultKnowledge();
+  }
+}
+
+/**
+ * The Meclones-specific hardcoded knowledge that ships out-of-the-box.
+ * Other schools start from this and customise via the admin UI; the
+ * defaults still apply to their deploy until they touch the table.
+ */
+export function defaultKnowledge(): string {
   return `
 # About ${SCHOOL.name}
 
@@ -59,7 +90,7 @@ or call ${SCHOOL.phone}.
 
 # Portal access for parents / students / staff
 
-Every Meclones parent, student, teacher and staff member has a portal account.
+Every parent, student, teacher and staff member has a portal account.
 Sign in at ${SCHOOL.website}/portal/login.
 
 Parents can:
@@ -157,4 +188,66 @@ medical matters, the school office reaches the emergency contact directly.
 If you don't know, say so and point the visitor at ${SCHOOL.phone} or
 ${SCHOOL.email}.
 `.trim();
+}
+
+/**
+ * Default sections suitable for seeding a new tenant's KnowledgeSection
+ * table. Each entry maps cleanly onto a row the admin can edit.
+ */
+export function defaultKnowledgeSections(): Array<{
+  key: string;
+  title: string;
+  body: string;
+  sortOrder: number;
+}> {
+  const programs = `We run the standard 6-year Nigerian secondary curriculum:
+- Junior Secondary: ${PROGRAMS.filter(p => p.startsWith("JSS")).join(", ")}
+- Senior Secondary: ${PROGRAMS.filter(p => p.startsWith("SS")).join(", ")}
+
+Senior Secondary students prepare for: ${EXAMS.join(", ")}.`;
+
+  return [
+    {
+      key: "about",
+      title: `About ${SCHOOL.name}`,
+      sortOrder: 10,
+      body: `${SCHOOL.name} is a co-educational Nigerian secondary school based at ${SCHOOL.address}. Motto: "${SCHOOL.tagline}". We offer the six-year Nigerian secondary curriculum from JSS 1 through SS 3.`,
+    },
+    {
+      key: "contact",
+      title: "Contact us",
+      sortOrder: 20,
+      body: `- Phone: ${SCHOOL.phone}\n- WhatsApp: ${SCHOOL.phoneIntl}\n- General email: ${SCHOOL.email}\n- Admissions email: ${SCHOOL.admissionsEmail}\n- Address: ${SCHOOL.address}\n- Office hours: ${SCHOOL.hours}\n- Website: ${SCHOOL.website}`,
+    },
+    {
+      key: "programs",
+      title: "Programs offered",
+      sortOrder: 30,
+      body: programs,
+    },
+    {
+      key: "admissions",
+      title: "Admission process",
+      sortOrder: 40,
+      body: `1. Apply online at ${SCHOOL.website}/apply.\n2. Submit your child's previous school records + birth certificate.\n3. Sit the school's entrance / placement test.\n4. Attend an interview with the admissions team.\n5. On offer, complete enrolment and pay first-term fees.\n\nApplications can be tracked via the reference number emailed at submission. Questions: ${SCHOOL.admissionsEmail}.`,
+    },
+    {
+      key: "fees",
+      title: "Fees & payment options",
+      sortOrder: 50,
+      body: `Fee amounts vary by class and term, and are set termly by the school. The exact figure for your child appears in their parent portal under "Fees".\n\nThree ways to pay:\n1. Online via the portal (Paystack — card / bank transfer / USSD).\n2. Bank transfer to the school account (call ${SCHOOL.phone} for details).\n3. In person at the school office (cash / POS / cheque).\n\nReceipts are emailed automatically on every successful payment.`,
+    },
+    {
+      key: "portal",
+      title: "The school portal",
+      sortOrder: 60,
+      body: `Every parent, student, teacher and staff member has a portal account. Sign in at ${SCHOOL.website}/portal/login.\n\nParents can: check results + download PDF slips, track attendance, view + pay fees, see the timetable, read announcements, acknowledge disciplinary notices, message teachers privately, update health records.\n\nStudents log in with either their email or their admission number.`,
+    },
+    {
+      key: "visiting",
+      title: "Visiting the school",
+      sortOrder: 70,
+      body: `Walk-ins welcome during ${SCHOOL.hours}. Book a guided tour at ${SCHOOL.website}/book-visit or call ${SCHOOL.phone}.`,
+    },
+  ];
 }

@@ -220,6 +220,50 @@ enum Gender {
   FEMALE
 }
 
+/// Single-row table holding school-wide branding (logo, primary + accent
+/// colors) that the director edits at runtime. Tailwind-compiled brand
+/// classes still ship as fallbacks; the DB values override via CSS vars
+/// on every page render.
+///
+/// Singleton pattern enforced by the @@unique on the constant id "default".
+model SchoolBrand {
+  id            String   @id @default("default")
+  /// Cloudinary URL of the school's logo. Null = use the monogram fallback.
+  logoUrl       String?
+  /// Optional small / square version for the admin sidebar.
+  logoSquareUrl String?
+  /// Hex color (e.g. "#0B1F4B") used as the brand base. The full 50–900
+  /// ramp is derived in CSS via HSL adjustments.
+  primaryHex    String?
+  /// Hex accent color (typically a warm gold for school portals).
+  accentHex     String?
+
+  updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now())
+}
+
+/// Editable knowledge base used by the public website chatbot. Each row
+/// is a markdown-ish section (about, admissions, fees, programs, etc.).
+/// The admin can rewrite these from /portal/admin/knowledge so the chatbot
+/// stays factual without engineering involvement.
+model KnowledgeSection {
+  id        String  @id @default(cuid())
+  /// Slug-style key — e.g. "about", "fees", "admissions". Useful for
+  /// referencing specific sections and for grouping common defaults
+  /// when seeding new deployments.
+  key       String  @unique
+  title     String
+  body      String  @db.Text
+  /// Render order in the system prompt + admin UI. Lower = earlier.
+  sortOrder Int     @default(100)
+  isActive  Boolean @default(true)
+
+  updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now())
+
+  @@index([sortOrder])
+}
+
 /// School branch / campus. Single-school customers only ever have one
 /// "Main" branch which is auto-created on first boot — they never see
 /// the feature. Multi-branch school groups (Lekki / Ikeja / Ibadan etc.)

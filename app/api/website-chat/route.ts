@@ -43,7 +43,13 @@ function rateLimitHit(ip: string): boolean {
   return false;
 }
 
-const SYSTEM_PROMPT = `You are the AI front-desk assistant for ${SCHOOL.name}, a Nigerian secondary
+/**
+ * Build the system prompt fresh per request — the knowledge base reads
+ * from DB (KnowledgeSection rows) so admin edits take effect immediately.
+ */
+async function buildSystemPrompt(): Promise<string> {
+  const knowledge = await buildSchoolKnowledge();
+  return `You are the AI front-desk assistant for ${SCHOOL.name}, a Nigerian secondary
 school in Lekki, Lagos. You are the first impression for every prospective
 parent, current parent, alumnus, or curious visitor who reaches out via the
 website. Treat every conversation like a warm, professional school office
@@ -59,7 +65,7 @@ Knowledge base (your source of truth):
 
 ---
 
-${buildSchoolKnowledge()}
+${knowledge}
 
 ---
 
@@ -107,6 +113,7 @@ Things you must NEVER do:
 
 Closing every long answer with a "Anything else I can help with?" feels
 nice but skip it on short factual exchanges.`;
+}
 
 export async function POST(req: NextRequest) {
   // Quick rate-limit check.
@@ -152,6 +159,11 @@ export async function POST(req: NextRequest) {
 
   const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
+  // Build the system prompt with the latest DB-backed knowledge before
+  // we start streaming. One extra DB hit per request — fine at school
+  // traffic scale, and lets admin edits propagate without a redeploy.
+  const systemPrompt = await buildSystemPrompt();
+
   // Stream from Claude → newline-delimited JSON to the client.
   const encoder = new TextEncoder();
   const stream = new ReadableStream({
@@ -166,7 +178,7 @@ export async function POST(req: NextRequest) {
           system: [
             {
               type: "text",
-              text: SYSTEM_PROMPT,
+              text: systemPrompt,
               // Cache the (large, static) system prompt across requests
               // — keeps response cost+latency low while school traffic is bursty.
               cache_control: { type: "ephemeral" },
