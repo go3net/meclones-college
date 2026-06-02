@@ -22,6 +22,7 @@ const NAV = [
   { href: "/news", label: "News" },
   { href: "/parents", label: "Parents" },
   { href: "/for-schools", label: "For Schools" },
+  { href: "/whatsapp", label: "WhatsApp" },
   { href: "/contact", label: "Contact" },
 ];
 

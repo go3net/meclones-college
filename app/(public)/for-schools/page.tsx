@@ -3,58 +3,61 @@ import Link from "next/link";
 import { Button } from "@/components/ui";
 import { SCHOOL } from "@/lib/constants";
 import { SHARED_IMAGERY } from "@/app/showcase/data";
+import { WhatsAppMockup } from "@/components/WhatsAppMockup";
+import { WHATSAPP_FLOWS } from "@/lib/whatsapp-flows";
 import { DemoRequestForm } from "./DemoRequestForm";
 import {
   Sparkles, CheckCircle2, Users, CreditCard, MessageSquare, BookOpen,
   Shield, FileText, Smartphone, Bot, Building2, ArrowRight, Mail, Phone,
-  GraduationCap, Heart, Award, TrendingUp,
+  GraduationCap, Heart, Award, TrendingUp, MessageCircle, Zap,
 } from "lucide-react";
 
 export const metadata: Metadata = {
-  title: "School Portal — software for Nigerian secondary schools",
-  description: "A turnkey school-management portal: results, fees, attendance, WhatsApp bot, parent messaging, finance reports. Built with Nigerian schools in mind. Request a demo.",
+  title: "Your school runs on WhatsApp — school management for Nigerian secondary schools",
+  description: "The only school management product Nigerian parents and teachers don't have to learn. Everything happens in WhatsApp — payments, results, attendance, scores, messaging. The portal stays behind, for admin work.",
 };
 
 const HEADLINE_FEATURES = [
   {
-    icon: Users,
-    title: "Student, parent + staff portals",
-    body: "Every parent gets a portal showing their child's results, attendance, fees, timetable, and disciplinary record. Teachers and admin get their own role-aware dashboards.",
+    icon: MessageCircle,
+    title: "WhatsApp is the product",
+    body: "Parents check results, pay fees, message teachers — all from WhatsApp. Teachers take attendance and enter scores from their own WhatsApp. No app to install, no portal to learn, no training day.",
+    accent: true,
   },
   {
     icon: CreditCard,
-    title: "Paystack-integrated fees",
-    body: "Parents pay online; cash / transfer / POS payments are recorded by the accountant. Receipts go out automatically by email and the parent portal.",
-  },
-  {
-    icon: Smartphone,
-    title: "WhatsApp bot built-in",
-    body: "Parents text the school's WhatsApp number from anywhere, get their child's results, attendance, fee balance, or a Paystack payment link. Auto-recognises parents by phone.",
-  },
-  {
-    icon: Bot,
-    title: "AI assistant on your website",
-    body: "A chatbot trained on your school's info answers prospective parents 24/7 — admissions, fees, programs, location.",
+    title: "Paystack — paid from WhatsApp",
+    body: "Parent asks for the bill in WhatsApp. Bot returns a Paystack link. Parent pays. Receipt arrives as a PDF in the same chat. Cash / transfer / POS payments are recorded by the accountant from the portal.",
   },
   {
     icon: FileText,
     title: "Real PDF result slips",
-    body: "Server-rendered PDFs auto-attach to result-published emails. Class teacher and principal comments rendered at the bottom of each slip.",
+    body: "Server-rendered PDFs delivered straight to WhatsApp the moment the parent asks. Class teacher and principal comments included on every slip.",
   },
   {
-    icon: MessageSquare,
-    title: "Parent ↔ teacher messaging",
-    body: "Threaded conversations with image + PDF attachments, read receipts, and email + bell notifications when the recipient isn't online.",
+    icon: Users,
+    title: "Admin portal — for the work that needs a screen",
+    body: "Director, accountant and admin staff get a full web portal for finance reports, bulk CSV exports, branding, branch management, fee structure setup. Everyone else lives in WhatsApp.",
   },
   {
     icon: Shield,
     title: "Discipline + health records",
-    body: "Formal incident tracking with sanctions and parent acknowledgement. Medical info (blood group, allergies, emergency contact) one tap away in an emergency.",
+    body: "Teachers log incidents from WhatsApp with three taps. Parents acknowledge from their phone. Medical info (blood group, allergies, emergency contact) one tap away in an emergency.",
+  },
+  {
+    icon: MessageSquare,
+    title: "Parent ↔ teacher messaging",
+    body: "Threaded conversations, parents don't see teachers' personal numbers, every message logged in the portal — no off-record chats. Read receipts, attachments, the lot.",
+  },
+  {
+    icon: Bot,
+    title: "AI website chatbot too",
+    body: "On your school's marketing site, a chatbot trained on your admissions, fees, programs and location answers prospective parents 24/7. Hands off to your WhatsApp number for serious enquiries.",
   },
   {
     icon: TrendingUp,
     title: "Reports + analytics",
-    body: "Per-class collection bars, finance PDFs by date range, disciplinary trend dashboards, bulk CSV exports. Off-platform JSON backups to Cloudinary on a schedule.",
+    body: "Per-class collection bars, finance PDFs by date range, disciplinary trend dashboards, bulk CSV exports. Scheduled off-platform JSON backups to Cloudinary.",
   },
 ];
 
@@ -65,12 +68,12 @@ const TIERS = [
     price: "₦80k – 150k",
     period: "/ term",
     features: [
-      "1 campus",
-      "Up to 300 students",
-      "All parent + teacher + admin portals",
+      "✅ WhatsApp parent automation (every flow)",
+      "✅ WhatsApp teacher automation (attendance, scores)",
+      "1 campus · up to 300 students",
       "Paystack online payments",
-      "Email + bell notifications",
       "PDF result slips",
+      "Admin portal + parent portal fallback",
       "Manual setup support",
     ],
     cta: "Request demo",
@@ -84,12 +87,12 @@ const TIERS = [
     features: [
       "1 campus, unlimited students",
       "Everything in Starter, plus:",
-      "WhatsApp Cloud API bot",
-      "AI website chatbot",
+      "Class-wide WhatsApp broadcasts",
+      "AI website chatbot (admissions Q&A)",
       "Bulk CSV exports",
       "Scheduled off-platform backups",
       "2FA + recovery codes for staff",
-      "Priority email support",
+      "Priority WhatsApp support line",
     ],
     cta: "Request demo",
     highlight: true,
@@ -100,7 +103,7 @@ const TIERS = [
     price: "₦400k – 700k",
     period: "/ term",
     features: [
-      "Up to 5 campuses",
+      "Up to 5 campuses · shared WhatsApp number or one per branch",
       "Everything in Pro, plus:",
       "Branch switcher for staff",
       "Per-branch fee structures",
@@ -118,6 +121,7 @@ const TIERS = [
     period: "",
     features: [
       "Unlimited campuses",
+      "Custom WhatsApp flow design",
       "Custom domain + branding",
       "Custom integrations",
       "Onboarding workshops",
@@ -163,62 +167,80 @@ const FAQ = [
 export default function ForSchoolsPage() {
   return (
     <div className="bg-white">
-      {/* Hero with full-bleed photograph */}
+      {/* Hero — WhatsApp-first pitch */}
       <section
         className="relative text-white overflow-hidden"
         style={{
-          backgroundImage: `linear-gradient(135deg, rgba(11,31,75,0.92) 0%, rgba(11,31,75,0.78) 50%, rgba(26,44,90,0.85) 100%), url('${SHARED_IMAGERY.forSchoolsHero}')`,
+          backgroundImage: `linear-gradient(135deg, rgba(11,31,75,0.94) 0%, rgba(11,31,75,0.82) 50%, rgba(7,94,84,0.62) 100%), url('${SHARED_IMAGERY.forSchoolsHero}')`,
           backgroundSize: "cover",
           backgroundPosition: "center",
         }}
       >
-        <div className="absolute inset-0 opacity-20 bg-[radial-gradient(ellipse_at_top_right,_#D4A017,transparent_55%)] pointer-events-none" />
-        <div className="relative max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-20 sm:py-32">
-          <div className="inline-flex items-center gap-2 bg-gold-400/15 border border-gold-400/40 text-gold-300 px-4 py-1.5 rounded-full text-xs font-semibold mb-6 backdrop-blur">
-            <Sparkles className="h-3.5 w-3.5" /> Now selling to Nigerian schools
-          </div>
-          <h1 className="font-display text-4xl sm:text-5xl lg:text-7xl font-bold leading-[1.06] max-w-4xl drop-shadow-lg">
-            The complete portal your school office actually <span className="text-gold-300">runs on.</span>
-          </h1>
-          <p className="mt-6 text-lg sm:text-xl text-slate-100 max-w-2xl leading-relaxed">
-            Built with Nigerian schools in mind: Paystack payments, WhatsApp bot, real PDF result slips, parent-teacher messaging, finance reports, multi-branch support. Live in days, not months.
-          </p>
-          <div className="mt-9 flex flex-wrap gap-3">
-            <a href="#demo">
-              <Button variant="gold" className="text-base px-6 py-3">
-                Request a demo <ArrowRight className="h-4 w-4" />
-              </Button>
-            </a>
-            <Link href="/showcase">
-              <Button variant="outline" className="text-base px-6 py-3 bg-white/5 text-white border-white/30 hover:bg-white/10">
-                See sample school sites
-              </Button>
-            </Link>
-            <a href="#pricing">
-              <Button variant="outline" className="text-base px-6 py-3 bg-white/5 text-white border-white/30 hover:bg-white/10">
-                See pricing
-              </Button>
-            </a>
+        <div className="absolute inset-0 opacity-25 bg-[radial-gradient(ellipse_at_top_right,_#25D366,transparent_55%)] pointer-events-none" />
+        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20 sm:py-28 grid lg:grid-cols-[1.15fr_1fr] gap-14 items-center">
+          <div>
+            <div className="inline-flex items-center gap-2 bg-emerald-400/15 border border-emerald-300/40 text-emerald-200 px-4 py-1.5 rounded-full text-xs font-semibold mb-6 backdrop-blur">
+              <MessageCircle className="h-3.5 w-3.5" /> The school management product schools actually use
+            </div>
+            <h1 className="font-display text-4xl sm:text-5xl lg:text-7xl font-bold leading-[1.04] drop-shadow-lg">
+              Your school <br className="hidden sm:block" />
+              runs on <span className="text-emerald-300">WhatsApp.</span>
+            </h1>
+            <p className="mt-6 text-lg sm:text-xl text-slate-100 max-w-xl leading-relaxed">
+              Parents check results, pay fees, message teachers — from WhatsApp. Teachers mark attendance, enter scores, log incidents — from WhatsApp. <strong className="text-white">If they can send a message, they can run your school.</strong>
+            </p>
+            <p className="mt-4 text-sm text-gold-300 max-w-xl">
+              No app to install. No portal to learn. No training day. The schools we work with adopt it in a single staff meeting.
+            </p>
+            <div className="mt-9 flex flex-wrap gap-3">
+              <a href="#demo">
+                <Button variant="gold" className="text-base px-6 py-3.5">
+                  Request a demo <ArrowRight className="h-4 w-4" />
+                </Button>
+              </a>
+              <Link href="/whatsapp">
+                <Button variant="outline" className="text-base px-6 py-3.5 bg-white/5 text-white border-white/30 hover:bg-white/10">
+                  See how it works <Zap className="h-4 w-4" />
+                </Button>
+              </Link>
+              <Link href="/showcase">
+                <Button variant="outline" className="text-base px-6 py-3.5 bg-white/5 text-white border-white/30 hover:bg-white/10">
+                  Sample school sites
+                </Button>
+              </Link>
+            </div>
+
+            {/* Trust strip */}
+            <div className="mt-12 grid grid-cols-2 sm:grid-cols-4 gap-6 max-w-2xl border-t border-white/15 pt-8">
+              <div>
+                <p className="font-display text-3xl sm:text-4xl font-bold text-emerald-300">100%</p>
+                <p className="text-xs text-slate-300 mt-1 uppercase tracking-wider">via WhatsApp</p>
+              </div>
+              <div>
+                <p className="font-display text-3xl sm:text-4xl font-bold text-emerald-300">0</p>
+                <p className="text-xs text-slate-300 mt-1 uppercase tracking-wider">apps to install</p>
+              </div>
+              <div>
+                <p className="font-display text-3xl sm:text-4xl font-bold text-emerald-300">3–5</p>
+                <p className="text-xs text-slate-300 mt-1 uppercase tracking-wider">days to go live</p>
+              </div>
+              <div>
+                <p className="font-display text-3xl sm:text-4xl font-bold text-emerald-300">₦0</p>
+                <p className="text-xs text-slate-300 mt-1 uppercase tracking-wider">% of fees taken</p>
+              </div>
+            </div>
           </div>
 
-          {/* Trust strip */}
-          <div className="mt-14 grid grid-cols-2 sm:grid-cols-4 gap-6 max-w-3xl border-t border-white/15 pt-8">
-            <div>
-              <p className="font-display text-3xl sm:text-4xl font-bold text-gold-300">10+</p>
-              <p className="text-xs text-slate-300 mt-1 uppercase tracking-wider">Built-in modules</p>
-            </div>
-            <div>
-              <p className="font-display text-3xl sm:text-4xl font-bold text-gold-300">3–5 days</p>
-              <p className="text-xs text-slate-300 mt-1 uppercase tracking-wider">Onboarding</p>
-            </div>
-            <div>
-              <p className="font-display text-3xl sm:text-4xl font-bold text-gold-300">100%</p>
-              <p className="text-xs text-slate-300 mt-1 uppercase tracking-wider">Your data, exportable</p>
-            </div>
-            <div>
-              <p className="font-display text-3xl sm:text-4xl font-bold text-gold-300">₦0</p>
-              <p className="text-xs text-slate-300 mt-1 uppercase tracking-wider">% of fees taken</p>
-            </div>
+          {/* Hero phone mockup */}
+          <div className="hidden lg:block">
+            <WhatsAppMockup
+              peerName="St. Mary's College"
+              peerStatus="online · school office"
+              peerMonogram="S"
+              peerAvatarColor="#075E54"
+              messages={WHATSAPP_FLOWS[0].messages.slice(0, 9)}
+              showInput
+            />
           </div>
         </div>
 
@@ -226,27 +248,95 @@ export default function ForSchoolsPage() {
         <div className="absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-white to-transparent pointer-events-none" />
       </section>
 
+      {/* WhatsApp showcase strip — 3 mockups side by side */}
+      <section className="py-20 sm:py-24 bg-gradient-to-br from-slate-50 via-white to-emerald-50/40">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center max-w-3xl mx-auto mb-14">
+            <p className="text-xs uppercase tracking-[0.22em] font-semibold text-emerald-700 mb-3">
+              <MessageCircle className="h-3.5 w-3.5 inline mr-1.5 mb-0.5" />
+              How a school actually runs
+            </p>
+            <h2 className="font-display text-3xl sm:text-4xl lg:text-5xl font-bold text-brand-900 leading-tight">
+              Three real conversations. Zero training required.
+            </h2>
+            <p className="mt-4 text-slate-600 text-lg">
+              Below are real WhatsApp chats from the product. A parent paying fees. A teacher taking attendance. A teacher entering scores. All from their phone, in under a minute each.
+            </p>
+          </div>
+
+          <div className="grid lg:grid-cols-3 gap-8">
+            {[0, 2, 3].map((idx, gridIdx) => {
+              const flow = WHATSAPP_FLOWS[idx];
+              return (
+                <div key={flow.slug}>
+                  <WhatsAppMockup
+                    peerName={flow.peerName}
+                    peerMonogram={flow.peerMonogram}
+                    peerAvatarColor={flow.peerAvatarColor}
+                    messages={flow.messages.slice(0, 7)}
+                    showInput={false}
+                    className="max-w-full"
+                  />
+                  <div className="mt-5 text-center">
+                    <span className={`inline-block text-[10px] uppercase tracking-[0.18em] font-bold px-3 py-1 rounded-full mb-3 ${
+                      flow.role === "parent" ? "bg-brand-100 text-brand-800" : "bg-emerald-100 text-emerald-800"
+                    }`}>
+                      {flow.role === "parent" ? "Parent" : "Teacher"}
+                    </span>
+                    <h3 className="font-display text-lg font-bold text-brand-900">{flow.title}</h3>
+                    <p className="text-sm text-emerald-700 font-semibold mt-1">{flow.oneLiner}</p>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          <div className="text-center mt-12">
+            <Link href="/whatsapp">
+              <Button variant="primary" className="text-base px-6 py-3.5">
+                See all six conversations <ArrowRight className="h-4 w-4" />
+              </Button>
+            </Link>
+          </div>
+        </div>
+      </section>
+
       {/* Features grid */}
       <section className="py-16 sm:py-20">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-12">
             <p className="text-xs uppercase tracking-wide font-semibold text-gold-700 mb-2">What's inside</p>
-            <h2 className="font-display text-3xl sm:text-4xl font-bold text-brand-900">Everything a school office runs on, in one portal</h2>
+            <h2 className="font-display text-3xl sm:text-4xl font-bold text-brand-900">A complete school on a phone. Admin portal behind it.</h2>
             <p className="mt-3 text-slate-600 max-w-2xl mx-auto">
               Each of these is fully shipped and battle-tested in production. No vapourware modules, no "coming soon".
             </p>
           </div>
 
           <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-5">
-            {HEADLINE_FEATURES.map(f => (
-              <div key={f.title} className="bg-white border border-slate-200 hover:border-brand-300 hover:shadow-card rounded-xl p-5 transition-all">
-                <div className="h-10 w-10 bg-brand-50 text-brand-700 rounded-lg flex items-center justify-center mb-3">
-                  <f.icon className="h-5 w-5" />
+            {HEADLINE_FEATURES.map(f => {
+              const accent = "accent" in f && f.accent;
+              return (
+                <div
+                  key={f.title}
+                  className={accent
+                    ? "rounded-xl p-5 transition-all bg-gradient-to-br from-emerald-700 to-emerald-900 text-white shadow-lift ring-2 ring-emerald-400/40 relative"
+                    : "bg-white border border-slate-200 hover:border-brand-300 hover:shadow-card rounded-xl p-5 transition-all"}
+                >
+                  {accent && (
+                    <span className="absolute -top-3 left-4 bg-gold-400 text-brand-900 text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-full shadow">
+                      Our wedge
+                    </span>
+                  )}
+                  <div className={accent
+                    ? "h-10 w-10 bg-white/15 text-emerald-200 rounded-lg flex items-center justify-center mb-3"
+                    : "h-10 w-10 bg-brand-50 text-brand-700 rounded-lg flex items-center justify-center mb-3"}>
+                    <f.icon className="h-5 w-5" />
+                  </div>
+                  <h3 className={accent ? "font-semibold text-white mb-2" : "font-semibold text-brand-900 mb-2"}>{f.title}</h3>
+                  <p className={accent ? "text-sm text-emerald-50/90 leading-relaxed" : "text-sm text-slate-600 leading-relaxed"}>{f.body}</p>
                 </div>
-                <h3 className="font-semibold text-brand-900 mb-2">{f.title}</h3>
-                <p className="text-sm text-slate-600 leading-relaxed">{f.body}</p>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       </section>

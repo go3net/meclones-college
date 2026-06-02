@@ -5,8 +5,11 @@ import {
   ArrowRight, BookOpen, Calendar, Star, ChevronRight, Quote,
   GraduationCap, ShieldCheck, Brain, Users, MessageCircle, Globe2,
   Heart, Trophy, CheckCircle2, Sparkles, Award, Mail, Phone, MapPin,
+  Zap,
 } from "lucide-react";
 import { getSampleSchool, hexAlpha, type SampleSchool, type WhyUsReason } from "../data";
+import { WhatsAppMockup } from "@/components/WhatsAppMockup";
+import { WHATSAPP_FLOWS } from "@/lib/whatsapp-flows";
 
 export default function SampleSchoolHome({ params }: { params: { school: string } }) {
   const school = getSampleSchool(params.school);
@@ -210,6 +213,54 @@ export default function SampleSchoolHome({ params }: { params: { school: string 
                 <p className="mt-2 text-sm opacity-75 leading-relaxed">{f.body}</p>
               </div>
             ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ===== LIVE ON WHATSAPP — wedge messaging ===== */}
+      <section className="py-20 sm:py-24" style={{ backgroundColor: school.theme.bg }}>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="grid lg:grid-cols-[1fr_1.05fr] gap-12 lg:gap-16 items-center">
+            <div>
+              <span className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-[10px] uppercase tracking-[0.22em] font-bold mb-5"
+                style={{ backgroundColor: "#25D36622", color: "#075E54" }}
+              >
+                <MessageCircle className="h-3.5 w-3.5" /> Powered by WhatsApp
+              </span>
+              <h2 className={`text-3xl sm:text-4xl lg:text-5xl ${school.theme.headingClass} leading-tight`} style={{ color: school.theme.primary }}>
+                Everything {school.shortName} parents do — happens in WhatsApp.
+              </h2>
+              <p className="mt-5 text-base sm:text-lg opacity-85 leading-relaxed">
+                Our parents don't log into a portal to check their child's results, see attendance, or pay fees. They message our school number on WhatsApp like they would a friend — and the school's WhatsApp assistant takes care of the rest. Receipts arrive as PDFs. Result slips arrive as PDFs. Teacher replies arrive as messages.
+              </p>
+              <p className="mt-3 text-sm opacity-70 leading-relaxed italic">
+                Teachers do the same: register, scores, incidents, parent replies — all from the WhatsApp they already have open.
+              </p>
+              <ul className="mt-7 space-y-3">
+                {[
+                  "Check this term's results · pay fees · view timetable",
+                  "Message any teacher (no personal numbers shared)",
+                  "Mark daily attendance from the form teacher's phone",
+                  "Enter CA / Exam scores subject-by-subject",
+                  "Log disciplinary incidents with parent acknowledgement",
+                ].map(line => (
+                  <li key={line} className="flex items-start gap-3 text-sm">
+                    <CheckCircle2 className="h-5 w-5 shrink-0 mt-0.5" style={{ color: school.theme.accent }} />
+                    <span className="opacity-85">{line}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+            <div>
+              <WhatsAppMockup
+                peerName={school.name}
+                peerMonogram={school.monogram}
+                peerAvatarColor={school.theme.primary}
+                messages={WHATSAPP_FLOWS[0].messages.slice(0, 9)}
+                caption="Sample parent conversation"
+                showInput
+              />
+            </div>
           </div>
         </div>
       </section>
