@@ -1094,6 +1094,10 @@ model WhatsAppSession {
   user            User?    @relation(fields: [userId], references: [id])
   userId          String?
   lastMenu        String?
+  /// Multi-step flow state — e.g. {"classId": "...", "absent": ["...","..."]}
+  /// while a teacher is mid-attendance. Wiped when the flow completes or
+  /// the session resets to a menu.
+  pendingData     Json?
   lastActivity    DateTime @default(now())
   isEscalated     Boolean  @default(false)
   escalatedAt     DateTime?

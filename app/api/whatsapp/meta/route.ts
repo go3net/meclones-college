@@ -5,8 +5,9 @@
  *      Returns hub.challenge when hub.verify_token matches our env value.
  *
  * POST /api/whatsapp/meta — inbound message events from the WhatsApp Business
- *      Account. For each user-sent text we hand it to the FSM and send the
- *      bot's reply via the Meta Cloud API.
+ *      Account. Each user-sent message (text, button reply, list selection)
+ *      is normalised to a single string input and handed to the FSM. The
+ *      FSM emits typed Outbounds which we dispatch via sendAndLog.
  *
  * Required env:
  *   WHATSAPP_VERIFY_TOKEN     — value you also paste into Meta's webhook config
@@ -37,17 +38,35 @@ export async function GET(req: NextRequest) {
   }
 
   if (mode === "subscribe" && token === expected && challenge) {
-    // Meta requires us to echo the challenge as plain text.
     return new NextResponse(challenge, { status: 200, headers: { "Content-Type": "text/plain" } });
   }
   return new NextResponse("forbidden", { status: 403 });
 }
 
-interface MetaTextMessage {
+interface MetaButtonReply {
+  id: string;
+  title: string;
+}
+interface MetaListReply {
+  id: string;
+  title: string;
+  description?: string;
+}
+
+interface MetaInteractive {
+  type: "button_reply" | "list_reply" | string;
+  button_reply?: MetaButtonReply;
+  list_reply?: MetaListReply;
+}
+
+interface MetaMessage {
   from: string;
   id: string;
-  type: "text" | string;
+  type: "text" | "interactive" | "button" | string;
   text?: { body: string };
+  interactive?: MetaInteractive;
+  /** Some legacy template-button replies arrive as type=button. */
+  button?: { payload?: string; text?: string };
 }
 
 interface MetaWebhookPayload {
@@ -59,7 +78,7 @@ interface MetaWebhookPayload {
       value?: {
         messaging_product?: string;
         metadata?: { phone_number_id?: string; display_phone_number?: string };
-        messages?: MetaTextMessage[];
+        messages?: MetaMessage[];
         statuses?: unknown[];
       };
     }>;
@@ -67,12 +86,7 @@ interface MetaWebhookPayload {
 }
 
 export async function POST(req: NextRequest) {
-  // Always 200 quickly — Meta retries on non-200, and the work below
-  // doesn't need to complete before we respond.
   const body: MetaWebhookPayload = await req.json().catch(() => ({}));
-
-  // Fire-and-forget processing; we still await it within this request scope
-  // so the server runtime keeps it alive, but errors don't break Meta.
   try {
     await processPayload(body);
   } catch (err) {
@@ -87,21 +101,46 @@ async function processPayload(payload: MetaWebhookPayload) {
     for (const change of entry.changes ?? []) {
       const messages = change.value?.messages ?? [];
       for (const msg of messages) {
-        if (msg.type !== "text" || !msg.text?.body) continue;
-        await handleText(msg.from, msg.text.body);
+        const input = extractInput(msg);
+        if (input === null) continue;
+        await handleMessage(msg.from, input);
       }
     }
   }
 }
 
-async function handleText(from: string, text: string) {
+/**
+ * Convert any inbound message shape (text, button_reply, list_reply,
+ * legacy quick-reply button) into a single string the FSM can dispatch
+ * on. For interactive replies, the row/button id is preferred — the
+ * FSM uses it as the canonical command token (e.g. "attend:JSS3B").
+ */
+function extractInput(msg: MetaMessage): string | null {
+  if (msg.type === "text" && msg.text?.body) {
+    return msg.text.body;
+  }
+  if (msg.type === "interactive" && msg.interactive) {
+    if (msg.interactive.type === "button_reply" && msg.interactive.button_reply) {
+      return msg.interactive.button_reply.id || msg.interactive.button_reply.title;
+    }
+    if (msg.interactive.type === "list_reply" && msg.interactive.list_reply) {
+      return msg.interactive.list_reply.id || msg.interactive.list_reply.title;
+    }
+  }
+  if (msg.type === "button" && msg.button) {
+    return msg.button.payload || msg.button.text || null;
+  }
+  return null;
+}
+
+async function handleMessage(from: string, text: string) {
   try {
     const { outbox, sessionId } = await handleIncoming({ from, text });
-    for (const m of outbox) {
+    for (const out of outbox) {
       // Sequential so messages arrive in order. Meta is fast enough.
-      await sendAndLog({ to: from, body: m.body, sessionId });
+      await sendAndLog({ to: from, out, sessionId });
     }
   } catch (err) {
-    console.error("[whatsapp/meta] handleText threw", err);
+    console.error("[whatsapp/meta] handleMessage threw", err);
   }
 }

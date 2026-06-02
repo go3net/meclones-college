@@ -67,6 +67,7 @@ export function formatParentMenu(input: {
   lines.push("4️⃣  Class timetable");
   lines.push("5️⃣  School announcements");
   if (input.hasMultipleChildren) lines.push("6️⃣  Switch to another child");
+  lines.push("7️⃣  Message a teacher");
   lines.push("9️⃣  Speak to a staff member");
   lines.push("0️⃣  Exit");
   lines.push("", "Reply with the number of your choice.");
@@ -83,6 +84,9 @@ export function formatTeacherMenu(teacherName: string) {
     "2️⃣  Today's schedule",
     "3️⃣  Recent disciplinary cases (my classes)",
     "4️⃣  School announcements",
+    "5️⃣  Take attendance",
+    "6️⃣  Log a disciplinary incident",
+    "7️⃣  Enter scores (CA / Exam)",
     "9️⃣  Speak to admin office",
     "0️⃣  Exit",
     "",
