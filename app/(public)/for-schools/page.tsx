@@ -341,6 +341,77 @@ export default function ForSchoolsPage() {
         </div>
       </section>
 
+      {/* Live customer strip — a single real deployment (Meclones)
+          callout that sits above the synthetic samples below. Lets
+          a visitor click straight through to a school actually
+          running on SchoolBot, with real teachers and real
+          parent-WhatsApp flows. Distinct treatment from the
+          "imagine your school could look like this" sample
+          designs that follow — different framing on each strip
+          ("currently live" vs "designs we can build for you")
+          avoids muddling the two propositions. */}
+      <section className="py-16 sm:py-20 bg-white border-t border-slate-200">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-10">
+            <span className="inline-flex items-center gap-1.5 text-[11px] uppercase tracking-[0.18em] font-bold text-green-700 bg-green-50 border border-green-200 rounded-full px-3 py-1 mb-3">
+              <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
+              Live in production
+            </span>
+            <h2 className="font-display text-3xl sm:text-4xl font-bold text-brand-900">See a real school running on SchoolBot</h2>
+            <p className="mt-3 text-slate-600 max-w-2xl mx-auto">
+              Meclones College Lekki uses SchoolBot every day — parents check fees, results, and attendance via WhatsApp; teachers
+              mark scores from their phones; the admin team runs finance and admissions from the portal. Tour the live site, then
+              imagine yours.
+            </p>
+          </div>
+
+          <a
+            href="https://meclonescollege.com"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="group block rounded-2xl overflow-hidden border-2 border-green-200 bg-white hover:border-green-400 hover:shadow-2xl hover:-translate-y-1 transition-all duration-300"
+          >
+            <div
+              className="aspect-[21/9] relative"
+              style={{
+                backgroundImage:
+                  "linear-gradient(135deg, rgba(15,76,42,0.85) 0%, rgba(15,76,42,0.35) 100%), url('https://images.unsplash.com/photo-1523050854058-8df90110c9f1?w=1600&q=80&auto=format&fit=crop')",
+                backgroundSize: "cover",
+                backgroundPosition: "center",
+              }}
+            >
+              <div className="absolute bottom-6 left-6 right-6 text-white flex items-end justify-between gap-4 flex-wrap">
+                <div className="min-w-0">
+                  <span className="inline-flex items-center gap-1.5 text-[10px] uppercase tracking-[0.18em] font-bold bg-green-500 text-white rounded-full px-2 py-0.5 mb-2">
+                    <span className="w-1 h-1 rounded-full bg-white animate-pulse" />
+                    Live customer
+                  </span>
+                  <p className="font-display text-2xl sm:text-3xl font-bold drop-shadow-md">Meclones College Lekki</p>
+                  <p className="text-sm text-white/90 mt-1 drop-shadow">Co-educational secondary school · Lekki, Lagos</p>
+                </div>
+                <span className="inline-flex items-center gap-1.5 text-sm font-semibold bg-white text-green-700 rounded-full px-4 py-2 shadow-lg shrink-0">
+                  Visit meclonescollege.com <ArrowRight className="h-4 w-4 group-hover:translate-x-0.5 transition-transform" />
+                </span>
+              </div>
+            </div>
+            <div className="px-5 sm:px-6 py-4 bg-green-50/50 border-t border-green-100 grid sm:grid-cols-3 gap-3 text-[12px] text-green-900">
+              <div className="flex items-center gap-2">
+                <CheckCircle2 className="h-4 w-4 text-green-600 shrink-0" />
+                <span>Parents pay fees + check results via WhatsApp</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <CheckCircle2 className="h-4 w-4 text-green-600 shrink-0" />
+                <span>Teachers mark attendance + scores from their phone</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <CheckCircle2 className="h-4 w-4 text-green-600 shrink-0" />
+                <span>Director + accountant run the school from one portal</span>
+              </div>
+            </div>
+          </a>
+        </div>
+      </section>
+
       {/* Showcase strip — link to /showcase */}
       <section className="py-16 sm:py-20 bg-gradient-to-br from-slate-100 to-white border-t border-slate-200">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
