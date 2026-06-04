@@ -12,9 +12,28 @@ import {
   GraduationCap, Heart, Award, TrendingUp, MessageCircle, Zap,
 } from "lucide-react";
 
+// `title: { absolute: ... }` bypasses the root layout's `template`
+// so we don't get "... · Meclones College Lekki" appended on a
+// page that's actually rendering under the SchoolBot brand
+// (schoolbot.com.ng/ rewrites to this route via middleware).
+//
+// Tried doing this with host-aware generateMetadata in the root
+// layout first — confirmed deployed via the buildFingerprint at
+// /api/health/host — but Next.js still served the cached Meclones
+// template suffix even on a curl with no-cache headers. The
+// absolute-title approach sidesteps the template resolution
+// entirely and is the path of least resistance.
 export const metadata: Metadata = {
-  title: "Your school runs on WhatsApp — school management for Nigerian secondary schools",
+  title:       { absolute: "SchoolBot — WhatsApp school management for Nigerian secondary schools" },
   description: "The only school management product Nigerian parents and teachers don't have to learn. Everything happens in WhatsApp — payments, results, attendance, scores, messaging. The portal stays behind, for admin work.",
+  openGraph: {
+    title:       "SchoolBot — WhatsApp school management for Nigerian secondary schools",
+    description: "Parents pay fees, check results, message teachers — all from WhatsApp. The admin portal stays behind for the work that needs a screen.",
+    siteName:    "SchoolBot",
+    url:         "https://schoolbot.com.ng",
+    type:        "website",
+    locale:      "en_NG",
+  },
 };
 
 const HEADLINE_FEATURES = [
