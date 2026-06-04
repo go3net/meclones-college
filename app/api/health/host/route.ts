@@ -46,6 +46,12 @@ export async function GET() {
     // visitor reports "schoolbot.com.ng shows the school home",
     // this field is what tells us the rewrite isn't matching.
     indexRoute:       isSchoolbot ? "/for-schools" : "/",
+    // Build fingerprint — increments per commit that touches host
+    // routing so we can tell which version is actually live.
+    // Bump this whenever you change middleware.ts or
+    // layout.tsx generateMetadata so the next deploy is easy
+    // to verify with one curl.
+    buildFingerprint: "host-metadata-2026-06-04",
     timestamp:        new Date().toISOString(),
   });
 }
