@@ -612,9 +612,10 @@ The codebase serves two audiences simultaneously:
 1. **Meclones College Lekki** — the canonical deployment at https://meclones-college-production.up.railway.app. Has the marketing site (`ENABLE_PUBLIC_SITE=true`) + the portal.
 2. **Other school customers** — fork the repo (or use it as a template), set their own env vars, deploy on a separate Railway project pointing at their own Postgres + Cloudinary + Paystack accounts. Usually `ENABLE_PUBLIC_SITE=false` so only the portal is live at e.g. `portal.theirschool.com`.
 
-**Rules when adding features:**
-- **Never hardcode school-specific values.** Use `SCHOOL.*` from `lib/constants.ts` (which already reads env). For new values, add an env var with a Meclones-defaulting fallback in that file.
-- **Never assume the marketing site is live.** Code that depends on `(public)/` routes should respect `PUBLIC_SITE_ENABLED` from `lib/constants.ts`.
+**Rules when adding features (updated for multi-tenancy, see § 12):**
+- **Never hardcode school-specific values.** Server code: `const school = await getSchoolPublic()` (`lib/tenant.ts`). Client components: `useSchool()` (`components/SchoolProvider.tsx`). Never add new `SCHOOL_*` env vars.
+- **Never assume the marketing site is live.** Gate `(public)/` behaviour on `school.publicSiteEnabled`; the platform host has no school (`school.id === null`) and always shows the sales site.
+- **Never query across schools by accident.** `prisma` from `lib/prisma.ts` is tenant-scoped automatically. Reach for `prismaBase` only for deliberate platform-level work (login, host lookup, webhooks' school resolution, backups, platform admin) and grep-audit it.
 - **Branch-scope new records.** When creating Student / Teacher / Class / FeeStructure / Announcement, set `branchId` via `resolveBranchIdForCreate()`. When listing, filter via `byActiveBranch()` for staff routes.
 - **Chatbot answers** — if you need to teach the bot something school-specific, add it as a `KnowledgeSection` so customers can edit it. Don't bake it into `lib/school-knowledge.ts` unless it applies universally.
 - **Audit-log per-customer-relevant actions.** The audit log is part of the data export every school exports; meaningful action names help auditors.
@@ -635,8 +636,10 @@ See `docs/RESELL_SETUP.md` for the actual deployment checklist.
   1. `npm install --prefer-offline --no-audit --no-fund`
   2. `npx prisma generate`
   3. `npm run build`
-  4. Start command: `npx prisma db push --skip-generate --accept-data-loss && npm run start`
-- **Schema changes go live automatically** via `prisma db push` at boot. No migration files yet.
+  4. Start command: `npx prisma db push --skip-generate --accept-data-loss && node prisma/backfill-school.js && npm run start`
+- **Schema changes go live automatically** via `prisma db push` at boot. No migration files yet. Because `db push` cannot add NOT NULL columns to populated tables, tenant columns are nullable at the DB layer and enforced in code.
+- `prisma/backfill-school.js` runs at every boot: creates the default School row if none exists, adopts any rows with a NULL `schoolId` while only one school exists, and creates the platform admin from env. Idempotent, never exits non-zero.
+- `npx tsc --noEmit` is the real type gate: `next.config.js` sets `typescript.ignoreBuildErrors`, so `npm run build` passes even with type errors (24 pre-existing ones as of 2026-09-17).
 - The Railway `meclones-college` project has TWO environments: `production` (live) and `meclones-college` (empty, ignore).
 - For local dev I usually skip the DB push and just `npm run dev` against my own Postgres — the seed script (`npm run db:seed`) is idempotent.
 - Use `npm run build` locally before pushing to catch type errors (Railway also catches them but takes ~3 min).
@@ -667,3 +670,99 @@ If you're a fresh Claude picking this up:
 5. **`railway status`** — confirm we're still linked to `affectionate-integrity` / `production`.
 6. **Mose will tell you what to build** — pick the highest-leverage item from §8 unless directed otherwise.
 7. **Build incrementally, commit incrementally, push to deploy.** Don't batch 10 features into one commit.
+8. **Read § 12 before touching data access or school identity.** The app is multi-tenant now.
+
+---
+
+## 12 · Multi-tenant platform (SchoolBot) — shipped 2026-09-17
+
+The single-school white-label became one platform serving many schools
+from one deployment and one Postgres. Decision by Mose on 2026-09-17;
+build order was: schema → tenant context/auth → query scoping →
+identity from DB → per-school credentials → platform admin → docs.
+
+### Model
+- `School` (`prisma/schema.prisma`): slug (subdomain), code (admission
+  prefix), identity/contact, `customDomain`, status TRIAL/ACTIVE/SUSPENDED,
+  `publicSiteEnabled`, `whatsappPhoneNumberId`, encrypted
+  `whatsappAccessTokenEnc`, `paystackSubaccountCode`, `paystackPublicKey`,
+  encrypted `paystackSecretKeyEnc`.
+- Every domain model (42 of them) has a nullable `schoolId` scalar + index.
+  Exempt: `PasswordResetToken`, `TwoFactorRecoveryCode` (globally unique
+  hashes, consumed before a session exists). Uniques that became
+  per-school: `Subject.code`, `AcademicSession.name`, `Branch.code`,
+  `KnowledgeSection.key`, `BlogPost.slug`, `Book.isbn`; `SchoolBrand` is
+  one row per school (`schoolId @unique`). `User.email` and
+  `Student.admissionNumber` stay globally unique.
+- New role `PLATFORM_ADMIN` (belongs to no school) with `/portal/platform`.
+
+### How the current school is known (`lib/tenant.ts`)
+1. Explicit `runAsSchool(school, fn)` (`lib/tenant-context.ts`,
+   AsyncLocalStorage) — webhooks, cron, seed, platform admin.
+2. The request host (`lib/host.ts`, 60s cache): `{slug}.<PLATFORM_ROOT_DOMAIN>`
+   → `School.slug`; else `School.customDomain`; else `DEFAULT_SCHOOL_SLUG`
+   (Railway URL, localhost). The bare platform host resolves to no school.
+   The middleware forwards the real host as `x-tenant-host` on every
+   request (`requestHost()` in `lib/host-utils.ts`).
+3. The session's `schoolId` (only reached on the platform host).
+- `getSchoolPublic()` never returns null: with no tenant it returns
+  `PLATFORM_SCHOOL` (SchoolBot's own identity, `lib/school-public.ts`).
+
+### Query scoping (`lib/prisma-tenant-extension.ts`)
+- `prisma` is `prismaBase.$extends(tenantExtension)`. For tenant models
+  it adds `schoolId` to `where` on every read/update/delete and stamps it
+  into create/createMany/upsert data, walking nested relation writes via
+  `Prisma.dmmf`. Caller-supplied `schoolId` in write data is discarded.
+- `TENANT_ENFORCEMENT=warn` (default) logs a stack once per model+op when
+  a tenant-model query runs with no school and serves it unscoped;
+  `strict` throws `TenantContextError`. `/api/health/host` shows the
+  process-local `unscopedQueries` counters; flip to strict when they stay
+  empty for a few days.
+- Entry points with explicit context: Meta WhatsApp webhook (school by
+  `metadata.phone_number_id`), the seven n8n relay routes (`x-school-slug`
+  header else host, `lib/relay-tenant.ts`), Paystack webhook + callback
+  (by payment reference), cron backup (loops schools), notifications SSE
+  stream, `auditLog` (platform actions recorded with `schoolId` null).
+
+### Auth
+- `authorize()` reads through `prismaBase`, returns `schoolId`, and rejects
+  a school user signing in on another school's host. JWT/session carry
+  `schoolId`; `getSessionUser()` treats a cross-host session as signed out.
+  Legacy tokens without `schoolId` fall back to one cached DB lookup.
+
+### Identity
+- `lib/constants.ts` keeps only `PROGRAMS`/`EXAMS`. Emails use one verified
+  Resend sender with a per-school display name and `replyTo`. PDFs carry
+  `school` in `ResultSlipData` / `FinanceReportData`. Portal links come
+  from `schoolSiteUrl(school)` (env `NEXT_PUBLIC_SITE_URL` still wins for
+  the default school only).
+- `/` renders the sales landing (`app/(public)/for-schools/ForSchoolsLanding.tsx`)
+  when the host is the platform root, a school's home page otherwise.
+  Do NOT reintroduce a middleware rewrite for this: Next.js proxied it as
+  an external rewrite and server code saw the Railway hostname.
+
+### Platform admin (`/portal/platform/schools`)
+- List, create (School + SUPER_ADMIN + Main branch + brand row + default
+  knowledge, all inside `runAsSchool`), edit identity/status/custom domain,
+  set WhatsApp phone number id / token and Paystack subaccount / keys
+  (encrypted with `APP_ENCRYPTION_KEY`), delete a SUSPENDED school and all
+  its rows. Chrome: `components/PlatformShell.tsx`.
+
+### Tooling
+- `scripts/tenant-smoke.ts`: isolation smoke test against a live DB
+  (creates and removes two throwaway schools).
+- `prisma/seed.ts` seeds one school (`SEED_SCHOOL_SLUG`, default the
+  default school) inside `runAsSchool`.
+
+### Still on Mose (env / DNS)
+- Railway: `APP_ENCRYPTION_KEY`, `PLATFORM_ADMIN_EMAIL`,
+  `PLATFORM_ADMIN_PASSWORD`, `PLATFORM_ROOT_DOMAIN=schoolbot.com.ng`,
+  `DEFAULT_SCHOOL_SLUG=meclones`, `TENANT_ENFORCEMENT=warn` → `strict` later.
+- Cloudflare + Railway: wildcard `*.schoolbot.com.ng`; `meclonescollege.com`
+  currently returns 404 (not attached to this deployment).
+
+### Next phases (not started)
+- Self-serve signup + billing; embeddable script-tag widget (WhatsApp
+  button + AI chat with CORS/origin allowlist) for schools with a website;
+  DB-driven school websites from the `/showcase` templates; per-school
+  Resend sender domains; migration files instead of `db push`.

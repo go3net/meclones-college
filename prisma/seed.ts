@@ -1,7 +1,10 @@
-import { PrismaClient, Prisma } from "@prisma/client";
+import { Prisma, type School } from "@prisma/client";
 import bcrypt from "bcryptjs";
+// The tenant-scoped client: every row this script writes is stamped with
+// the school it runs for (see runAsSchool in main() below).
+import { prisma, prismaBase } from "../lib/prisma";
+import { runAsSchool } from "../lib/tenant-context";
 
-const prisma = new PrismaClient();
 const DEFAULT_PASSWORD = process.env.SEED_PASSWORD ?? "Meclones123!";
 
 // ============================================================
@@ -115,10 +118,11 @@ const ADMISSIONS_DATA = [
 // HELPERS
 // ============================================================
 
-const SCHOOL_CODE = (process.env.SCHOOL_CODE ?? "MCL").trim();
+// Admission-number prefix; set from the School row before seeding.
+let SCHOOL_CODE = "MCL";
 
 function admissionNumberFor(className: string, arm: string, seq: number) {
-  // e.g. MCL/JSS1A/2526/001 — prefix swappable via SCHOOL_CODE env var.
+  // e.g. MCL/JSS1A/2526/001 — prefix is the school's code.
   const compact = className.replace(/\s+/g, "") + arm;
   return `${SCHOOL_CODE}/${compact}/2526/${String(seq).padStart(3, "0")}`;
 }
@@ -151,7 +155,25 @@ function rand(seed: number) {
 // MAIN
 // ============================================================
 
+/**
+ * Seeds the demo data set into ONE school: the default school (slug from
+ * DEFAULT_SCHOOL_SLUG, "meclones" by default) or whichever slug is passed
+ * as SEED_SCHOOL_SLUG. The School row must already exist: the boot
+ * backfill (prisma/backfill-school.js) creates the default one, and the
+ * platform admin creates the rest.
+ */
 async function main() {
+  const slug = (process.env.SEED_SCHOOL_SLUG ?? process.env.DEFAULT_SCHOOL_SLUG ?? "meclones").trim().toLowerCase();
+  const school = await prismaBase.school.findUnique({ where: { slug } });
+  if (!school) {
+    throw new Error(`School "${slug}" not found. Run \`node prisma/backfill-school.js\` first, or create it from /portal/platform/schools.`);
+  }
+  console.log(`Seeding school "${school.name}" (${school.slug})`);
+  await runAsSchool(school, () => seedSchool(school));
+}
+
+async function seedSchool(school: School) {
+  SCHOOL_CODE = school.code;
   console.log(`Seeding with default password: ${DEFAULT_PASSWORD}`);
   const passwordHash = await bcrypt.hash(DEFAULT_PASSWORD, 10);
 
@@ -549,5 +571,5 @@ main()
     process.exit(1);
   })
   .finally(async () => {
-    await prisma.$disconnect();
+    await prismaBase.$disconnect();
   });

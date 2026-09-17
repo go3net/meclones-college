@@ -59,9 +59,10 @@ export default auth(req => {
     // School-only paths → 308 redirect to /. Permanent so search
     // engines learn never to index them under the SaaS domain.
     if (MECLONES_ONLY_RE.test(pathname)) {
-      const url = req.nextUrl.clone();
-      url.pathname = "/";
-      return NextResponse.redirect(url, 308);
+      // Build the target from the real host: req.nextUrl carries the
+      // deployment hostname behind Railway's proxy, not schoolbot.com.ng.
+      const proto = req.headers.get("x-forwarded-proto") ?? "https";
+      return NextResponse.redirect(new URL("/", `${proto}://${rawHost}`), 308);
     }
   }
 
