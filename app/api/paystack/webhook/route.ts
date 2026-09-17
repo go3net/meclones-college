@@ -1,8 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import crypto from "node:crypto";
-import { prisma } from "@/lib/prisma";
+import { prismaBase } from "@/lib/prisma";
 import { applyPaymentSuccess } from "@/lib/apply-payment";
 import { koboToNaira } from "@/lib/paystack";
+import { loadSchoolById } from "@/lib/host";
+import { getCurrentSchool } from "@/lib/tenant";
+import { runAsSchool } from "@/lib/tenant-context";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -45,22 +48,35 @@ export async function POST(req: NextRequest) {
   }
 
   const data = payload.data;
-  const pending = await prisma.payment.findUnique({ where: { reference: data.reference } });
+  // Webhooks arrive with no user and (on the Railway URL) no meaningful
+  // host, so the tenant comes from the payment reference itself.
+  const pending = await prismaBase.payment.findUnique({
+    where: { reference: data.reference },
+    select: { feeId: true, schoolId: true },
+  });
   if (!pending) {
     console.warn("[paystack webhook] reference not found", data.reference);
     return NextResponse.json({ ok: true, ignored: "unknown-reference" });
   }
 
+  const school = pending.schoolId ? await loadSchoolById(pending.schoolId) : await getCurrentSchool();
+  if (!school) {
+    console.warn("[paystack webhook] no school for reference", data.reference);
+    return NextResponse.json({ ok: true, ignored: "unknown-school" });
+  }
+
   try {
-    await applyPaymentSuccess({
-      feeId: pending.feeId,
-      amountNaira: koboToNaira(data.amount),
-      reference: data.reference,
-      method: "PAYSTACK",
-      channel: data.channel ?? null,
-      paidAt: data.paid_at ? new Date(data.paid_at) : new Date(),
-      rawPayload: data as unknown,
-    });
+    await runAsSchool(school, () =>
+      applyPaymentSuccess({
+        feeId: pending.feeId,
+        amountNaira: koboToNaira(data.amount),
+        reference: data.reference,
+        method: "PAYSTACK",
+        channel: data.channel ?? null,
+        paidAt: data.paid_at ? new Date(data.paid_at) : new Date(),
+        rawPayload: data as unknown,
+      }),
+    );
     return NextResponse.json({ ok: true });
   } catch (err) {
     console.error("[paystack webhook] apply failed", err);

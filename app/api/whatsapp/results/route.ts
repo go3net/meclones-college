@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { authorizeWebhook, formatResults } from "@/lib/whatsapp";
+import { withRelaySchool } from "@/lib/relay-tenant";
 
 export const dynamic = "force-dynamic";
 
@@ -13,7 +14,11 @@ const TERM_MAP: Record<string, "FIRST" | "SECOND" | "THIRD"> = {
 export async function GET(req: NextRequest) {
   const unauth = authorizeWebhook(req);
   if (unauth) return unauth;
+  // Bind the tenant (x-school-slug header, else the request host).
+  return withRelaySchool(req, () => handle(req));
+}
 
+async function handle(req: NextRequest) {
   const url = new URL(req.url);
   const studentId = url.searchParams.get("studentId");
   const admissionNumber = url.searchParams.get("admissionNumber");

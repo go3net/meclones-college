@@ -1,7 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { prisma, prismaBase } from "@/lib/prisma";
 import { verifyTransaction, koboToNaira } from "@/lib/paystack";
 import { applyPaymentSuccess } from "@/lib/apply-payment";
+import { loadSchoolById } from "@/lib/host";
+import { getCurrentSchool } from "@/lib/tenant";
+import { runAsSchool } from "@/lib/tenant-context";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -20,7 +23,10 @@ export async function GET(req: NextRequest) {
     return NextResponse.redirect(new URL("/portal/parent/fees?paymentError=missing-reference", req.url));
   }
 
-  const pending = await prisma.payment.findUnique({ where: { reference } });
+  // The browser lands here on the school's own host, but bind the tenant
+  // from the reference anyway so the callback can't be replayed against
+  // another school's host.
+  const pending = await prismaBase.payment.findUnique({ where: { reference } });
   if (!pending) {
     return NextResponse.redirect(new URL(`/portal/parent/fees?paymentError=unknown-reference`, req.url));
   }
@@ -30,6 +36,15 @@ export async function GET(req: NextRequest) {
     return NextResponse.redirect(new URL(`/portal/parent/fees/receipt/${pending.id}`, req.url));
   }
 
+  const school = pending.schoolId ? await loadSchoolById(pending.schoolId) : await getCurrentSchool();
+  if (!school) {
+    return NextResponse.redirect(new URL(`/portal/parent/fees?paymentError=unknown-school`, req.url));
+  }
+
+  return runAsSchool(school, () => settle(req, reference, pending.feeId));
+}
+
+async function settle(req: NextRequest, reference: string, feeId: string) {
   try {
     const tx = await verifyTransaction(reference);
     if (tx.status !== "success") {
@@ -44,7 +59,7 @@ export async function GET(req: NextRequest) {
     }
 
     const result = await applyPaymentSuccess({
-      feeId: pending.feeId,
+      feeId,
       amountNaira: koboToNaira(tx.amount),
       reference,
       method: "PAYSTACK",

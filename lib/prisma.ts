@@ -1,8 +1,11 @@
 import { PrismaClient } from "@prisma/client";
+import { tenantExtension } from "./prisma-tenant-extension";
 
 declare global {
   // eslint-disable-next-line no-var
   var __prisma: PrismaClient | undefined;
+  // eslint-disable-next-line no-var
+  var __prismaScoped: ReturnType<typeof scopedClient> | undefined;
 }
 
 /**
@@ -57,9 +60,18 @@ if (process.env.NODE_ENV !== "production") {
   global.__prisma = prismaBase;
 }
 
+function scopedClient(base: PrismaClient) {
+  return base.$extends(tenantExtension);
+}
+
 /**
- * The tenant-scoped client all application code uses. The next tenancy
- * commit wraps it with the school-injecting extension; until then it is
- * the same object as `prismaBase`.
+ * The tenant-scoped client all application code uses. Every query on a
+ * model with a `schoolId` column is filtered to, or stamped with, the
+ * current school (see lib/prisma-tenant-extension.ts). Shares the
+ * connection pool with `prismaBase`.
  */
-export const prisma = prismaBase;
+export const prisma = global.__prismaScoped ?? scopedClient(prismaBase);
+
+if (process.env.NODE_ENV !== "production") {
+  global.__prismaScoped = prisma;
+}

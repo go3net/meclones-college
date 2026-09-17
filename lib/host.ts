@@ -67,3 +67,33 @@ export async function loadSchoolById(id: string): Promise<School | null> {
   const school = await prismaBase.school.findUnique({ where: { id } });
   return remember(key, school);
 }
+
+export async function loadSchoolBySlug(slug: string): Promise<School | null> {
+  const clean = slug.trim().toLowerCase();
+  if (!clean) return null;
+  const key = "slug:" + clean;
+  const cached = recall(key);
+  if (cached !== undefined) return cached;
+  const school = await prismaBase.school.findUnique({ where: { slug: clean } });
+  return remember(key, school);
+}
+
+/**
+ * School owning a Meta WhatsApp phone-number-id. The deployment-level
+ * number from env (WHATSAPP_PHONE_NUMBER_ID) belongs to the default
+ * school, so a payload with no id, or with the env id, maps there too.
+ */
+export async function loadSchoolByWhatsAppNumber(phoneNumberId: string | null | undefined): Promise<School | null> {
+  const id = phoneNumberId?.trim() ?? "";
+  const key = "wa:" + (id || "-");
+  const cached = recall(key);
+  if (cached !== undefined) return cached;
+
+  let school: School | null = null;
+  if (id) school = await prismaBase.school.findUnique({ where: { whatsappPhoneNumberId: id } });
+  if (!school) {
+    const envId = (process.env.WHATSAPP_PHONE_NUMBER_ID ?? "").trim();
+    if (!id || id === envId) school = await loadSchoolBySlug(DEFAULT_SCHOOL_SLUG);
+  }
+  return remember(key, school);
+}

@@ -1,5 +1,6 @@
-import { prisma } from "./prisma";
+import { prisma, prismaBase } from "./prisma";
 import { getSessionUser } from "./auth-helpers";
+import { getCurrentSchool } from "./tenant";
 import type { Prisma } from "@prisma/client";
 
 interface AuditArgs {
@@ -25,7 +26,8 @@ export async function auditLog(args: AuditArgs) {
     if (!actor) {
       const sess = await getSessionUser();
       if (sess) {
-        const u = await prisma.user.findUnique({
+        // Unscoped on purpose: the actor may be a platform admin (no school).
+        const u = await prismaBase.user.findUnique({
           where: { id: sess.id },
           select: { id: true, name: true, email: true, role: true },
         });
@@ -33,18 +35,25 @@ export async function auditLog(args: AuditArgs) {
       }
     }
 
-    await prisma.auditLog.create({
-      data: {
-        action: args.action,
-        actorId: actor?.id,
-        actorName: actor?.name,
-        actorEmail: actor?.email,
-        actorRole: actor?.role,
-        targetType: args.targetType,
-        targetId: args.targetId,
-        metadata: args.metadata,
-      },
-    });
+    const data = {
+      action: args.action,
+      actorId: actor?.id,
+      actorName: actor?.name,
+      actorEmail: actor?.email,
+      actorRole: actor?.role,
+      targetType: args.targetType,
+      targetId: args.targetId,
+      metadata: args.metadata,
+    };
+
+    // Platform-level actions (no resolvable school) are recorded with a
+    // null schoolId rather than tripping the tenant guard.
+    const school = await getCurrentSchool();
+    if (school) {
+      await prisma.auditLog.create({ data });
+    } else {
+      await prismaBase.auditLog.create({ data: { ...data, schoolId: null } });
+    }
   } catch (err) {
     console.error("[audit] failed to record", args.action, err);
   }

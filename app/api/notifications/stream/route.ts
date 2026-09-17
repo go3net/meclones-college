@@ -20,6 +20,9 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getSessionUser } from "@/lib/auth-helpers";
+import { getCurrentSchool } from "@/lib/tenant";
+import { loadSchoolById } from "@/lib/host";
+import { runAsSchool } from "@/lib/tenant-context";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -48,6 +51,13 @@ export async function GET(req: NextRequest) {
   const user = await getSessionUser();
   if (!user) return new Response("Unauthorized", { status: 401 });
 
+  // The interval callbacks below outlive the request's own async context,
+  // so pin the tenant explicitly. Platform admins have no school and no
+  // in-portal notifications: stream an empty snapshot and just heartbeat.
+  const school = user.schoolId ? await loadSchoolById(user.schoolId) : await getCurrentSchool();
+  const snapshot = () =>
+    school ? runAsSchool(school, () => fetchSnapshot(user.id)) : Promise.resolve({ items: [], unreadCount: 0 });
+
   const enc = new TextEncoder();
   let lastHash = "";
   let pollTimer: ReturnType<typeof setInterval> | null = null;
@@ -67,17 +77,17 @@ export async function GET(req: NextRequest) {
 
       // Initial snapshot.
       try {
-        const snap = await fetchSnapshot(user.id);
+        const snap = await snapshot();
         lastHash = snapshotHash(snap);
         send("snapshot", snap);
       } catch (err) {
         console.error("[notifications/stream] initial snapshot failed", err);
       }
 
-      // Periodic check.
-      pollTimer = setInterval(async () => {
+      // Periodic check (skipped when there is no school to poll for).
+      if (school) pollTimer = setInterval(async () => {
         try {
-          const snap = await fetchSnapshot(user.id);
+          const snap = await snapshot();
           const hash = snapshotHash(snap);
           if (hash !== lastHash) {
             lastHash = hash;

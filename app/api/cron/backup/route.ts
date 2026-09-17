@@ -23,9 +23,12 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
+import type { School } from "@prisma/client";
 import { buildBackupPayload } from "@/lib/backup";
 import { uploadRawBuffer } from "@/lib/cloudinary";
 import { auditLog } from "@/lib/audit";
+import { prismaBase } from "@/lib/prisma";
+import { runAsSchool } from "@/lib/tenant-context";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -45,65 +48,75 @@ function checkSecret(req: NextRequest): boolean {
   return provided === expected;
 }
 
-async function run(req: NextRequest) {
-  if (!checkSecret(req)) {
-    return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
-  }
+type SchoolBackupResult =
+  | { slug: string; ok: true; bytes: number; url: string; publicId: string; elapsedMs: number; counts: Record<string, number> }
+  | { slug: string; ok: false; error: string };
 
+/** Snapshot one school. Runs inside that school's tenant context. */
+async function backupSchool(school: School, exportedAt: string): Promise<SchoolBackupResult> {
   const startedAt = Date.now();
-  const exportedAt = new Date().toISOString();
 
   let payload: Awaited<ReturnType<typeof buildBackupPayload>>;
   try {
-    payload = await buildBackupPayload({
-      exportedAt,
-      exportedBy: null,
-      source: "cron",
-    });
+    payload = await buildBackupPayload({ exportedAt, exportedBy: null, source: "cron" });
   } catch (err) {
-    console.error("[cron/backup] build failed", err);
-    return NextResponse.json({ ok: false, error: "build_failed" }, { status: 500 });
+    console.error(`[cron/backup] ${school.slug}: build failed`, err);
+    return { slug: school.slug, ok: false, error: "build_failed" };
   }
 
-  const json = JSON.stringify(payload);
-  const buffer = Buffer.from(json, "utf-8");
+  const buffer = Buffer.from(JSON.stringify(payload), "utf-8");
   const stamp = exportedAt.slice(0, 19).replace(/[:T]/g, "-");
-  const filename = `meclones_backup_${stamp}.json`;
+  const filename = `${school.slug}_backup_${stamp}.json`;
 
-  let upload: Awaited<ReturnType<typeof uploadRawBuffer>> | null = null;
+  let upload: Awaited<ReturnType<typeof uploadRawBuffer>>;
   try {
-    upload = await uploadRawBuffer(buffer, filename, { folder: "meclones/backups" });
+    upload = await uploadRawBuffer(buffer, filename, { folder: `${school.slug}/backups` });
   } catch (err) {
-    console.error("[cron/backup] cloudinary upload failed", err);
+    console.error(`[cron/backup] ${school.slug}: cloudinary upload failed`, err);
     auditLog({
       action: "backup.cron_failed",
       metadata: { error: err instanceof Error ? err.message : String(err), bytes: buffer.length, ...payload.counts },
     });
-    return NextResponse.json({ ok: false, error: "upload_failed" }, { status: 502 });
+    return { slug: school.slug, ok: false, error: "upload_failed" };
   }
 
   const elapsedMs = Date.now() - startedAt;
-
   await auditLog({
     action: "backup.cron_success",
-    metadata: {
-      url: upload.secure_url,
-      publicId: upload.public_id,
-      bytes: upload.bytes,
-      elapsedMs,
-      ...payload.counts,
-    },
+    metadata: { url: upload.secure_url, publicId: upload.public_id, bytes: upload.bytes, elapsedMs, ...payload.counts },
   });
 
-  return NextResponse.json({
+  return {
+    slug: school.slug,
     ok: true,
-    exportedAt,
     bytes: upload.bytes,
     url: upload.secure_url,
     publicId: upload.public_id,
     elapsedMs,
     counts: payload.counts,
-  });
+  };
+}
+
+async function run(req: NextRequest) {
+  if (!checkSecret(req)) {
+    return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
+  }
+
+  const exportedAt = new Date().toISOString();
+
+  // One snapshot per school, each built inside that school's context so
+  // the scoped client only ever sees that school's rows.
+  const schools = await prismaBase.school.findMany({ orderBy: { createdAt: "asc" } });
+  const results: SchoolBackupResult[] = [];
+  for (const school of schools) {
+    results.push(await runAsSchool(school, () => backupSchool(school, exportedAt)));
+  }
+
+  const failed = results.filter(r => !r.ok);
+  return NextResponse.json(
+    { ok: failed.length === 0, exportedAt, schools: results },
+    { status: failed.length === 0 ? 200 : failed.length === results.length ? 502 : 207 },
+  );
 }
 
 // Accept GET for cron platforms that only do GET, AND POST for ones that

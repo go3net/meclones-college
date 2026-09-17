@@ -9,10 +9,17 @@
  *      is normalised to a single string input and handed to the FSM. The
  *      FSM emits typed Outbounds which we dispatch via sendAndLog.
  *
+ * Multi-tenant: one Meta app, one webhook URL, many school numbers. Each
+ * inbound change carries `metadata.phone_number_id`; that maps to
+ * School.whatsappPhoneNumberId and the FSM runs inside that school's
+ * tenant context. The deployment-level env number belongs to the
+ * default school (see lib/host.ts loadSchoolByWhatsAppNumber).
+ *
  * Required env:
- *   WHATSAPP_VERIFY_TOKEN     — value you also paste into Meta's webhook config
- *   WHATSAPP_PHONE_NUMBER_ID  — the Meta phone-number-id (NOT the phone itself)
- *   WHATSAPP_ACCESS_TOKEN     — long-lived system-user token
+ *   WHATSAPP_VERIFY_TOKEN     — app-level; also pasted into Meta's webhook config
+ *   WHATSAPP_PHONE_NUMBER_ID  — the default school's phone-number-id (fallback)
+ *   WHATSAPP_ACCESS_TOKEN     — business-level token (fallback for schools
+ *                               without their own stored token)
  *
  * Without these the route still responds 200 (so Meta's verify ping passes
  * before you flip everything on) but does no work.
@@ -21,6 +28,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { handleIncoming } from "@/lib/whatsapp-fsm";
 import { sendAndLog } from "@/lib/whatsapp-cloud";
+import { loadSchoolByWhatsAppNumber } from "@/lib/host";
+import { runAsSchool } from "@/lib/tenant-context";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -100,11 +109,22 @@ async function processPayload(payload: MetaWebhookPayload) {
   for (const entry of payload.entry) {
     for (const change of entry.changes ?? []) {
       const messages = change.value?.messages ?? [];
-      for (const msg of messages) {
-        const input = extractInput(msg);
-        if (input === null) continue;
-        await handleMessage(msg.from, input);
+      if (messages.length === 0) continue;
+
+      const phoneNumberId = change.value?.metadata?.phone_number_id;
+      const school = await loadSchoolByWhatsAppNumber(phoneNumberId);
+      if (!school) {
+        console.warn("[whatsapp/meta] no school for phone_number_id", phoneNumberId ?? "(none)");
+        continue;
       }
+
+      await runAsSchool(school, async () => {
+        for (const msg of messages) {
+          const input = extractInput(msg);
+          if (input === null) continue;
+          await handleMessage(msg.from, input);
+        }
+      });
     }
   }
 }

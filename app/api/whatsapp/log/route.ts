@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { authorizeWebhook } from "@/lib/whatsapp";
+import { withRelaySchool } from "@/lib/relay-tenant";
 
 export const dynamic = "force-dynamic";
 
@@ -21,7 +22,11 @@ const Body = z.object({
 export async function POST(req: NextRequest) {
   const unauth = authorizeWebhook(req);
   if (unauth) return unauth;
+  // Bind the tenant (x-school-slug header, else the request host).
+  return withRelaySchool(req, () => handle(req));
+}
 
+async function handle(req: NextRequest) {
   const parsed = Body.safeParse(await req.json().catch(() => ({})));
   if (!parsed.success) {
     return NextResponse.json({ ok: false, error: "Bad payload", issues: parsed.error.flatten() }, { status: 400 });

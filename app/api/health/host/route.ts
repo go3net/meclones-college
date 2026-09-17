@@ -21,6 +21,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { headers } from "next/headers";
 import { Prisma } from "@prisma/client";
 import { prismaBase } from "@/lib/prisma";
+import { missingContextStats } from "@/lib/prisma-tenant-extension";
 import { resolveSchoolByHost, isPlatformHost, slugFromHost, PLATFORM_ROOT_DOMAIN, DEFAULT_SCHOOL_SLUG } from "@/lib/host";
 
 export const dynamic = "force-dynamic";
@@ -82,10 +83,15 @@ export async function GET(req: NextRequest) {
     schoolCount,
     tenantModels:     TENANT_MODELS.length,
     orphans,          // null unless ?orphans=1; {} means fully backfilled
+    // Tenant-model queries this process ran with no school context
+    // (model.operation -> count). Empty is the goal before flipping
+    // TENANT_ENFORCEMENT to strict. Process-local, resets on restart.
+    enforcement:      (process.env.TENANT_ENFORCEMENT ?? "warn").trim().toLowerCase(),
+    unscopedQueries:  missingContextStats(),
     error,
     // Bump whenever host routing / tenancy plumbing changes so the next
     // deploy is easy to verify with one curl.
-    buildFingerprint: "tenancy-context-2026-09-17",
+    buildFingerprint: "tenancy-injector-2026-09-17",
     timestamp:        new Date().toISOString(),
   });
 }
