@@ -2,9 +2,14 @@
  * Two-factor (TOTP) helpers wrapping otplib + qrcode. Standard 30s window,
  * 6 digits, base32-encoded shared secret — compatible with Google
  * Authenticator, Authy, 1Password, Microsoft Authenticator, etc.
+ *
+ * otplib v13 dropped the `authenticator` singleton in favour of a functional
+ * API (`generateSecret` / `generateURI` / `verifySync`). The defaults —
+ * SHA-1, 6 digits, 30s period, base32 secrets — match what every mainstream
+ * authenticator app expects, so we only override the verification tolerance.
  */
 
-import { authenticator } from "otplib";
+import { generateSecret, generateURI, verifySync } from "otplib";
 import { toDataURL as qrToDataUrl } from "qrcode";
 import { randomBytes, createHash } from "node:crypto";
 import { SCHOOL } from "./constants";
@@ -12,22 +17,16 @@ import { prisma } from "./prisma";
 
 const ISSUER = SCHOOL.shortName;
 
-// Use a 1-step window on either side so a code that ticks over mid-submit
-// still verifies. The default in otplib is 0; we relax to 1. Bind options
-// lazily on first use — top-level mutation breaks Next.js bundling during
-// page-data collection because the singleton may not be fully wired yet.
-let configured = false;
-function getAuth() {
-  if (!configured) {
-    authenticator.options = { window: 1, step: 30 };
-    configured = true;
-  }
-  return authenticator;
-}
+/** TOTP time step in seconds (RFC 6238 default, what authenticator apps use). */
+const PERIOD = 30;
+
+// Accept one step (30s) on either side so a code that ticks over mid-submit
+// still verifies. otplib's default tolerance is 0.
+const EPOCH_TOLERANCE = PERIOD;
 
 /** Generate a fresh base32 secret for a new user. */
 export function generateTotpSecret(): string {
-  return getAuth().generateSecret();
+  return generateSecret();
 }
 
 /**
@@ -36,7 +35,7 @@ export function generateTotpSecret(): string {
  * are distinguishable inside the authenticator app.
  */
 export function buildOtpauthUrl(secret: string, accountLabel: string): string {
-  return getAuth().keyuri(accountLabel, ISSUER, secret);
+  return generateURI({ issuer: ISSUER, label: accountLabel, secret, period: PERIOD });
 }
 
 /** Render the otpauth URL as a base64 data URL <img src can use. */
@@ -50,7 +49,7 @@ export function verifyTotpCode(secret: string, code: string): boolean {
   const clean = code.replace(/\D/g, "").slice(0, 6);
   if (clean.length !== 6) return false;
   try {
-    return getAuth().verify({ token: clean, secret });
+    return verifySync({ secret, token: clean, period: PERIOD, epochTolerance: EPOCH_TOLERANCE }).valid;
   } catch {
     return false;
   }
