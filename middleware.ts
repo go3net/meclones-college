@@ -50,15 +50,13 @@ export default auth(req => {
   const init = { request: { headers: requestHeaders } };
 
   // ── SchoolBot host routing ──
+  // "/" on the platform host renders the sales landing inside
+  // app/(public)/page.tsx itself. It used to be a rewrite to
+  // /for-schools here, but Next.js treated that rewrite as external and
+  // proxied a second request to the deployment hostname, so server code
+  // saw the wrong host. Only the redirects remain in middleware.
   if (isPlatformHost(rawHost)) {
-    // Root → internal rewrite to the SaaS landing. URL bar stays
-    // "/" because the rewrite is server-side; no 301, no SEO penalty.
-    if (pathname === "/") {
-      const url = req.nextUrl.clone();
-      url.pathname = "/for-schools";
-      return NextResponse.rewrite(url, init);
-    }
-    // Meclones-only paths → 308 redirect to /. Permanent so search
+    // School-only paths → 308 redirect to /. Permanent so search
     // engines learn never to index them under the SaaS domain.
     if (MECLONES_ONLY_RE.test(pathname)) {
       const url = req.nextUrl.clone();

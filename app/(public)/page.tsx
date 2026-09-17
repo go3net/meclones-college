@@ -1,17 +1,40 @@
+import type { Metadata } from "next";
+import { headers } from "next/headers";
 import Link from "next/link";
 import Image from "next/image";
 import { Button, Card, CardBody, SectionHeading, Badge } from "@/components/ui";
 import { EXAMS } from "@/lib/constants";
 import { getSchoolPublic } from "@/lib/tenant";
+import { isPlatformHost, requestHost } from "@/lib/host-utils";
 import { PLACE } from "@/lib/images";
 import { FadeUp, HeroEnter } from "@/components/Animate";
+import { FOR_SCHOOLS_METADATA, ForSchoolsLanding } from "./for-schools/ForSchoolsLanding";
 import {
   GraduationCap, BookOpen, Trophy, Users, ShieldCheck, Brain, Sparkles,
   CalendarCheck, MessageCircle, ArrowRight, CheckCircle2, Star, ChevronRight,
   Award, Globe2, Heart,
 } from "lucide-react";
 
+// "/" is two different pages depending on the host: the SchoolBot sales
+// landing on the bare platform host, a school's home page everywhere
+// else. Branching here (instead of a middleware rewrite) matters: Next.js
+// treated the rewrite as external and proxied a second request to the
+// deployment's own hostname, which made server code resolve the default
+// school on the platform host.
+function onPlatformHost(): boolean {
+  return isPlatformHost(requestHost(headers()));
+}
+
+export async function generateMetadata(): Promise<Metadata> {
+  return onPlatformHost() ? FOR_SCHOOLS_METADATA : {};
+}
+
 export default async function HomePage() {
+  if (onPlatformHost()) return <ForSchoolsLanding />;
+  return <SchoolHome />;
+}
+
+async function SchoolHome() {
   const school = await getSchoolPublic();
   return (
     <>
