@@ -13,10 +13,74 @@ datasource db {
 }
 
 // ============================================================
+// TENANCY
+// ============================================================
+
+enum SchoolStatus {
+  TRIAL
+  ACTIVE
+  SUSPENDED
+}
+
+/// One row per customer school (tenant). Every domain model carries a
+/// nullable `schoolId` scalar pointing here; the Prisma tenant extension
+/// (lib/prisma-tenant-extension.ts) injects it on every query so call
+/// sites never mention it. The column is nullable at the DB layer only
+/// because `prisma db push` cannot add a NOT NULL column to a populated
+/// table; the boot backfill (prisma/backfill-school.ts) guarantees no
+/// nulls remain.
+model School {
+  id                String       @id @default(cuid())
+  /// URL-safe handle; also the subdomain under PLATFORM_ROOT_DOMAIN.
+  slug              String       @unique
+  /// 2-4 uppercase chars used as the admission-number prefix (MCL/...).
+  code              String       @unique
+  name              String
+  shortName         String
+  tagline           String?
+  address           String?
+  addressShort      String?
+  phone             String?
+  phoneIntl         String?
+  email             String?
+  admissionsEmail   String?
+  whatsapp          String?
+  hours             String?
+  website           String?
+  /// { facebook, instagram, twitter, youtube, linkedin }
+  socials           Json?
+  /// { alumni, teachers, yearsExperience } marketing counters.
+  stats             Json?
+  /// Custom domain (e.g. meclonescollege.com) that resolves to this school.
+  customDomain      String?      @unique
+  status            SchoolStatus @default(ACTIVE)
+  plan              String?
+  trialEndsAt       DateTime?
+  /// False = the school has its own website; "/" redirects to the portal.
+  publicSiteEnabled Boolean      @default(true)
+
+  /// Meta WhatsApp Cloud API phone-number-id of this school's number.
+  whatsappPhoneNumberId  String? @unique
+  /// Long-lived access token, AES-256-GCM encrypted (lib/crypto.ts).
+  whatsappAccessTokenEnc String?
+  /// Paystack split: settle this school's fees into its own subaccount.
+  paystackSubaccountCode String?
+  paystackSecretKeyEnc   String?
+  paystackPublicKey      String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status])
+}
+
+// ============================================================
 // AUTH / USERS
 // ============================================================
 
 enum Role {
+  /// Operates the SchoolBot platform itself (manages School rows). Not tied to any school.
+  PLATFORM_ADMIN
   SUPER_ADMIN
   DIRECTOR
   ADMIN
@@ -27,51 +91,54 @@ enum Role {
 }
 
 model User {
-  id           String   @id @default(cuid())
-  name         String
-  email        String   @unique
-  phone        String?
-  passwordHash String
-  role         Role     @default(PARENT)
-  isActive     Boolean  @default(true)
+  id            String    @id @default(cuid())
+  schoolId      String?
+  name          String
+  email         String    @unique
+  phone         String?
+  passwordHash  String
+  role          Role      @default(PARENT)
+  isActive      Boolean   @default(true)
   emailVerified DateTime?
-  image        String?
+  image         String?
 
   /// TOTP (RFC 6238) shared secret. Set during enrolment; required on
   /// every login when totpEnabledAt is non-null.
   totpSecret    String?
   totpEnabledAt DateTime?
 
-  student      Student?
-  teacher      Teacher?
-  parent       Parent?
+  student Student?
+  teacher Teacher?
+  parent  Parent?
 
   /// Granular per-admin permissions. Super-admin always has all; for ADMIN
   /// role users, super-admin can flip these on/off.
-  permissions  AdminPermissions?
+  permissions AdminPermissions?
 
   /// Per-user email opt-outs. Lazy-created on first email send so we
   /// don't migrate a row per user when feature lands.
   notificationPrefs NotificationPrefs?
 
-  whatsappSessions WhatsAppSession[]
-  announcements    Announcement[]   @relation("AnnouncementAuthor")
-  complaintsFiled  Complaint[]      @relation("ComplaintAuthor")
-  complaintsHandled Complaint[]     @relation("ComplaintHandler")
-  bookRequests     BookRequest[]    @relation("BookRequester")
-  bookApprovals    BookRequest[]    @relation("BookApprover")
-  awardsIssued     Award[]          @relation("AwardedBy")
-  notifications    Notification[]   @relation("UserNotifications")
-  auditLogs        AuditLog[]       @relation("AuditActor")
-  studentNotes     StudentNote[]    @relation("StudentNoteAuthor")
-  messages         Message[]        @relation("MessageAuthor")
-  disciplinaryReports DisciplinaryCase[] @relation("DisciplinaryReporter")
+  whatsappSessions        WhatsAppSession[]
+  announcements           Announcement[]     @relation("AnnouncementAuthor")
+  complaintsFiled         Complaint[]        @relation("ComplaintAuthor")
+  complaintsHandled       Complaint[]        @relation("ComplaintHandler")
+  bookRequests            BookRequest[]      @relation("BookRequester")
+  bookApprovals           BookRequest[]      @relation("BookApprover")
+  awardsIssued            Award[]            @relation("AwardedBy")
+  notifications           Notification[]     @relation("UserNotifications")
+  auditLogs               AuditLog[]         @relation("AuditActor")
+  studentNotes            StudentNote[]      @relation("StudentNoteAuthor")
+  messages                Message[]          @relation("MessageAuthor")
+  disciplinaryReports     DisciplinaryCase[] @relation("DisciplinaryReporter")
   disciplinaryResolutions DisciplinaryCase[] @relation("DisciplinaryResolver")
 
-  createdAt        DateTime         @default(now())
-  updatedAt        DateTime         @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([role])
+  @@index([schoolId])
+  @@index([schoolId, role])
 }
 
 /// In-portal notifications fanned out when something the user cares about
@@ -89,59 +156,63 @@ enum NotificationType {
 }
 
 model Notification {
-  id        String  @id @default(cuid())
-  user      User    @relation("UserNotifications", fields: [userId], references: [id], onDelete: Cascade)
-  userId    String
-  type      NotificationType @default(GENERIC)
-  title     String
-  body      String  @db.Text
+  id       String           @id @default(cuid())
+  schoolId String?
+  user     User             @relation("UserNotifications", fields: [userId], references: [id], onDelete: Cascade)
+  userId   String
+  type     NotificationType @default(GENERIC)
+  title    String
+  body     String           @db.Text
   /// Optional deep link to the related entity (e.g. /portal/parent/results).
-  href      String?
-  isRead    Boolean @default(false)
-  readAt    DateTime?
+  href     String?
+  isRead   Boolean          @default(false)
+  readAt   DateTime?
 
   createdAt DateTime @default(now())
 
   @@index([userId, isRead, createdAt])
+  @@index([schoolId])
 }
 
 /// Immutable trail of sensitive actions for accountability/compliance.
 /// Never updated after insert — only appended and read.
 model AuditLog {
-  id          String   @id @default(cuid())
+  id         String  @id @default(cuid())
+  schoolId   String?
   /// User who performed the action. Null only if action is system-driven.
-  actor       User?    @relation("AuditActor", fields: [actorId], references: [id])
-  actorId     String?
+  actor      User?   @relation("AuditActor", fields: [actorId], references: [id])
+  actorId    String?
   /// Short verb-style action identifier, e.g. "user.password_reset",
   /// "result.publish", "fee.charge", "session.rotate".
-  action      String
+  action     String
   /// Optional target reference — e.g. targetType="User", targetId="cuid…".
-  targetType  String?
-  targetId    String?
+  targetType String?
+  targetId   String?
   /// Free-form metadata (request body, IP, before/after snapshots, etc.).
-  metadata    Json?
+  metadata   Json?
   /// Snapshot of actor info in case the actor user gets deleted.
-  actorName   String?
-  actorEmail  String?
-  actorRole   String?
+  actorName  String?
+  actorEmail String?
+  actorRole  String?
 
   createdAt DateTime @default(now())
 
   @@index([action, createdAt])
   @@index([actorId, createdAt])
   @@index([targetType, targetId])
+  @@index([schoolId])
 }
 
 /// One-time recovery codes for 2FA. Issued in batches (typically 10) when
 /// the user enrols and again whenever they regenerate. Stored SHA-256
 /// hashed; the raw code is shown once at issue time and never again.
 model TwoFactorRecoveryCode {
-  id        String   @id @default(cuid())
+  id        String    @id @default(cuid())
   userId    String
   /// SHA-256 of the raw code; the raw value is shown to the user once.
-  codeHash  String   @unique
+  codeHash  String    @unique
   usedAt    DateTime?
-  createdAt DateTime @default(now())
+  createdAt DateTime  @default(now())
 
   @@index([userId, usedAt])
 }
@@ -149,9 +220,9 @@ model TwoFactorRecoveryCode {
 /// One-time tokens for password reset. Tokens are randomly generated,
 /// SHA-256 hashed for storage, and expire 1 hour from creation.
 model PasswordResetToken {
-  id        String   @id @default(cuid())
+  id        String    @id @default(cuid())
   /// SHA-256 of the raw token. The raw value never lives in the DB.
-  tokenHash String   @unique
+  tokenHash String    @unique
   email     String
   expiresAt DateTime
   usedAt    DateTime?
@@ -166,49 +237,55 @@ model PasswordResetToken {
 /// Critical safety emails (password reset, welcome, payment receipt,
 /// disciplinary case filed) are NOT opt-out-able — they always send.
 model NotificationPrefs {
-  id     String @id @default(cuid())
-  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
-  userId String @unique
+  id       String  @id @default(cuid())
+  schoolId String?
+  user     User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId   String  @unique
 
   /// Result published for one of your children / yourself (student).
-  emailResultsPublished   Boolean @default(true)
+  emailResultsPublished     Boolean @default(true)
   /// New fee added to your child's account.
-  emailFeeCharged         Boolean @default(true)
+  emailFeeCharged           Boolean @default(true)
   /// A disciplinary case was resolved (NOT the initial filing — that always sends).
   emailDisciplinaryResolved Boolean @default(true)
   /// First message in a new parent ↔ teacher thread (replies never email).
-  emailNewMessage         Boolean @default(true)
+  emailNewMessage           Boolean @default(true)
   /// School announcement reached your audience (ALL / PARENTS / STAFF).
-  emailAnnouncement       Boolean @default(true)
+  emailAnnouncement         Boolean @default(true)
   /// Complaint you filed has been resolved.
-  emailComplaintReplied   Boolean @default(true)
+  emailComplaintReplied     Boolean @default(true)
 
   updatedAt DateTime @updatedAt
   createdAt DateTime @default(now())
+
+  @@index([schoolId])
 }
 
 /// Per-admin permission flags. Defaults are permissive (true) for now —
 /// super-admin can disable specific capabilities for individual admins via
 /// `/portal/director/permissions`.
 model AdminPermissions {
-  id              String @id @default(cuid())
-  user            User   @relation(fields: [userId], references: [id], onDelete: Cascade)
-  userId          String @unique
+  id       String  @id @default(cuid())
+  schoolId String?
+  user     User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId   String  @unique
 
-  canManageStudents     Boolean @default(true)
-  canManageTeachers     Boolean @default(true)
-  canManageParents      Boolean @default(true)
-  canManageClasses      Boolean @default(true)
-  canManageFees         Boolean @default(true)
-  canManageResults      Boolean @default(true)
+  canManageStudents       Boolean @default(true)
+  canManageTeachers       Boolean @default(true)
+  canManageParents        Boolean @default(true)
+  canManageClasses        Boolean @default(true)
+  canManageFees           Boolean @default(true)
+  canManageResults        Boolean @default(true)
   canPublishAnnouncements Boolean @default(true)
-  canHandleAdmissions   Boolean @default(true)
-  canHandleComplaints   Boolean @default(true)
-  canManageLibrary      Boolean @default(true)
-  canRotateSession      Boolean @default(false)   // school-wide; default off
+  canHandleAdmissions     Boolean @default(true)
+  canHandleComplaints     Boolean @default(true)
+  canManageLibrary        Boolean @default(true)
+  canRotateSession        Boolean @default(false) // school-wide; default off
 
   updatedAt DateTime @updatedAt
   createdAt DateTime @default(now())
+
+  @@index([schoolId])
 }
 
 // ============================================================
@@ -220,14 +297,14 @@ enum Gender {
   FEMALE
 }
 
-/// Single-row table holding school-wide branding (logo, primary + accent
+/// One row per school holding its branding (logo, primary + accent
 /// colors) that the director edits at runtime. Tailwind-compiled brand
 /// classes still ship as fallbacks; the DB values override via CSS vars
-/// on every page render.
-///
-/// Singleton pattern enforced by the @@unique on the constant id "default".
+/// on every page render. Uniqueness per school is enforced by the
+/// unique schoolId.
 model SchoolBrand {
-  id            String   @id @default("default")
+  id            String  @id @default(cuid())
+  schoolId      String? @unique
   /// Cloudinary URL of the school's logo. Null = use the monogram fallback.
   logoUrl       String?
   /// Optional small / square version for the admin sidebar.
@@ -248,10 +325,11 @@ model SchoolBrand {
 /// stays factual without engineering involvement.
 model KnowledgeSection {
   id        String  @id @default(cuid())
+  schoolId  String?
   /// Slug-style key — e.g. "about", "fees", "admissions". Useful for
   /// referencing specific sections and for grouping common defaults
   /// when seeding new deployments.
-  key       String  @unique
+  key       String
   title     String
   body      String  @db.Text
   /// Render order in the system prompt + admin UI. Lower = earlier.
@@ -261,7 +339,9 @@ model KnowledgeSection {
   updatedAt DateTime @updatedAt
   createdAt DateTime @default(now())
 
+  @@unique([schoolId, key])
   @@index([sortOrder])
+  @@index([schoolId])
 }
 
 /// School branch / campus. Single-school customers only ever have one
@@ -273,17 +353,18 @@ model KnowledgeSection {
 /// Branches are sibling locations of the SAME school. For separate
 /// schools entirely, deploy separate portals.
 model Branch {
-  id        String  @id @default(cuid())
+  id       String  @id @default(cuid())
+  schoolId String?
   /// Short uppercase code, e.g. "LKI", "IKJ". Used in URLs / filenames.
-  code      String  @unique
-  name      String  // e.g. "Lekki Campus"
-  address   String?
-  phone     String?
-  email     String?
+  code     String
+  name     String // e.g. "Lekki Campus"
+  address  String?
+  phone    String?
+  email    String?
   /// Only one branch can be flagged isMain; serves as the fallback for
   /// any record without an explicit branchId.
-  isMain    Boolean @default(false)
-  isActive  Boolean @default(true)
+  isMain   Boolean @default(false)
+  isActive Boolean @default(true)
 
   students      Student[]
   teachers      Teacher[]
@@ -294,19 +375,22 @@ model Branch {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  @@unique([schoolId, code])
   @@index([isActive])
+  @@index([schoolId])
 }
 
 model Student {
-  id              String   @id @default(cuid())
-  admissionNumber String   @unique
-  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  userId          String   @unique
-  classRef        Class?   @relation(fields: [classId], references: [id])
+  id              String    @id @default(cuid())
+  schoolId        String?
+  admissionNumber String    @unique
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId          String    @unique
+  classRef        Class?    @relation(fields: [classId], references: [id])
   classId         String?
   /// Optional at the DB layer — defaults to the Main branch in app code.
   /// Multi-branch deployments use this to scope every list view.
-  branch          Branch?  @relation(fields: [branchId], references: [id])
+  branch          Branch?   @relation(fields: [branchId], references: [id])
   branchId        String?
   photoUrl        String?
   dob             DateTime?
@@ -317,22 +401,23 @@ model Student {
   /// history (results, attendance, fees, payments) is retained.
   graduatedAt     DateTime?
 
-  results        Result[]
-  attendance     Attendance[]
-  fees           Fee[]
-  awards         Award[]
-  notes          StudentNote[]
-  parentLinks    ParentStudent[]
-  whatsappSessions WhatsAppSession[]
-  messageThreads MessageThread[] @relation("ThreadStudent")
-  healthRecord   HealthRecord?
+  results           Result[]
+  attendance        Attendance[]
+  fees              Fee[]
+  awards            Award[]
+  notes             StudentNote[]
+  parentLinks       ParentStudent[]
+  whatsappSessions  WhatsAppSession[]
+  messageThreads    MessageThread[]     @relation("ThreadStudent")
+  healthRecord      HealthRecord?
   disciplinaryCases DisciplinaryCase[]
-  termReports    StudentTermReport[]
+  termReports       StudentTermReport[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([classId])
+  @@index([schoolId])
 }
 
 enum BloodGroup {
@@ -363,42 +448,45 @@ enum Genotype {
 /// can edit; teachers + linked parents see a read-only view. Changes go to
 /// the audit log because health data is sensitive.
 model HealthRecord {
-  id                       String    @id @default(cuid())
-  student                  Student   @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  studentId                String    @unique
+  id        String  @id @default(cuid())
+  schoolId  String?
+  student   Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  studentId String  @unique
 
-  bloodGroup               BloodGroup  @default(UNKNOWN)
-  genotype                 Genotype    @default(UNKNOWN)
-  allergies                String?     @db.Text
-  chronicConditions        String?     @db.Text
-  currentMedications       String?     @db.Text
-  immunisationNotes        String?     @db.Text
-  dietaryRestrictions      String?     @db.Text
+  bloodGroup          BloodGroup @default(UNKNOWN)
+  genotype            Genotype   @default(UNKNOWN)
+  allergies           String?    @db.Text
+  chronicConditions   String?    @db.Text
+  currentMedications  String?    @db.Text
+  immunisationNotes   String?    @db.Text
+  dietaryRestrictions String?    @db.Text
 
   /// Height in cm.
-  heightCm                 Float?
+  heightCm Float?
   /// Weight in kg.
-  weightKg                 Float?
+  weightKg Float?
 
   emergencyContactName     String?
   emergencyContactPhone    String?
   emergencyContactRelation String?
 
-  doctorName               String?
-  doctorPhone              String?
-  preferredHospital        String?
-  insuranceProvider        String?
-  insurancePolicyNumber    String?
+  doctorName            String?
+  doctorPhone           String?
+  preferredHospital     String?
+  insuranceProvider     String?
+  insurancePolicyNumber String?
 
-  lastCheckup              DateTime?
-  notes                    String?     @db.Text
+  lastCheckup DateTime?
+  notes       String?   @db.Text
 
   /// Snapshot of the user who last touched this record.
-  lastUpdatedBy            String?
-  lastUpdatedById          String?
+  lastUpdatedBy   String?
+  lastUpdatedById String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  @@index([schoolId])
 }
 
 enum DisciplinaryCategory {
@@ -449,43 +537,45 @@ enum DisciplinaryStatus {
 /// teachers (constrained to their classes) or admins. Drives parent
 /// acknowledgement workflow + audit log entries on state changes.
 model DisciplinaryCase {
-  id                  String   @id @default(cuid())
-  student             Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  studentId           String
+  id        String  @id @default(cuid())
+  schoolId  String?
+  student   Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  studentId String
 
-  reportedBy          User?    @relation("DisciplinaryReporter", fields: [reportedById], references: [id])
-  reportedById        String?
+  reportedBy   User?   @relation("DisciplinaryReporter", fields: [reportedById], references: [id])
+  reportedById String?
   /// Snapshot for resilience if the reporter user is deleted later.
-  reporterName        String
-  reporterRole        String?
+  reporterName String
+  reporterRole String?
 
-  incidentDate        DateTime
-  location            String?
-  category            DisciplinaryCategory @default(OTHER)
-  severity            DisciplinarySeverity @default(MINOR)
-  description         String   @db.Text
+  incidentDate DateTime
+  location     String?
+  category     DisciplinaryCategory @default(OTHER)
+  severity     DisciplinarySeverity @default(MINOR)
+  description  String               @db.Text
 
-  sanction            DisciplinarySanction @default(NONE)
-  sanctionDetails     String?  @db.Text
+  sanction        DisciplinarySanction @default(NONE)
+  sanctionDetails String?              @db.Text
 
-  status              DisciplinaryStatus @default(OPEN)
+  status DisciplinaryStatus @default(OPEN)
 
   /// Parent acknowledgement (set when any linked parent opens & confirms).
-  parentAcknowledged  Boolean  @default(false)
+  parentAcknowledged   Boolean   @default(false)
   parentAcknowledgedAt DateTime?
-  parentAckByName     String?
-  parentAckNote       String?  @db.Text
+  parentAckByName      String?
+  parentAckNote        String?   @db.Text
 
-  resolvedBy          User?    @relation("DisciplinaryResolver", fields: [resolvedById], references: [id])
-  resolvedById        String?
-  resolvedAt          DateTime?
-  resolutionNote      String?  @db.Text
+  resolvedBy     User?     @relation("DisciplinaryResolver", fields: [resolvedById], references: [id])
+  resolvedById   String?
+  resolvedAt     DateTime?
+  resolutionNote String?   @db.Text
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([studentId, createdAt])
   @@index([status, severity])
+  @@index([schoolId])
 }
 
 enum StudentNoteCategory {
@@ -511,29 +601,32 @@ enum StudentNoteVisibility {
 /// commendations, health alerts, etc. Visible to other staff (and
 /// optionally parents) on the student profile.
 model StudentNote {
-  id          String  @id @default(cuid())
-  student     Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  studentId   String
-  author      User?   @relation("StudentNoteAuthor", fields: [authorId], references: [id])
-  authorId    String?
+  id         String                @id @default(cuid())
+  schoolId   String?
+  student    Student               @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  studentId  String
+  author     User?                 @relation("StudentNoteAuthor", fields: [authorId], references: [id])
+  authorId   String?
   /// Snapshot for resilience if the author user is deleted later.
-  authorName  String
-  authorRole  String?
-  category    StudentNoteCategory   @default(OTHER)
-  visibility  StudentNoteVisibility @default(STAFF_ONLY)
-  body        String  @db.Text
+  authorName String
+  authorRole String?
+  category   StudentNoteCategory   @default(OTHER)
+  visibility StudentNoteVisibility @default(STAFF_ONLY)
+  body       String                @db.Text
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([studentId, createdAt])
   @@index([visibility])
+  @@index([schoolId])
 }
 
 model Parent {
-  id      String   @id @default(cuid())
-  user    User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  userId  String   @unique
+  id            String  @id @default(cuid())
+  schoolId      String?
+  user          User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId        String  @unique
   whatsappOptIn Boolean @default(false)
 
   children       ParentStudent[]
@@ -541,44 +634,51 @@ model Parent {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  @@index([schoolId])
 }
 
 // Many-to-many: a parent can have multiple students; a student can have 1–2 parents
 model ParentStudent {
-  id        String   @id @default(cuid())
-  parent    Parent   @relation(fields: [parentId], references: [id], onDelete: Cascade)
+  id        String  @id @default(cuid())
+  schoolId  String?
+  parent    Parent  @relation(fields: [parentId], references: [id], onDelete: Cascade)
   parentId  String
-  student   Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  student   Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
   studentId String
-  relation  String?  // e.g. "Father", "Mother", "Guardian"
+  relation  String? // e.g. "Father", "Mother", "Guardian"
 
   createdAt DateTime @default(now())
 
   @@unique([parentId, studentId])
   @@index([studentId])
+  @@index([schoolId])
 }
 
 model Teacher {
-  id      String   @id @default(cuid())
-  user    User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  userId  String   @unique
-  bio     String?
+  id       String  @id @default(cuid())
+  schoolId String?
+  user     User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId   String  @unique
+  bio      String?
   /// Teacher's primary branch. Multi-branch schools could grant the
   /// same teacher access to multiple branches in future via a join
   /// table; today this is the simple 1:1 case.
-  branch    Branch? @relation(fields: [branchId], references: [id])
-  branchId  String?
+  branch   Branch? @relation(fields: [branchId], references: [id])
+  branchId String?
 
-  classTeacherOf Class[]    @relation("ClassTeacher")
-  subjects       SubjectTeacher[]
-  classes        ClassTeacher[]
-  results        Result[]   @relation("ResultAuthor")
-  attendance     Attendance[] @relation("AttendanceMarker")
+  classTeacherOf   Class[]          @relation("ClassTeacher")
+  subjects         SubjectTeacher[]
+  classes          ClassTeacher[]
+  results          Result[]         @relation("ResultAuthor")
+  attendance       Attendance[]     @relation("AttendanceMarker")
   timetableEntries TimetableEntry[] @relation("TimetableTeacher")
-  messageThreads MessageThread[] @relation("ThreadTeacher")
+  messageThreads   MessageThread[]  @relation("ThreadTeacher")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  @@index([schoolId])
 }
 
 // ============================================================
@@ -591,22 +691,23 @@ enum Level {
 }
 
 model Class {
-  id        String  @id @default(cuid())
-  name      String  // e.g. "JSS 1"
-  arm       String  // e.g. "A", "B"
-  level     Level
+  id             String   @id @default(cuid())
+  schoolId       String?
+  name           String // e.g. "JSS 1"
+  arm            String // e.g. "A", "B"
+  level          Level
   classTeacher   Teacher? @relation("ClassTeacher", fields: [classTeacherId], references: [id])
   classTeacherId String?
   /// Which branch this class belongs to. Optional at the DB layer for
   /// migration safety; app code defaults to Main on creation.
-  branch    Branch?  @relation(fields: [branchId], references: [id])
-  branchId  String?
+  branch         Branch?  @relation(fields: [branchId], references: [id])
+  branchId       String?
 
-  students        Student[]
-  subjects        ClassSubject[]
-  teachers        ClassTeacher[]
-  attendance      Attendance[]
-  announcements   Announcement[]
+  students         Student[]
+  subjects         ClassSubject[]
+  teachers         ClassTeacher[]
+  attendance       Attendance[]
+  announcements    Announcement[]
   timetableEntries TimetableEntry[]
 
   createdAt DateTime @default(now())
@@ -618,47 +719,51 @@ model Class {
   /// since SQL nulls don't dedupe.
   @@unique([branchId, name, arm])
   @@index([branchId])
+  @@index([schoolId])
 }
 
 /// A 2-way conversation between one Parent and one Teacher, optionally
 /// scoped to a Student (so e.g. a teacher can have separate threads about
 /// two siblings with the same parent).
 model MessageThread {
-  id        String   @id @default(cuid())
-  parent    Parent   @relation("ThreadParent", fields: [parentId], references: [id], onDelete: Cascade)
-  parentId  String
-  teacher   Teacher  @relation("ThreadTeacher", fields: [teacherId], references: [id], onDelete: Cascade)
-  teacherId String
-  student   Student? @relation("ThreadStudent", fields: [studentId], references: [id])
-  studentId String?
-  subject   String
+  id                String    @id @default(cuid())
+  schoolId          String?
+  parent            Parent    @relation("ThreadParent", fields: [parentId], references: [id], onDelete: Cascade)
+  parentId          String
+  teacher           Teacher   @relation("ThreadTeacher", fields: [teacherId], references: [id], onDelete: Cascade)
+  teacherId         String
+  student           Student?  @relation("ThreadStudent", fields: [studentId], references: [id])
+  studentId         String?
+  subject           String
   /// Denormalised for cheap inbox sorting / "latest" preview.
-  lastMessageAt DateTime @default(now())
+  lastMessageAt     DateTime  @default(now())
   /// Per-side unread counters; incremented by sendMessage based on author.
-  parentUnread  Int @default(0)
-  teacherUnread Int @default(0)
+  parentUnread      Int       @default(0)
+  teacherUnread     Int       @default(0)
   /// Timestamps of the most recent read by each side; powers "Seen" indicators.
   /// A message authored by side A is considered "seen" by side B when B's
   /// lastReadAt >= the message's createdAt.
   parentLastReadAt  DateTime?
   teacherLastReadAt DateTime?
 
-  messages  Message[]
+  messages Message[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([parentId, lastMessageAt])
   @@index([teacherId, lastMessageAt])
+  @@index([schoolId])
 }
 
 model Message {
-  id        String @id @default(cuid())
-  thread    MessageThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
-  threadId  String
-  author    User   @relation("MessageAuthor", fields: [authorId], references: [id])
-  authorId  String
-  body      String @db.Text
+  id       String        @id @default(cuid())
+  schoolId String?
+  thread   MessageThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  threadId String
+  author   User          @relation("MessageAuthor", fields: [authorId], references: [id])
+  authorId String
+  body     String        @db.Text
 
   /// Optional single attachment hosted on Cloudinary (image or PDF).
   attachmentUrl  String?
@@ -669,6 +774,7 @@ model Message {
   createdAt DateTime @default(now())
 
   @@index([threadId, createdAt])
+  @@index([schoolId])
 }
 
 enum DayOfWeek {
@@ -686,6 +792,7 @@ enum DayOfWeek {
 /// use `note` to label it.
 model TimetableEntry {
   id        String   @id @default(cuid())
+  schoolId  String?
   class     Class    @relation(fields: [classId], references: [id], onDelete: Cascade)
   classId   String
   subject   Subject? @relation(fields: [subjectId], references: [id])
@@ -694,11 +801,11 @@ model TimetableEntry {
   teacherId String?
 
   day       DayOfWeek
-  period    Int        // 1..N
-  startTime String?    // "08:00" — display only
-  endTime   String?    // "08:40"
+  period    Int // 1..N
+  startTime String? // "08:00" — display only
+  endTime   String? // "08:40"
   room      String?
-  note      String?    // e.g. "Break", "Assembly"
+  note      String? // e.g. "Break", "Assembly"
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -706,70 +813,85 @@ model TimetableEntry {
   @@unique([classId, day, period])
   @@index([teacherId])
   @@index([subjectId])
+  @@index([schoolId])
 }
 
 model Subject {
-  id    String  @id @default(cuid())
-  name  String
-  code  String  @unique
+  id       String  @id @default(cuid())
+  schoolId String?
+  name     String
+  code     String
 
-  classes  ClassSubject[]
-  teachers SubjectTeacher[]
-  results  Result[]
+  classes          ClassSubject[]
+  teachers         SubjectTeacher[]
+  results          Result[]
   timetableEntries TimetableEntry[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  @@unique([schoolId, code])
+  @@index([schoolId])
 }
 
 // Join: subjects offered in a class
 model ClassSubject {
   id        String  @id @default(cuid())
+  schoolId  String?
   class     Class   @relation(fields: [classId], references: [id], onDelete: Cascade)
   classId   String
   subject   Subject @relation(fields: [subjectId], references: [id], onDelete: Cascade)
   subjectId String
 
   @@unique([classId, subjectId])
+  @@index([schoolId])
 }
 
 // Join: teachers assigned to subjects
 model SubjectTeacher {
   id        String  @id @default(cuid())
+  schoolId  String?
   teacher   Teacher @relation(fields: [teacherId], references: [id], onDelete: Cascade)
   teacherId String
   subject   Subject @relation(fields: [subjectId], references: [id], onDelete: Cascade)
   subjectId String
 
   @@unique([teacherId, subjectId])
+  @@index([schoolId])
 }
 
 // Join: teachers assigned to classes (subject-teacher mapping for a class)
 model ClassTeacher {
   id        String  @id @default(cuid())
+  schoolId  String?
   teacher   Teacher @relation(fields: [teacherId], references: [id], onDelete: Cascade)
   teacherId String
   class     Class   @relation(fields: [classId], references: [id], onDelete: Cascade)
   classId   String
 
   @@unique([teacherId, classId])
+  @@index([schoolId])
 }
 
 model AcademicSession {
-  id        String   @id @default(cuid())
-  name      String   @unique // e.g. "2024/2025"
-  isActive  Boolean  @default(false)
+  id        String    @id @default(cuid())
+  schoolId  String?
+  name      String // e.g. "2024/2025"
+  isActive  Boolean   @default(false)
   startDate DateTime?
   endDate   DateTime?
 
-  terms    Term[]
-  results  Result[]
-  fees     Fee[]
-  awards   Award[]
+  terms       Term[]
+  results     Result[]
+  fees        Fee[]
+  awards      Award[]
   termReports StudentTermReport[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  @@unique([schoolId, name])
+  @@index([schoolId])
 }
 
 enum TermName {
@@ -779,24 +901,26 @@ enum TermName {
 }
 
 model Term {
-  id        String   @id @default(cuid())
+  id        String          @id @default(cuid())
+  schoolId  String?
   name      TermName
   session   AcademicSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
   sessionId String
-  isActive  Boolean  @default(false)
+  isActive  Boolean         @default(false)
   startDate DateTime?
   endDate   DateTime?
 
-  results    Result[]
-  attendance Attendance[]
-  fees       Fee[]
-  awards     Award[]
+  results     Result[]
+  attendance  Attendance[]
+  fees        Fee[]
+  awards      Award[]
   termReports StudentTermReport[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@unique([name, sessionId])
+  @@index([schoolId])
 }
 
 // ============================================================
@@ -804,32 +928,34 @@ model Term {
 // ============================================================
 
 model Result {
-  id        String   @id @default(cuid())
-  student   Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  studentId String
-  subject   Subject  @relation(fields: [subjectId], references: [id], onDelete: Cascade)
-  subjectId String
-  term      Term     @relation(fields: [termId], references: [id], onDelete: Cascade)
-  termId    String
-  session   AcademicSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
-  sessionId String
-  enteredBy Teacher? @relation("ResultAuthor", fields: [enteredById], references: [id])
+  id          String          @id @default(cuid())
+  schoolId    String?
+  student     Student         @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  studentId   String
+  subject     Subject         @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  subjectId   String
+  term        Term            @relation(fields: [termId], references: [id], onDelete: Cascade)
+  termId      String
+  session     AcademicSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  sessionId   String
+  enteredBy   Teacher?        @relation("ResultAuthor", fields: [enteredById], references: [id])
   enteredById String?
 
-  ca1   Int @default(0) // /20
-  ca2   Int @default(0) // /20
-  exam  Int @default(0) // /60
-  total Int @default(0) // /100
-  grade String?         // A1, B2, B3, C4, C5, C6, D7, E8, F9
-  position Int?
+  ca1         Int     @default(0) // /20
+  ca2         Int     @default(0) // /20
+  exam        Int     @default(0) // /60
+  total       Int     @default(0) // /100
+  grade       String? // A1, B2, B3, C4, C5, C6, D7, E8, F9
+  position    Int?
   isPublished Boolean @default(false)
-  comment String?
+  comment     String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@unique([studentId, subjectId, termId, sessionId])
   @@index([termId, sessionId])
+  @@index([schoolId])
 }
 
 /// Per-student, per-term report-card narrative. Holds the class teacher's
@@ -837,32 +963,34 @@ model Result {
 /// per-subject Result.comment because these are written once per student
 /// per term, not per subject.
 model StudentTermReport {
-  id        String  @id @default(cuid())
-  student   Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  id        String          @id @default(cuid())
+  schoolId  String?
+  student   Student         @relation(fields: [studentId], references: [id], onDelete: Cascade)
   studentId String
-  term      Term    @relation(fields: [termId], references: [id], onDelete: Cascade)
+  term      Term            @relation(fields: [termId], references: [id], onDelete: Cascade)
   termId    String
   session   AcademicSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
   sessionId String
 
   /// Form / class teacher's overall remark. Written by the teacher who is
   /// the classTeacherId of the student's class.
-  classTeacherComment   String?  @db.Text
-  classTeacherById      String?
-  classTeacherByName    String?
-  classTeacherAt        DateTime?
+  classTeacherComment String?   @db.Text
+  classTeacherById    String?
+  classTeacherByName  String?
+  classTeacherAt      DateTime?
 
   /// Principal / director's overall remark.
-  principalComment      String?  @db.Text
-  principalById         String?
-  principalByName       String?
-  principalAt           DateTime?
+  principalComment String?   @db.Text
+  principalById    String?
+  principalByName  String?
+  principalAt      DateTime?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@unique([studentId, termId, sessionId])
   @@index([termId, sessionId])
+  @@index([schoolId])
 }
 
 enum AttendanceStatus {
@@ -872,22 +1000,24 @@ enum AttendanceStatus {
 }
 
 model Attendance {
-  id        String           @id @default(cuid())
-  student   Student          @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  studentId String
-  class     Class            @relation(fields: [classId], references: [id], onDelete: Cascade)
-  classId   String
-  term      Term?            @relation(fields: [termId], references: [id])
-  termId    String?
-  date      DateTime         @db.Date
-  status    AttendanceStatus
-  markedBy  Teacher?         @relation("AttendanceMarker", fields: [markedById], references: [id])
+  id         String           @id @default(cuid())
+  schoolId   String?
+  student    Student          @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  studentId  String
+  class      Class            @relation(fields: [classId], references: [id], onDelete: Cascade)
+  classId    String
+  term       Term?            @relation(fields: [termId], references: [id])
+  termId     String?
+  date       DateTime         @db.Date
+  status     AttendanceStatus
+  markedBy   Teacher?         @relation("AttendanceMarker", fields: [markedById], references: [id])
   markedById String?
 
   createdAt DateTime @default(now())
 
   @@unique([studentId, date])
   @@index([classId, date])
+  @@index([schoolId])
 }
 
 enum FeeStatus {
@@ -900,11 +1030,12 @@ enum FeeStatus {
 /// applies to one or more classes at the start of a term. Charging the
 /// structure creates Fee rows for every student in the targeted class.
 model FeeStructure {
-  id    String @id @default(cuid())
-  name  String  // e.g. "JSS Term 1 2026/2027"
-  level Level?  // optional scope hint
+  id        String  @id @default(cuid())
+  schoolId  String?
+  name      String // e.g. "JSS Term 1 2026/2027"
+  level     Level? // optional scope hint
   /// JSON array of {feeType, amount} line items.
-  items Json
+  items     Json
   isDefault Boolean @default(false)
   /// Optional branch scope. Null = applies to all branches.
   branch    Branch? @relation(fields: [branchId], references: [id])
@@ -914,30 +1045,33 @@ model FeeStructure {
   updatedAt DateTime @updatedAt
 
   @@index([branchId])
+  @@index([schoolId])
 }
 
 model Fee {
-  id        String   @id @default(cuid())
-  student   Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  studentId String
-  term      Term     @relation(fields: [termId], references: [id], onDelete: Cascade)
-  termId    String
-  session   AcademicSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
-  sessionId String
-  feeType   String   // e.g. "Tuition", "Development Levy"
-  amount    Decimal  @db.Decimal(12, 2)
-  amountPaid Decimal @db.Decimal(12, 2) @default(0)
-  balance   Decimal  @db.Decimal(12, 2)
+  id          String          @id @default(cuid())
+  schoolId    String?
+  student     Student         @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  studentId   String
+  term        Term            @relation(fields: [termId], references: [id], onDelete: Cascade)
+  termId      String
+  session     AcademicSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  sessionId   String
+  feeType     String // e.g. "Tuition", "Development Levy"
+  amount      Decimal         @db.Decimal(12, 2)
+  amountPaid  Decimal         @default(0) @db.Decimal(12, 2)
+  balance     Decimal         @db.Decimal(12, 2)
   paystackRef String?
-  status    FeeStatus @default(UNPAID)
-  dueDate   DateTime?
+  status      FeeStatus       @default(UNPAID)
+  dueDate     DateTime?
 
-  payments  Payment[]
+  payments Payment[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([studentId, termId])
+  @@index([schoolId])
 }
 
 /// One row per payment attempt against a Fee — Paystack success/failure
@@ -960,31 +1094,32 @@ enum PaymentStatus {
 }
 
 model Payment {
-  id          String   @id @default(cuid())
-  fee         Fee      @relation(fields: [feeId], references: [id], onDelete: Cascade)
+  id          String        @id @default(cuid())
+  schoolId    String?
+  fee         Fee           @relation(fields: [feeId], references: [id], onDelete: Cascade)
   feeId       String
-  amount      Decimal  @db.Decimal(12, 2)
-  reference   String   @unique
+  amount      Decimal       @db.Decimal(12, 2)
+  reference   String        @unique
   method      PaymentMethod @default(PAYSTACK)
   status      PaymentStatus @default(PENDING)
-  channel     String?  // card / bank / ussd / etc — from Paystack response
+  channel     String? // card / bank / ussd / etc — from Paystack response
   paidAt      DateTime?
   /// Raw Paystack payload, kept for forensic checks later.
   rawPayload  Json?
   /// Admin/Accountant who recorded a manual payment. Null for self-service.
   createdById String?
-  notes       String?  @db.Text
+  notes       String?       @db.Text
 
   /// Bank reconciliation. Set when the accountant has matched this payment
   /// against a bank deposit / statement entry. Most useful for TRANSFER /
   /// POS / CHEQUE methods where the money lands in the bank separately.
-  reconciledAt        DateTime?
+  reconciledAt       DateTime?
   /// User who marked it reconciled (snapshot — no FK to User).
-  reconciledById      String?
-  reconciledByName    String?
+  reconciledById     String?
+  reconciledByName   String?
   /// Free-form bank reference / deposit slip number / statement line ref.
-  bankReference       String?
-  reconciliationNote  String?  @db.Text
+  bankReference      String?
+  reconciliationNote String?   @db.Text
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -992,6 +1127,7 @@ model Payment {
   @@index([feeId])
   @@index([status, createdAt])
   @@index([reconciledAt])
+  @@index([schoolId])
 }
 
 // ============================================================
@@ -1007,25 +1143,27 @@ enum AnnouncementAudience {
 }
 
 model Announcement {
-  id             String   @id @default(cuid())
-  title          String
-  body           String   @db.Text
-  audience       AnnouncementAudience @default(ALL)
-  class          Class?   @relation(fields: [classId], references: [id])
-  classId        String?
-  author         User?    @relation("AnnouncementAuthor", fields: [authorId], references: [id])
-  authorId       String?
-  publishedAt    DateTime?
-  sendWhatsApp   Boolean  @default(false)
+  id           String               @id @default(cuid())
+  schoolId     String?
+  title        String
+  body         String               @db.Text
+  audience     AnnouncementAudience @default(ALL)
+  class        Class?               @relation(fields: [classId], references: [id])
+  classId      String?
+  author       User?                @relation("AnnouncementAuthor", fields: [authorId], references: [id])
+  authorId     String?
+  publishedAt  DateTime?
+  sendWhatsApp Boolean              @default(false)
   /// Optional branch scope. Null = visible across every branch.
-  branch         Branch?  @relation(fields: [branchId], references: [id])
-  branchId       String?
+  branch       Branch?              @relation(fields: [branchId], references: [id])
+  branchId     String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([audience])
   @@index([branchId])
+  @@index([schoolId])
 }
 
 // ============================================================
@@ -1041,27 +1179,29 @@ enum AdmissionStatus {
 }
 
 model Admission {
-  id              String   @id @default(cuid())
-  applicantName   String
-  dob             DateTime?
-  gender          Gender?
-  classApplyingFor String  // "JSS 1", "SS 2", etc.
-  previousSchool  String?
-  parentName      String
-  parentPhone     String
-  parentEmail     String
+  id               String          @id @default(cuid())
+  schoolId         String?
+  applicantName    String
+  dob              DateTime?
+  gender           Gender?
+  classApplyingFor String // "JSS 1", "SS 2", etc.
+  previousSchool   String?
+  parentName       String
+  parentPhone      String
+  parentEmail      String
   parentOccupation String?
-  homeAddress     String?
-  documents       Json?    // [{ url, label }]
-  notes           String?  @db.Text
-  status          AdmissionStatus @default(SUBMITTED)
-  reference       String   @unique
-  examDate        DateTime?
+  homeAddress      String?
+  documents        Json? // [{ url, label }]
+  notes            String?         @db.Text
+  status           AdmissionStatus @default(SUBMITTED)
+  reference        String          @unique
+  examDate         DateTime?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([status])
+  @@index([schoolId])
 }
 
 // ============================================================
@@ -1069,16 +1209,19 @@ model Admission {
 // ============================================================
 
 model ContactMessage {
-  id       String   @id @default(cuid())
-  name     String
-  email    String
-  phone    String?
-  subject  String?
-  role     String?  // "Prospective parent", "Alumni", etc.
-  message  String   @db.Text
+  id        String    @id @default(cuid())
+  schoolId  String?
+  name      String
+  email     String
+  phone     String?
+  subject   String?
+  role      String? // "Prospective parent", "Alumni", etc.
+  message   String    @db.Text
   handledAt DateTime?
 
   createdAt DateTime @default(now())
+
+  @@index([schoolId])
 }
 
 // ============================================================
@@ -1086,20 +1229,21 @@ model ContactMessage {
 // ============================================================
 
 model WhatsAppSession {
-  id              String   @id @default(cuid())
+  id              String    @id @default(cuid())
+  schoolId        String?
   phoneNumber     String
   admissionNumber String?
-  student         Student? @relation(fields: [studentId], references: [id])
+  student         Student?  @relation(fields: [studentId], references: [id])
   studentId       String?
-  user            User?    @relation(fields: [userId], references: [id])
+  user            User?     @relation(fields: [userId], references: [id])
   userId          String?
   lastMenu        String?
   /// Multi-step flow state — e.g. {"classId": "...", "absent": ["...","..."]}
   /// while a teacher is mid-attendance. Wiped when the flow completes or
   /// the session resets to a menu.
   pendingData     Json?
-  lastActivity    DateTime @default(now())
-  isEscalated     Boolean  @default(false)
+  lastActivity    DateTime  @default(now())
+  isEscalated     Boolean   @default(false)
   escalatedAt     DateTime?
   resolvedAt      DateTime?
 
@@ -1109,6 +1253,8 @@ model WhatsAppSession {
   updatedAt DateTime @updatedAt
 
   @@index([phoneNumber])
+  @@index([schoolId])
+  @@index([schoolId, phoneNumber])
 }
 
 enum MessageDirection {
@@ -1117,15 +1263,17 @@ enum MessageDirection {
 }
 
 model WhatsAppMessage {
-  id        String   @id @default(cuid())
-  session   WhatsAppSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  id        String           @id @default(cuid())
+  schoolId  String?
+  session   WhatsAppSession  @relation(fields: [sessionId], references: [id], onDelete: Cascade)
   sessionId String
   direction MessageDirection
-  content   String   @db.Text
+  content   String           @db.Text
   metadata  Json?
-  createdAt DateTime @default(now())
+  createdAt DateTime         @default(now())
 
   @@index([sessionId, createdAt])
+  @@index([schoolId])
 }
 
 // ============================================================
@@ -1134,29 +1282,34 @@ model WhatsAppMessage {
 
 model GalleryImage {
   id           String   @id @default(cuid())
+  schoolId     String?
   url          String
   cloudinaryId String?
   caption      String?
-  category     String?  // "Sports", "Events", "Academics", "Facilities"
+  category     String? // "Sports", "Events", "Academics", "Facilities"
   uploadedAt   DateTime @default(now())
 
   @@index([category])
+  @@index([schoolId])
 }
 
 model BlogPost {
-  id          String   @id @default(cuid())
+  id          String    @id @default(cuid())
+  schoolId    String?
   title       String
-  slug        String   @unique
-  body        String   @db.Text
+  slug        String
+  body        String    @db.Text
   excerpt     String?
   coverImage  String?
-  isPublished Boolean  @default(false)
+  isPublished Boolean   @default(false)
   publishedAt DateTime?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  @@unique([schoolId, slug])
   @@index([isPublished, publishedAt])
+  @@index([schoolId])
 }
 
 // ============================================================
@@ -1181,28 +1334,30 @@ enum ComplaintStatus {
 }
 
 model Complaint {
-  id          String   @id @default(cuid())
-  subject     String
-  body        String   @db.Text
-  category    ComplaintCategory @default(GENERAL)
-  status      ComplaintStatus   @default(OPEN)
+  id       String            @id @default(cuid())
+  schoolId String?
+  subject  String
+  body     String            @db.Text
+  category ComplaintCategory @default(GENERAL)
+  status   ComplaintStatus   @default(OPEN)
 
-  author      User?    @relation("ComplaintAuthor", fields: [authorId], references: [id])
+  author      User?   @relation("ComplaintAuthor", fields: [authorId], references: [id])
   authorId    String?
   /// Snapshot of submitter contact in case the author user gets deleted.
   authorName  String
   authorEmail String?
   authorPhone String?
 
-  handledBy   User?    @relation("ComplaintHandler", fields: [handledById], references: [id])
-  handledById String?
-  resolutionNote String? @db.Text
-  resolvedAt  DateTime?
+  handledBy      User?     @relation("ComplaintHandler", fields: [handledById], references: [id])
+  handledById    String?
+  resolutionNote String?   @db.Text
+  resolvedAt     DateTime?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([status, createdAt])
+  @@index([schoolId])
 }
 
 // ============================================================
@@ -1217,22 +1372,23 @@ enum BookAvailability {
 }
 
 model Book {
-  id          String  @id @default(cuid())
-  title       String
-  author      String?
-  isbn        String? @unique
-  category    String?
-  coverUrl    String?
-  description String? @db.Text
+  id            String           @id @default(cuid())
+  schoolId      String?
+  title         String
+  author        String?
+  isbn          String?
+  category      String?
+  coverUrl      String?
+  description   String?          @db.Text
   /// Total copies the school holds. Set to null for unlimited (digital).
-  totalCopies Int     @default(1)
+  totalCopies   Int              @default(1)
   /// How many are currently rented out. Computed via app logic; not enforced
   /// in DB to avoid race conditions on raw counts.
-  copiesOut   Int     @default(0)
+  copiesOut     Int              @default(0)
   /// Naira price for outright purchase (₦); null = rental-only.
-  pricePurchase Decimal? @db.Decimal(10, 2)
+  pricePurchase Decimal?         @db.Decimal(10, 2)
   /// Naira rental price per term (₦); null = purchase-only.
-  priceRental   Decimal? @db.Decimal(10, 2)
+  priceRental   Decimal?         @db.Decimal(10, 2)
   availability  BookAvailability @default(AVAILABLE)
 
   requests BookRequest[]
@@ -1240,7 +1396,9 @@ model Book {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  @@unique([schoolId, isbn])
   @@index([category, availability])
+  @@index([schoolId])
 }
 
 enum BookRequestType {
@@ -1274,44 +1432,47 @@ enum AwardCategory {
 }
 
 model Award {
-  id        String @id @default(cuid())
-  student   Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  id        String           @id @default(cuid())
+  schoolId  String?
+  student   Student          @relation(fields: [studentId], references: [id], onDelete: Cascade)
   studentId String
-  term      Term?   @relation(fields: [termId], references: [id])
+  term      Term?            @relation(fields: [termId], references: [id])
   termId    String?
   session   AcademicSession? @relation(fields: [sessionId], references: [id])
   sessionId String?
 
-  category  AwardCategory
-  title     String  // e.g. "Best Mathematics Student"
-  citation  String? @db.Text
+  category    AwardCategory
+  title       String // e.g. "Best Mathematics Student"
+  citation    String?       @db.Text
   /// 1-5 stars; surfaced on result slip + student profile.
-  stars     Int     @default(5)
-  awardedAt DateTime @default(now())
+  stars       Int           @default(5)
+  awardedAt   DateTime      @default(now())
   /// User (admin/director/teacher) who issued the award.
   awardedById String?
-  awardedBy   User?  @relation("AwardedBy", fields: [awardedById], references: [id])
+  awardedBy   User?         @relation("AwardedBy", fields: [awardedById], references: [id])
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([studentId, termId])
   @@index([category])
+  @@index([schoolId])
 }
 
 model BookRequest {
-  id        String  @id @default(cuid())
-  book      Book    @relation(fields: [bookId], references: [id], onDelete: Cascade)
-  bookId    String
-  requester User    @relation("BookRequester", fields: [requesterId], references: [id], onDelete: Cascade)
+  id          String            @id @default(cuid())
+  schoolId    String?
+  book        Book              @relation(fields: [bookId], references: [id], onDelete: Cascade)
+  bookId      String
+  requester   User              @relation("BookRequester", fields: [requesterId], references: [id], onDelete: Cascade)
   requesterId String
-  type      BookRequestType
-  status    BookRequestStatus @default(PENDING)
-  notes     String?  @db.Text
+  type        BookRequestType
+  status      BookRequestStatus @default(PENDING)
+  notes       String?           @db.Text
   /// For rentals — the due-back date set by admin on approval.
-  dueDate   DateTime?
+  dueDate     DateTime?
 
-  decidedBy   User?   @relation("BookApprover", fields: [decidedById], references: [id])
+  decidedBy   User?     @relation("BookApprover", fields: [decidedById], references: [id])
   decidedById String?
   decidedAt   DateTime?
 
@@ -1320,4 +1481,5 @@ model BookRequest {
 
   @@index([status])
   @@index([requesterId])
+  @@index([schoolId])
 }

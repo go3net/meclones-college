@@ -27,7 +27,8 @@ export async function createSubject(formData: FormData) {
   }
   const d = parsed.data;
 
-  const exists = await prisma.subject.findUnique({ where: { code: d.code } });
+  // Subject codes are unique per school, not globally (schoolId + code).
+  const exists = await prisma.subject.findFirst({ where: { code: d.code } });
   if (exists) redirect(`/portal/admin/subjects/new?error=${encodeURIComponent(`Code "${d.code}" already in use.`)}`);
 
   const created = await prisma.subject.create({ data: { name: d.name, code: d.code } });

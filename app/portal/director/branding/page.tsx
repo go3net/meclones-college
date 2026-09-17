@@ -14,7 +14,7 @@ type SearchParams = { saved?: string; cleared?: string; error?: string };
 export default async function BrandingPage({ searchParams }: { searchParams: SearchParams }) {
   await requireRole(["DIRECTOR", "SUPER_ADMIN"]);
 
-  const brand = await prisma.schoolBrand.findUnique({ where: { id: "default" } });
+  const brand = await prisma.schoolBrand.findFirst();
 
   return (
     <PortalShell role="director">

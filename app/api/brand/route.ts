@@ -11,7 +11,8 @@ export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
 export async function GET() {
-  const brand = await prisma.schoolBrand.findUnique({ where: { id: "default" } });
+  // One row per school; scoped by the tenant extension.
+  const brand = await prisma.schoolBrand.findFirst();
   return NextResponse.json(
     {
       logoUrl: brand?.logoUrl ?? null,

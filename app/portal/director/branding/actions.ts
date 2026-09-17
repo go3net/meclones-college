@@ -45,11 +45,14 @@ export async function saveBrand(formData: FormData) {
     accentHex: normaliseHex(d.accentHex),
   };
 
-  await prisma.schoolBrand.upsert({
-    where: { id: "default" },
-    update: data,
-    create: { id: "default", ...data },
-  });
+  // One brand row per school (SchoolBrand.schoolId is unique); the tenant
+  // extension scopes the lookup, so find-or-create instead of a fixed id.
+  const existing = await prisma.schoolBrand.findFirst({ select: { id: true } });
+  if (existing) {
+    await prisma.schoolBrand.update({ where: { id: existing.id }, data });
+  } else {
+    await prisma.schoolBrand.create({ data });
+  }
 
   auditLog({
     action: "brand.update",
@@ -63,7 +66,8 @@ export async function saveBrand(formData: FormData) {
 
 export async function clearBrand() {
   await requireRole(["DIRECTOR", "SUPER_ADMIN"]);
-  await prisma.schoolBrand.deleteMany({ where: { id: "default" } });
+  const existing = await prisma.schoolBrand.findFirst({ select: { id: true } });
+  if (existing) await prisma.schoolBrand.delete({ where: { id: existing.id } });
   auditLog({ action: "brand.clear" });
   revalidatePath("/portal/director/branding");
   redirect("/portal/director/branding?cleared=1");

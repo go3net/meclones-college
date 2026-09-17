@@ -36,7 +36,8 @@ export async function rotateSession(formData: FormData) {
   }
   const d = parsed.data;
 
-  const existing = await prisma.academicSession.findUnique({ where: { name: d.newSessionName } });
+  // Session names are unique per school (schoolId + name).
+  const existing = await prisma.academicSession.findFirst({ where: { name: d.newSessionName } });
   if (existing) {
     redirect(`/portal/director/sessions?error=${encodeURIComponent("Session already exists")}`);
   }

@@ -31,7 +31,8 @@ export async function createBranch(formData: FormData) {
     redirect(`/portal/admin/branches?error=${encodeURIComponent(msg)}`);
   }
 
-  const exists = await prisma.branch.findUnique({ where: { code: parsed.data.code } });
+  // Branch codes are unique per school (schoolId + code).
+  const exists = await prisma.branch.findFirst({ where: { code: parsed.data.code } });
   if (exists) {
     redirect(`/portal/admin/branches?error=${encodeURIComponent("That code is already in use.")}`);
   }

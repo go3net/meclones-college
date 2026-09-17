@@ -172,16 +172,18 @@ async function main() {
   console.log(`  ✓ Staff users (${staffUsers.length})`);
 
   // ---------- Academic session + terms ----------
-  const session = await prisma.academicSession.upsert({
-    where: { name: "2026/2027" },
-    update: { isActive: true },
-    create: {
-      name: "2026/2027",
-      isActive: true,
-      startDate: new Date("2026-09-01"),
-      endDate: new Date("2027-07-31"),
-    },
-  });
+  // Session names are unique per school, so find-or-create instead of upsert.
+  const existingSession = await prisma.academicSession.findFirst({ where: { name: "2026/2027" } });
+  const session = existingSession
+    ? await prisma.academicSession.update({ where: { id: existingSession.id }, data: { isActive: true } })
+    : await prisma.academicSession.create({
+        data: {
+          name: "2026/2027",
+          isActive: true,
+          startDate: new Date("2026-09-01"),
+          endDate: new Date("2027-07-31"),
+        },
+      });
   const firstTerm = await prisma.term.upsert({
     where: { name_sessionId: { name: "FIRST", sessionId: session.id } },
     update: { isActive: true, startDate: new Date("2026-09-01"), endDate: new Date("2026-12-15") },
@@ -207,9 +209,13 @@ async function main() {
     { name: "Chemistry", code: "CHM" },
     { name: "Further Maths", code: "FMTH" },
   ];
-  const subjects = await Promise.all(subjectsData.map(s =>
-    prisma.subject.upsert({ where: { code: s.code }, update: { name: s.name }, create: s }),
-  ));
+  // Subject codes are unique per school, so find-or-create instead of upsert.
+  const subjects = await Promise.all(subjectsData.map(async s => {
+    const found = await prisma.subject.findFirst({ where: { code: s.code } });
+    return found
+      ? prisma.subject.update({ where: { id: found.id }, data: { name: s.name } })
+      : prisma.subject.create({ data: s });
+  }));
   const subjectByCode = new Map(subjects.map(s => [s.code, s]));
   console.log(`  ✓ Subjects (${subjects.length})`);
 
@@ -223,13 +229,14 @@ async function main() {
     { name: "SS 2", arm: "A", level: "SSS" as const },
     { name: "SS 3", arm: "A", level: "SSS" as const },
   ];
-  const classes = await Promise.all(classesData.map(c =>
-    prisma.class.upsert({
-      where: { name_arm: { name: c.name, arm: c.arm } },
-      update: { level: c.level },
-      create: c,
-    }),
-  ));
+  // Class uniqueness is (branchId, name, arm); seeded classes have no branch
+  // yet, so match on name + arm and let the app attach the Main branch later.
+  const classes = await Promise.all(classesData.map(async c => {
+    const found = await prisma.class.findFirst({ where: { name: c.name, arm: c.arm } });
+    return found
+      ? prisma.class.update({ where: { id: found.id }, data: { level: c.level } })
+      : prisma.class.create({ data: c });
+  }));
   const classByKey = new Map(classes.map(c => [`${c.name}|${c.arm}`, c]));
   console.log(`  ✓ Classes (${classes.length})`);
 

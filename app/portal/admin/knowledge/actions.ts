@@ -30,7 +30,8 @@ export async function createKnowledgeSection(formData: FormData) {
   }
   const d = parsed.data;
 
-  const exists = await prisma.knowledgeSection.findUnique({ where: { key: d.key } });
+  // Keys are unique per school (schoolId + key).
+  const exists = await prisma.knowledgeSection.findFirst({ where: { key: d.key } });
   if (exists) {
     redirect(`/portal/admin/knowledge?error=${encodeURIComponent("A section with that key already exists.")}`);
   }
@@ -130,7 +131,7 @@ export async function seedDefaultKnowledge() {
   const defaults = defaultKnowledgeSections();
   let inserted = 0;
   for (const d of defaults) {
-    const exists = await prisma.knowledgeSection.findUnique({ where: { key: d.key } });
+    const exists = await prisma.knowledgeSection.findFirst({ where: { key: d.key } });
     if (exists) continue;
     await prisma.knowledgeSection.create({ data: { ...d, isActive: true } });
     inserted++;
