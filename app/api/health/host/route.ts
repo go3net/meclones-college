@@ -22,6 +22,7 @@ import { headers } from "next/headers";
 import { Prisma } from "@prisma/client";
 import { prismaBase } from "@/lib/prisma";
 import { missingContextStats } from "@/lib/prisma-tenant-extension";
+import { isEncryptionConfigured } from "@/lib/crypto";
 import { resolveSchoolByHost, isPlatformHost, slugFromHost, PLATFORM_ROOT_DOMAIN, DEFAULT_SCHOOL_SLUG } from "@/lib/host";
 
 export const dynamic = "force-dynamic";
@@ -52,11 +53,13 @@ export async function GET(req: NextRequest) {
 
   let school: { id: string; slug: string; name: string; customDomain: string | null; status: string } | null = null;
   let schoolCount: number | null = null;
+  let platformAdmins: number | null = null;
   let error: string | null = null;
   try {
     const s = await resolveSchoolByHost(host);
     if (s) school = { id: s.id, slug: s.slug, name: s.name, customDomain: s.customDomain, status: s.status };
     schoolCount = await prismaBase.school.count();
+    platformAdmins = await prismaBase.user.count({ where: { role: "PLATFORM_ADMIN", isActive: true } });
   } catch (err) {
     error = err instanceof Error ? err.message : String(err);
   }
@@ -83,6 +86,10 @@ export async function GET(req: NextRequest) {
     slugFromHost:     slugFromHost(host),
     school,
     schoolCount,
+    // Platform setup checks: the operator account exists (created at boot
+    // from PLATFORM_ADMIN_EMAIL/PASSWORD) and secrets can be encrypted.
+    platformAdmins,
+    encryptionConfigured: isEncryptionConfigured(),
     tenantModels:     TENANT_MODELS.length,
     orphans,          // null unless ?orphans=1; {} means fully backfilled
     // Tenant-model queries this process ran with no school context
