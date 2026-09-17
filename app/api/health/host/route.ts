@@ -54,12 +54,25 @@ export async function GET(req: NextRequest) {
   let school: { id: string; slug: string; name: string; customDomain: string | null; status: string } | null = null;
   let schoolCount: number | null = null;
   let platformAdmins: number | null = null;
+  let platformAdminSetup: { emailSet: boolean; passwordSet: boolean; existingUserRole: string | null; existingUserHasSchool: boolean | null } | null = null;
   let error: string | null = null;
   try {
     const s = await resolveSchoolByHost(host);
     if (s) school = { id: s.id, slug: s.slug, name: s.name, customDomain: s.customDomain, status: s.status };
     schoolCount = await prismaBase.school.count();
     platformAdmins = await prismaBase.user.count({ where: { role: "PLATFORM_ADMIN", isActive: true } });
+    // Why the boot script may not have created the operator account:
+    // env missing, or the email already belongs to a user with another role.
+    const adminEmail = (process.env.PLATFORM_ADMIN_EMAIL ?? "").trim().toLowerCase();
+    const existing = adminEmail
+      ? await prismaBase.user.findUnique({ where: { email: adminEmail }, select: { role: true, schoolId: true } })
+      : null;
+    platformAdminSetup = {
+      emailSet: Boolean(adminEmail),
+      passwordSet: Boolean((process.env.PLATFORM_ADMIN_PASSWORD ?? "").trim()),
+      existingUserRole: existing?.role ?? null,
+      existingUserHasSchool: existing ? Boolean(existing.schoolId) : null,
+    };
   } catch (err) {
     error = err instanceof Error ? err.message : String(err);
   }
@@ -89,6 +102,7 @@ export async function GET(req: NextRequest) {
     // Platform setup checks: the operator account exists (created at boot
     // from PLATFORM_ADMIN_EMAIL/PASSWORD) and secrets can be encrypted.
     platformAdmins,
+    platformAdminSetup,
     encryptionConfigured: isEncryptionConfigured(),
     tenantModels:     TENANT_MODELS.length,
     orphans,          // null unless ?orphans=1; {} means fully backfilled
