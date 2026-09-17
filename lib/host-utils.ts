@@ -16,6 +16,20 @@ export const PLATFORM_ROOT_DOMAIN = (process.env.PLATFORM_ROOT_DOMAIN ?? "school
 
 export const DEFAULT_SCHOOL_SLUG = (process.env.DEFAULT_SCHOOL_SLUG ?? "meclones").trim().toLowerCase();
 
+/**
+ * Header the middleware sets on every request with the host the client
+ * actually used. Needed because a middleware rewrite (platform root ->
+ * /for-schools) replaces the request URL, and with it the `host` server
+ * code sees, with the deployment's own hostname. The middleware always
+ * overwrites it, so a client-supplied value is never trusted.
+ */
+export const TENANT_HOST_HEADER = "x-tenant-host";
+
+/** The host a request was really addressed to (see TENANT_HOST_HEADER). */
+export function requestHost(h: { get(name: string): string | null }): string {
+  return h.get(TENANT_HOST_HEADER) || h.get("host") || h.get("x-forwarded-host") || "";
+}
+
 /** Lower-case, strip the port and a leading "www.". */
 export function normaliseHost(raw: string | null | undefined): string {
   return (raw ?? "").toLowerCase().split(":")[0].replace(/^www\./, "");

@@ -18,6 +18,7 @@ import { headers } from "next/headers";
 import type { School } from "@prisma/client";
 import { tenantStorage } from "./tenant-context";
 import { loadSchoolById, resolveSchoolByHost } from "./host";
+import { requestHost } from "./host-utils";
 import { PLATFORM_SCHOOL, toPublicSchool, type SchoolPublic } from "./school-public";
 
 const memo = new WeakMap<object, Promise<School | null>>();
@@ -43,8 +44,7 @@ export async function getCurrentSchool(): Promise<School | null> {
 }
 
 async function resolveFromRequest(h: ReturnType<typeof headers>): Promise<School | null> {
-  const host = h.get("host") ?? h.get("x-forwarded-host") ?? "";
-  const byHost = await resolveSchoolByHost(host);
+  const byHost = await resolveSchoolByHost(requestHost(h));
   if (byHost) return byHost;
 
   try {

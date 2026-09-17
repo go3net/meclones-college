@@ -45,6 +45,8 @@ async function orphanCounts(): Promise<Record<string, number>> {
 
 export async function GET(req: NextRequest) {
   const h = headers();
+  // This route is excluded from the middleware, so no x-tenant-host here;
+  // the raw host is authoritative.
   const host = (h.get("host") ?? h.get("x-forwarded-host") ?? "").toLowerCase();
   const platform = isPlatformHost(host);
 

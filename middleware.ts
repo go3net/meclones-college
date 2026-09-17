@@ -1,7 +1,7 @@
 import NextAuth from "next-auth";
 import { NextResponse } from "next/server";
 import { authConfig } from "./auth.config";
-import { isPlatformHost } from "./lib/host-utils";
+import { isPlatformHost, TENANT_HOST_HEADER } from "./lib/host-utils";
 
 // Edge-runtime safe — uses only the JWT-strategy session check, no Prisma.
 // `authorized()` in auth.config.ts decides allow/redirect for /portal/*
@@ -41,6 +41,14 @@ export default auth(req => {
   const rawHost = req.headers.get("host") ?? "";
   const pathname = req.nextUrl.pathname;
 
+  // Forward the real host to server code on EVERY request. A rewrite
+  // below swaps the URL for the deployment's own hostname, which would
+  // otherwise make the tenant resolver pick the default school on the
+  // platform host. Always overwritten here so it cannot be spoofed.
+  const requestHeaders = new Headers(req.headers);
+  requestHeaders.set(TENANT_HOST_HEADER, rawHost);
+  const init = { request: { headers: requestHeaders } };
+
   // ── SchoolBot host routing ──
   if (isPlatformHost(rawHost)) {
     // Root → internal rewrite to the SaaS landing. URL bar stays
@@ -48,7 +56,7 @@ export default auth(req => {
     if (pathname === "/") {
       const url = req.nextUrl.clone();
       url.pathname = "/for-schools";
-      return NextResponse.rewrite(url);
+      return NextResponse.rewrite(url, init);
     }
     // Meclones-only paths → 308 redirect to /. Permanent so search
     // engines learn never to index them under the SaaS domain.
@@ -62,16 +70,15 @@ export default auth(req => {
   // Everything else falls through. /portal/* gets auth-gated by the
   // wrapping auth() — NextAuth handles that via the authorized()
   // callback before this function even runs.
-  return NextResponse.next();
+  return NextResponse.next(init);
 });
 
 export const config = {
-  // Match the paths we care about, exclude static assets so the
-  // middleware doesn't run for every image / chunk. The negated
-  // pattern (?!...) is the Next.js-recommended way to express "all
-  // pages but not static". We also keep /api/health/host explicit so
-  // the diagnostic endpoint never gets accidentally rewritten.
+  // Run for every request except Next's own static output and the
+  // health endpoints, so the tenant-host header above is present (and
+  // trustworthy) on every route that resolves a school, including
+  // dotted paths like /manifest.webmanifest and /.../slip.pdf.
   matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|icon.svg|api/health|.*\\..*).*)",
+    "/((?!_next/static|_next/image|favicon.ico|icon.svg|api/health).*)",
   ],
 };

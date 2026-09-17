@@ -7,6 +7,7 @@ import { authConfig } from "./auth.config";
 import { prismaBase } from "./lib/prisma";
 import { verifyTotpCode, consumeRecoveryCode } from "./lib/totp";
 import { resolveSchoolByHost } from "./lib/host";
+import { requestHost } from "./lib/host-utils";
 
 // NOTE: We use JWT session strategy (set in auth.config.ts) — the Prisma
 // adapter is intentionally NOT attached. The adapter exists to persist
@@ -31,8 +32,7 @@ function looksLikeEmail(s: string): boolean {
  */
 async function hostSchoolId(): Promise<string | null> {
   try {
-    const h = headers();
-    const school = await resolveSchoolByHost(h.get("host") ?? h.get("x-forwarded-host") ?? "");
+    const school = await resolveSchoolByHost(requestHost(headers()));
     return school?.id ?? null;
   } catch {
     return null;
