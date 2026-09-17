@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { authorizeWebhook, formatResults } from "@/lib/whatsapp";
 import { withRelaySchool } from "@/lib/relay-tenant";
+import { getSchoolPublic } from "@/lib/tenant";
 
 export const dynamic = "force-dynamic";
 
@@ -78,6 +79,7 @@ async function handle(req: NextRequest) {
 
   const className = student.classRef ? `${student.classRef.name}${student.classRef.arm}` : "Unassigned";
 
+  const school = await getSchoolPublic();
   const message = formatResults({
     studentName: student.user.name,
     className,
@@ -86,6 +88,7 @@ async function handle(req: NextRequest) {
     position,
     classSize,
     results: results.map(r => ({ subject: r.subject.name, total: r.total, grade: r.grade })),
+    school,
   });
 
   return NextResponse.json({

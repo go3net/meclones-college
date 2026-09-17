@@ -7,7 +7,8 @@ import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/auth-helpers";
 import { createResetToken } from "@/lib/password-reset";
 import { sendWelcomeEmail } from "@/lib/resend";
-import { SCHOOL, SCHOOL_CODE } from "@/lib/constants";
+import { getSchoolPublic } from "@/lib/tenant";
+import { schoolSiteUrl } from "@/lib/school-public";
 import { resolveBranchIdForCreate } from "@/lib/branch";
 
 const DEFAULT_PASSWORD = process.env.SEED_PASSWORD ?? "Meclones123!";
@@ -18,6 +19,7 @@ function slugify(s: string) {
 
 export async function createStudent(formData: FormData) {
   await requireRole(["ADMIN", "DIRECTOR", "SUPER_ADMIN"]);
+  const school = await getSchoolPublic();
 
   const firstName = String(formData.get("firstName") ?? "").trim();
   const lastName = String(formData.get("lastName") ?? "").trim();
@@ -37,7 +39,7 @@ export async function createStudent(formData: FormData) {
   if (!cls) throw new Error("Class not found.");
 
   // Compute next admission number for this class+arm. Pattern MCL/<CLASSARM>/2526/<seq>.
-  const prefix = `${SCHOOL_CODE}/${cls.name.replace(/\s+/g, "")}${cls.arm}/2526/`;
+  const prefix = `${school.code}/${cls.name.replace(/\s+/g, "")}${cls.arm}/2526/`;
   const existingCount = await prisma.student.count({
     where: { admissionNumber: { startsWith: prefix } },
   });
@@ -120,7 +122,7 @@ export async function createStudent(formData: FormData) {
     if (isNewParentUser) {
       try {
         const token = await createResetToken(parentEmail, { ttlHours: 24 * 7 });
-        const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL ?? SCHOOL.website).replace(/\/$/, "");
+        const siteUrl = schoolSiteUrl(school);
         await sendWelcomeEmail({
           to: parentEmail,
           recipientName: parentName,

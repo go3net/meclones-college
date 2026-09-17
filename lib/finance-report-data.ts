@@ -6,6 +6,7 @@
  */
 
 import { prisma } from "./prisma";
+import { getSchoolPublic } from "./tenant";
 import type { FinanceReportData } from "@/components/FinanceReportPdf";
 
 export async function loadFinanceReportData(opts: {
@@ -143,6 +144,7 @@ export async function loadFinanceReportData(opts: {
   const debtors = Array.from(stuMap.values()).filter(d => d.outstanding > 0).length;
 
   return {
+    school: await getSchoolPublic(),
     rangeLabel: opts.rangeLabel,
     rangeFrom: opts.from,
     rangeTo: opts.to,

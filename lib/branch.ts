@@ -10,7 +10,7 @@
 
 import { cookies } from "next/headers";
 import { prisma } from "./prisma";
-import { SCHOOL } from "./constants";
+import { getSchoolPublic } from "./tenant";
 
 const BRANCH_COOKIE = "branch";
 
@@ -24,13 +24,14 @@ export async function ensureMainBranch() {
   const existing = await prisma.branch.findFirst({ where: { isMain: true } });
   if (existing) return existing;
 
+  const school = await getSchoolPublic();
   return prisma.branch.create({
     data: {
       code: "MAIN",
-      name: `${SCHOOL.shortName} — Main`,
-      address: SCHOOL.addressShort,
-      phone: SCHOOL.phone,
-      email: SCHOOL.email,
+      name: `${school.shortName} — Main`,
+      address: school.addressShort,
+      phone: school.phone,
+      email: school.email,
       isMain: true,
       isActive: true,
     },

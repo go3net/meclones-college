@@ -3,7 +3,7 @@ import { Card, CardBody, CardHeader, CardTitle, Badge, StatCard } from "@/compon
 import { prisma } from "@/lib/prisma";
 import { getCurrentStudent, getActiveContext } from "@/lib/auth-helpers";
 import { CreditCard, Wallet, AlertCircle, Phone } from "lucide-react";
-import { SCHOOL } from "@/lib/constants";
+import { getSchoolPublic } from "@/lib/tenant";
 import { PayNowButton } from "@/components/PayNowButton";
 
 export const dynamic = "force-dynamic";
@@ -18,6 +18,7 @@ const feeTone: Record<string, "success" | "warning" | "danger"> = {
 };
 
 export default async function StudentFeesPage() {
+  const school = await getSchoolPublic();
   const student = await getCurrentStudent();
   const { term, session } = await getActiveContext();
 
@@ -117,10 +118,10 @@ export default async function StudentFeesPage() {
                 <p className="mt-1 text-sm text-amber-800">Please ask your parent/guardian to pay, or contact the school accountant.</p>
               </div>
               <a
-                href={`tel:${SCHOOL.phoneIntl}`}
+                href={`tel:${school.phoneIntl}`}
                 className="inline-flex items-center gap-2 bg-amber-700 hover:bg-amber-800 text-white font-semibold px-4 py-2 rounded-lg text-sm"
               >
-                <Phone className="h-4 w-4" /> Call {SCHOOL.phone}
+                <Phone className="h-4 w-4" /> Call {school.phone}
               </a>
             </div>
           </CardBody>

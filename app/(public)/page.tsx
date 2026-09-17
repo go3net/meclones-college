@@ -1,7 +1,8 @@
 import Link from "next/link";
 import Image from "next/image";
 import { Button, Card, CardBody, SectionHeading, Badge } from "@/components/ui";
-import { SCHOOL, STATS, EXAMS } from "@/lib/constants";
+import { EXAMS } from "@/lib/constants";
+import { getSchoolPublic } from "@/lib/tenant";
 import { PLACE } from "@/lib/images";
 import { FadeUp, HeroEnter } from "@/components/Animate";
 import {
@@ -10,7 +11,8 @@ import {
   Award, Globe2, Heart,
 } from "lucide-react";
 
-export default function HomePage() {
+export default async function HomePage() {
+  const school = await getSchoolPublic();
   return (
     <>
       {/* ===== HERO ===== */}
@@ -38,7 +40,7 @@ export default function HomePage() {
                 Raising Confident,<br className="hidden md:block" /> Responsible <span className="text-gold-300">Students</span>.
               </h1>
               <p className="mt-6 text-lg text-slate-200 max-w-xl leading-relaxed">
-                At {SCHOOL.name}, we nurture values, ignite potential and prepare students for lifelong success across <span className="text-gold-200 font-medium">JSS 1–3</span>, <span className="text-gold-200 font-medium">SS 1–3</span> and top-tier exam preparation.
+                At {school.name}, we nurture values, ignite potential and prepare students for lifelong success across <span className="text-gold-200 font-medium">JSS 1–3</span>, <span className="text-gold-200 font-medium">SS 1–3</span> and top-tier exam preparation.
               </p>
               <div className="mt-8 flex flex-wrap gap-3">
                 <Link href="/apply"><Button variant="gold" className="px-5 py-3 text-base">Apply Now <ArrowRight className="h-4 w-4" /></Button></Link>
@@ -46,9 +48,9 @@ export default function HomePage() {
               </div>
               <div className="mt-10 grid grid-cols-3 gap-6 max-w-md">
                 {[
-                  [`${STATS.alumni}`, "Alumni"],
-                  [`${STATS.teachers}`, "Teachers"],
-                  [`${STATS.yearsExperience}`, "Years Experience"],
+                  [`${school.stats.alumni}`, "Alumni"],
+                  [`${school.stats.teachers}`, "Teachers"],
+                  [`${school.stats.yearsExperience}`, "Years Experience"],
                 ].map(([v, l]) => (
                   <div key={l}>
                     <p className="text-3xl font-bold text-gold-300">{v}</p>
@@ -97,12 +99,12 @@ export default function HomePage() {
                     <Image src={PLACE.aboutHistory} alt="Students reading in the library" fill sizes="(max-width: 1024px) 50vw, 280px" className="object-cover" />
                   </div>
                   <div className="h-32 rounded-xl bg-gold-100 flex items-center justify-center p-6">
-                    <div className="text-center"><Trophy className="h-8 w-8 mx-auto mb-1 text-gold-700" /><p className="text-sm font-semibold text-gold-900">{STATS.alumni}+ alumni</p></div>
+                    <div className="text-center"><Trophy className="h-8 w-8 mx-auto mb-1 text-gold-700" /><p className="text-sm font-semibold text-gold-900">{school.stats.alumni}+ alumni</p></div>
                   </div>
                 </div>
                 <div className="space-y-4 mt-8">
                   <div className="h-32 rounded-xl bg-emerald-100 flex items-center justify-center p-6">
-                    <div className="text-center"><Users className="h-8 w-8 mx-auto mb-1 text-emerald-700" /><p className="text-sm font-semibold text-emerald-900">{STATS.teachers} teachers</p></div>
+                    <div className="text-center"><Users className="h-8 w-8 mx-auto mb-1 text-emerald-700" /><p className="text-sm font-semibold text-emerald-900">{school.stats.teachers} teachers</p></div>
                   </div>
                   <div className="relative h-48 rounded-xl overflow-hidden">
                     <Image src={PLACE.aboutValues} alt="Students collaborating in study group" fill sizes="(max-width: 1024px) 50vw, 280px" className="object-cover" />
@@ -151,21 +153,21 @@ export default function HomePage() {
             <div className="flex items-center gap-3">
               <div className="h-12 w-12 rounded-lg bg-white/10 flex items-center justify-center"><Users className="h-6 w-6 text-gold-300" /></div>
               <div>
-                <p className="text-3xl font-bold text-gold-400 leading-none">{STATS.alumni}</p>
+                <p className="text-3xl font-bold text-gold-400 leading-none">{school.stats.alumni}</p>
                 <p className="text-xs text-slate-300 mt-1">Alumni</p>
               </div>
             </div>
             <div className="flex items-center gap-3">
               <div className="h-12 w-12 rounded-lg bg-white/10 flex items-center justify-center"><GraduationCap className="h-6 w-6 text-gold-300" /></div>
               <div>
-                <p className="text-3xl font-bold text-gold-400 leading-none">{STATS.teachers}</p>
+                <p className="text-3xl font-bold text-gold-400 leading-none">{school.stats.teachers}</p>
                 <p className="text-xs text-slate-300 mt-1">Teachers</p>
               </div>
             </div>
             <div className="flex items-center gap-3">
               <div className="h-12 w-12 rounded-lg bg-white/10 flex items-center justify-center"><ShieldCheck className="h-6 w-6 text-gold-300" /></div>
               <div>
-                <p className="text-3xl font-bold text-gold-400 leading-none">{STATS.yearsExperience}</p>
+                <p className="text-3xl font-bold text-gold-400 leading-none">{school.stats.yearsExperience}</p>
                 <p className="text-xs text-slate-300 mt-1">Years Experience</p>
               </div>
             </div>
@@ -280,7 +282,7 @@ export default function HomePage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3 mb-10">
             <SectionHeading eyebrow="Campus life" title="Life at Meclones" />
-            <a href={SCHOOL.socials.instagram} target="_blank" rel="noreferrer noopener" className="inline-flex items-center gap-1.5 text-sm font-medium text-brand-700 hover:text-brand-900">
+            <a href={school.socials.instagram} target="_blank" rel="noreferrer noopener" className="inline-flex items-center gap-1.5 text-sm font-medium text-brand-700 hover:text-brand-900">
               Follow us @meclonescollege <ChevronRight className="h-4 w-4" />
             </a>
           </div>
@@ -309,8 +311,8 @@ export default function HomePage() {
                 <h3 className="font-display text-2xl md:text-3xl font-bold leading-tight">Have questions or want to learn more? We'd love to hear from you.</h3>
               </div>
               <div className="relative mt-6 space-y-2 text-sm text-slate-200">
-                <p>{SCHOOL.address}</p>
-                <p>{SCHOOL.phone} · {SCHOOL.email}</p>
+                <p>{school.address}</p>
+                <p>{school.phone} · {school.email}</p>
               </div>
             </div>
             <form className="lg:col-span-3 bg-white rounded-2xl border border-slate-200 p-6 md:p-8 shadow-card grid sm:grid-cols-2 gap-4" action="/api/contact" method="POST">

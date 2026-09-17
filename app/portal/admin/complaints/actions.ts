@@ -7,7 +7,8 @@ import { getSessionUser, requireRole } from "@/lib/auth-helpers";
 import { sendComplaintRepliedEmail } from "@/lib/resend";
 import { notify } from "@/lib/notify";
 import { auditLog } from "@/lib/audit";
-import { SCHOOL } from "@/lib/constants";
+import { getSchoolPublic } from "@/lib/tenant";
+import { schoolSiteUrl } from "@/lib/school-public";
 import { canEmail } from "@/lib/notification-prefs";
 
 export async function setComplaintStatus(formData: FormData) {
@@ -46,7 +47,8 @@ export async function setComplaintStatus(formData: FormData) {
       ? await canEmail(updated.authorId, "emailComplaintReplied")
       : true;
     if (recipient && allowEmail) {
-      const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL ?? SCHOOL.website).replace(/\/$/, "");
+      const school = await getSchoolPublic();
+      const siteUrl = schoolSiteUrl(school);
       sendComplaintRepliedEmail({
         to: recipient,
         parentName: recipientName,

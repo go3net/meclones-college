@@ -1,14 +1,16 @@
 import { redirect } from "next/navigation";
-import { PUBLIC_SITE_ENABLED } from "@/lib/constants";
+import { getSchoolPublic } from "@/lib/tenant";
 
 /**
  * /showcase lives outside the (public) route group so each sample
  * school can carry its own header/footer/theme without inheriting
- * Meclones's brand chrome. It is still gated on PUBLIC_SITE_ENABLED
- * so portal-only customer deploys don't expose the sales gallery.
+ * Meclones's brand chrome. It is still gated on the school's
+ * publicSiteEnabled flag so portal-only customer deploys don't expose
+ * the sales gallery (the platform fallback, id null, is never gated).
  */
-export default function ShowcaseLayout({ children }: { children: React.ReactNode }) {
-  if (!PUBLIC_SITE_ENABLED) {
+export default async function ShowcaseLayout({ children }: { children: React.ReactNode }) {
+  const school = await getSchoolPublic();
+  if (school.id && !school.publicSiteEnabled) {
     redirect("/portal/login");
   }
   return <>{children}</>;

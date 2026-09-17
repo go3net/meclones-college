@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import { X, Send, Loader2, Headphones } from "lucide-react";
-import { SCHOOL } from "@/lib/constants";
+import { useSchool } from "@/components/SchoolProvider";
 
 interface Msg { role: "user" | "assistant"; content: string; }
 
@@ -31,14 +31,17 @@ function AssistantAvatar({ size = 36, online = true }: { size?: number; online?:
   );
 }
 
-const INITIAL_GREETING: Msg = {
-  role: "assistant",
-  content: `Hi! I'm the ${SCHOOL.shortName} virtual assistant. Ask me anything about our school — admissions, programs, fees, visits, contact, the portal. How can I help?`,
-};
+function initialGreeting(shortName: string): Msg {
+  return {
+    role: "assistant",
+    content: `Hi! I'm the ${shortName} virtual assistant. Ask me anything about our school — admissions, programs, fees, visits, contact, the portal. How can I help?`,
+  };
+}
 
 export function WebsiteChatWidget() {
+  const school = useSchool();
   const [open, setOpen] = useState(false);
-  const [messages, setMessages] = useState<Msg[]>([INITIAL_GREETING]);
+  const [messages, setMessages] = useState<Msg[]>(() => [initialGreeting(school.shortName)]);
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -75,7 +78,7 @@ export function WebsiteChatWidget() {
 
       if (!res.ok || !res.body) {
         const errBody = await res.json().catch(() => ({ message: null }));
-        const fallback = errBody?.message ?? `Sorry, I hit a snag. Please call ${SCHOOL.phone}.`;
+        const fallback = errBody?.message ?? `Sorry, I hit a snag. Please call ${school.phone}.`;
         setMessages(m => {
           const copy = [...m];
           copy[copy.length - 1] = { role: "assistant", content: fallback };
@@ -116,7 +119,7 @@ export function WebsiteChatWidget() {
       console.error("[chat-widget] failed", err);
       setMessages(m => {
         const copy = [...m];
-        copy[copy.length - 1] = { role: "assistant", content: `Sorry, I couldn't reach the assistant just now. Please call ${SCHOOL.phone} or email ${SCHOOL.email}.` };
+        copy[copy.length - 1] = { role: "assistant", content: `Sorry, I couldn't reach the assistant just now. Please call ${school.phone} or email ${school.email}.` };
         return copy;
       });
     } finally {
@@ -153,7 +156,7 @@ export function WebsiteChatWidget() {
             <div className="flex items-center gap-2.5 min-w-0">
               <AssistantAvatar size={40} />
               <div className="min-w-0">
-                <p className="text-sm font-semibold truncate">{SCHOOL.shortName} Assistant</p>
+                <p className="text-sm font-semibold truncate">{school.shortName} Assistant</p>
                 <p className="text-[11px] text-emerald-300 inline-flex items-center gap-1.5">
                   <span className="inline-block h-1.5 w-1.5 rounded-full bg-emerald-400" />
                   Online · usually replies instantly
@@ -223,7 +226,7 @@ export function WebsiteChatWidget() {
             <div className="mt-2 flex items-center justify-between gap-2 text-[10px] text-slate-500">
               <span>For your child's records, log in to the portal.</span>
               <a
-                href={`https://wa.me/${SCHOOL.whatsapp}?text=${encodeURIComponent(`Hello ${SCHOOL.shortName}, I'd like to speak to someone.`)}`}
+                href={`https://wa.me/${school.whatsapp}?text=${encodeURIComponent(`Hello ${school.shortName}, I'd like to speak to someone.`)}`}
                 target="_blank"
                 rel="noreferrer noopener"
                 className="inline-flex items-center gap-1 font-semibold text-emerald-700 hover:text-emerald-800"

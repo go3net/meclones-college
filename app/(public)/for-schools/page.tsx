@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Button } from "@/components/ui";
-import { SCHOOL } from "@/lib/constants";
+import { getSchoolPublic } from "@/lib/tenant";
 import { SHARED_IMAGERY } from "@/app/showcase/data";
 import { WhatsAppMockup } from "@/components/WhatsAppMockup";
 import { WHATSAPP_FLOWS } from "@/lib/whatsapp-flows";
@@ -183,7 +183,10 @@ const FAQ = [
   },
 ];
 
-export default function ForSchoolsPage() {
+export default async function ForSchoolsPage() {
+  // Served on the bare platform host, so this resolves to SchoolBot's own
+  // identity/contact details (the platform fallback).
+  const school = await getSchoolPublic();
   return (
     <div className="bg-white">
       {/* Hero — WhatsApp-first pitch */}
@@ -578,14 +581,14 @@ export default function ForSchoolsPage() {
                   <div className="flex items-center gap-3 mb-4">
                     <div className="h-12 w-12 rounded-xl bg-gold-400 text-brand-900 flex items-center justify-center font-bold font-display text-2xl shrink-0 shadow-lg">M</div>
                     <div>
-                      <p className="font-display text-lg font-bold drop-shadow">{SCHOOL.name}</p>
-                      <p className="text-xs opacity-80">{SCHOOL.addressShort}</p>
+                      <p className="font-display text-lg font-bold drop-shadow">Meclones College Lekki</p>
+                      <p className="text-xs opacity-80">Lekki, Lagos</p>
                     </div>
                   </div>
                   <p className="text-sm leading-relaxed italic border-l-2 border-gold-400 pl-4 mt-4">
                     "Mose set up our entire portal in a week. Parents love being able to pay fees from their phone and chat directly with class teachers."
                   </p>
-                  <p className="text-xs uppercase tracking-wider mt-3 text-gold-300 font-semibold">— Director, {SCHOOL.shortName}</p>
+                  <p className="text-xs uppercase tracking-wider mt-3 text-gold-300 font-semibold">— Director, Meclones College</p>
                 </div>
               </div>
             </div>
@@ -615,14 +618,14 @@ export default function ForSchoolsPage() {
           <DemoRequestForm />
 
           <div className="mt-10 flex flex-wrap gap-6 justify-center text-sm">
-            <a href={`tel:${SCHOOL.phone}`} className="inline-flex items-center gap-2 text-gold-300 hover:text-gold-200">
-              <Phone className="h-4 w-4" /> {SCHOOL.phone}
+            <a href={`tel:${school.phone}`} className="inline-flex items-center gap-2 text-gold-300 hover:text-gold-200">
+              <Phone className="h-4 w-4" /> {school.phone}
             </a>
-            <a href={`mailto:${SCHOOL.admissionsEmail}`} className="inline-flex items-center gap-2 text-gold-300 hover:text-gold-200">
-              <Mail className="h-4 w-4" /> {SCHOOL.admissionsEmail}
+            <a href={`mailto:${school.admissionsEmail}`} className="inline-flex items-center gap-2 text-gold-300 hover:text-gold-200">
+              <Mail className="h-4 w-4" /> {school.admissionsEmail}
             </a>
             <a
-              href={`https://wa.me/${SCHOOL.whatsapp}?text=${encodeURIComponent("Hi — I run a school and I'd like a demo of the portal.")}`}
+              href={`https://wa.me/${school.whatsapp}?text=${encodeURIComponent("Hi — I run a school and I'd like a demo of the portal.")}`}
               target="_blank"
               rel="noreferrer noopener"
               className="inline-flex items-center gap-2 text-gold-300 hover:text-gold-200"

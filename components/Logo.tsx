@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import clsx from "clsx";
-import { SCHOOL } from "@/lib/constants";
+import { useSchool } from "@/components/SchoolProvider";
 
 interface BrandSnapshot {
   logoUrl: string | null;
@@ -22,11 +22,12 @@ function getBrandOnce(): Promise<BrandSnapshot> {
   return brandPromise;
 }
 
-/** First letter of the school's short name — used in the monogram fallback. */
-const MONOGRAM = (SCHOOL.shortName.replace(/^the\s+/i, "").trim()[0] ?? "M").toUpperCase();
-
 export function Logo({ variant = "dark", className }: { variant?: "dark" | "light"; className?: string }) {
+  const school = useSchool();
   const [brand, setBrand] = useState<BrandSnapshot | null>(null);
+
+  /** First letter of the school's short name — used in the monogram fallback. */
+  const monogram = (school.shortName.replace(/^the\s+/i, "").trim()[0] ?? "M").toUpperCase();
 
   useEffect(() => {
     let cancelled = false;
@@ -42,15 +43,15 @@ export function Logo({ variant = "dark", className }: { variant?: "dark" | "ligh
 
   // When a wide logo is uploaded, render it on its own — the school's
   // own typography is part of the asset. Otherwise show the monogram
-  // badge + name (uses the SCHOOL.shortName first letter so the
-  // fallback matches whatever school is deployed).
+  // badge + name (uses the school's shortName first letter so the
+  // fallback matches whatever school is being served).
   if (wideLogo) {
     return (
       <div className={clsx("flex items-center", className)}>
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src={wideLogo}
-          alt={SCHOOL.name}
+          alt={school.name}
           className="h-10 w-auto max-w-[180px] object-contain"
         />
       </div>
@@ -64,13 +65,13 @@ export function Logo({ variant = "dark", className }: { variant?: "dark" | "ligh
           // eslint-disable-next-line @next/next/no-img-element
           <img src={squareLogo} alt="" className="absolute inset-0 h-full w-full object-contain p-1" />
         ) : (
-          <span className="text-gold-300 font-serif font-bold text-lg leading-none">{MONOGRAM}</span>
+          <span className="text-gold-300 font-serif font-bold text-lg leading-none">{monogram}</span>
         )}
         <span className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full bg-gold-400 ring-2 ring-white" />
       </div>
       <div className="leading-tight">
-        <p className={clsx("font-serif font-bold text-lg tracking-tight", text)}>{SCHOOL.shortName}</p>
-        <p className={clsx("text-[10px] font-semibold tracking-[0.14em] uppercase", sub)}>{SCHOOL.tagline}</p>
+        <p className={clsx("font-serif font-bold text-lg tracking-tight", text)}>{school.shortName}</p>
+        <p className={clsx("text-[10px] font-semibold tracking-[0.14em] uppercase", sub)}>{school.tagline}</p>
       </div>
     </div>
   );

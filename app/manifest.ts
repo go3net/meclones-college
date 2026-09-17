@@ -1,5 +1,5 @@
 import type { MetadataRoute } from "next";
-import { SCHOOL } from "@/lib/constants";
+import { getSchoolPublic } from "@/lib/tenant";
 
 /**
  * PWA manifest — drives the "Add to home screen" prompt + how the
@@ -8,11 +8,12 @@ import { SCHOOL } from "@/lib/constants";
  * Next.js serves this at /manifest.webmanifest with the right Content-Type
  * automatically. The matching icon convention lives at app/icon.svg.
  */
-export default function manifest(): MetadataRoute.Manifest {
+export default async function manifest(): Promise<MetadataRoute.Manifest> {
+  const school = await getSchoolPublic();
   return {
-    name: `${SCHOOL.name} Portal`,
-    short_name: SCHOOL.shortName,
-    description: `Parents, teachers and students sign in to ${SCHOOL.name} for results, fees, attendance, messages and more.`,
+    name: `${school.name} Portal`,
+    short_name: school.shortName,
+    description: `Parents, teachers and students sign in to ${school.name} for results, fees, attendance, messages and more.`,
     start_url: "/portal/me",
     scope: "/",
     display: "standalone",

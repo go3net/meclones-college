@@ -8,7 +8,8 @@ import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/auth-helpers";
 import { createResetToken } from "@/lib/password-reset";
 import { sendWelcomeEmail } from "@/lib/resend";
-import { SCHOOL } from "@/lib/constants";
+import { getSchoolPublic } from "@/lib/tenant";
+import { schoolSiteUrl } from "@/lib/school-public";
 
 const Schema = z.object({
   name: z.string().min(2),
@@ -75,7 +76,8 @@ export async function createParent(formData: FormData) {
   // Welcome email with "Set your password" link (7-day TTL).
   try {
     const token = await createResetToken(d.email, { ttlHours: 24 * 7 });
-    const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL ?? SCHOOL.website).replace(/\/$/, "");
+    const school = await getSchoolPublic();
+    const siteUrl = schoolSiteUrl(school);
     const linkedChildren = studentIds.length > 0
       ? await prisma.student.findMany({
           where: { id: { in: studentIds } },

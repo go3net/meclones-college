@@ -12,10 +12,8 @@
 import { generateSecret, generateURI, verifySync } from "otplib";
 import { toDataURL as qrToDataUrl } from "qrcode";
 import { randomBytes, createHash } from "node:crypto";
-import { SCHOOL } from "./constants";
+import { getSchoolPublic } from "./tenant";
 import { prisma } from "./prisma";
-
-const ISSUER = SCHOOL.shortName;
 
 /** TOTP time step in seconds (RFC 6238 default, what authenticator apps use). */
 const PERIOD = 30;
@@ -34,13 +32,14 @@ export function generateTotpSecret(): string {
  * Uses the user's email as the account label so multiple staff accounts
  * are distinguishable inside the authenticator app.
  */
-export function buildOtpauthUrl(secret: string, accountLabel: string): string {
-  return generateURI({ issuer: ISSUER, label: accountLabel, secret, period: PERIOD });
+export async function buildOtpauthUrl(secret: string, accountLabel: string): Promise<string> {
+  const school = await getSchoolPublic();
+  return generateURI({ issuer: school.shortName, label: accountLabel, secret, period: PERIOD });
 }
 
 /** Render the otpauth URL as a base64 data URL <img src can use. */
 export async function totpQrDataUrl(secret: string, accountLabel: string): Promise<string> {
-  const url = buildOtpauthUrl(secret, accountLabel);
+  const url = await buildOtpauthUrl(secret, accountLabel);
   return qrToDataUrl(url, { margin: 1, width: 220 });
 }
 

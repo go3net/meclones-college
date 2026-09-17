@@ -2,13 +2,15 @@ import { redirect } from "next/navigation";
 import { PublicHeader } from "@/components/PublicHeader";
 import { PublicFooter } from "@/components/PublicFooter";
 import { WebsiteChatWidget } from "@/components/WebsiteChatWidget";
-import { PUBLIC_SITE_ENABLED } from "@/lib/constants";
+import { getSchoolPublic } from "@/lib/tenant";
 
-export default function PublicLayout({ children }: { children: React.ReactNode }) {
-  // White-label customers running portal-only deployments set
-  // ENABLE_PUBLIC_SITE=false. Every public-route hit bounces straight
-  // to the login screen, leaving only /portal/* and /api/* live.
-  if (!PUBLIC_SITE_ENABLED) {
+export default async function PublicLayout({ children }: { children: React.ReactNode }) {
+  // Schools running portal-only deployments switch their public site
+  // off. Every public-route hit bounces straight to the login screen,
+  // leaving only /portal/* and /api/* live. The platform fallback
+  // (id null, bare schoolbot.com.ng host) is never gated.
+  const school = await getSchoolPublic();
+  if (school.id && !school.publicSiteEnabled) {
     redirect("/portal/login");
   }
 

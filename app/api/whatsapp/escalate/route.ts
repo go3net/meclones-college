@@ -3,7 +3,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { authorizeWebhook } from "@/lib/whatsapp";
 import { withRelaySchool } from "@/lib/relay-tenant";
-import { SCHOOL } from "@/lib/constants";
+import { getSchoolPublic } from "@/lib/tenant";
 
 export const dynamic = "force-dynamic";
 
@@ -67,7 +67,8 @@ async function handle(req: NextRequest) {
     });
   }
 
-  const reply = `Your message has been escalated to our admin team. We will respond within 24 hours. For urgent matters call: ${SCHOOL.phone}`;
+  const school = await getSchoolPublic();
+  const reply = `Your message has been escalated to our admin team. We will respond within 24 hours. For urgent matters call: ${school.phone}`;
 
   // Log the outgoing acknowledgement.
   await prisma.whatsAppMessage.create({

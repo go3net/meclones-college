@@ -2,9 +2,10 @@ import "./globals.css";
 import type { Metadata, Viewport } from "next";
 import { Inter, Playfair_Display } from "next/font/google";
 import { headers } from "next/headers";
-import { SCHOOL } from "@/lib/constants";
 import { PLATFORM_ROOT_DOMAIN, isPlatformHost } from "@/lib/host-utils";
+import { getSchoolPublic } from "@/lib/tenant";
 import { Providers } from "@/components/Providers";
+import { SchoolProvider } from "@/components/SchoolProvider";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -72,24 +73,24 @@ export async function generateMetadata(): Promise<Metadata> {
     };
   }
 
-  // Default — Meclones school brand. Identical to the previous
-  // static export, just lifted into the host-aware generator so
-  // both branches live in one place.
+  // A school's own brand, resolved from the request host.
+  const school = await getSchoolPublic();
+  const tagline = school.tagline ? ` — ${school.tagline}` : "";
   return {
-    metadataBase: new URL(SCHOOL.website),
+    metadataBase: new URL(school.website),
     title: {
-      default:  `${SCHOOL.name} — ${SCHOOL.tagline}`,
-      template: `%s · ${SCHOOL.name}`,
+      default:  `${school.name}${tagline}`,
+      template: `%s · ${school.name}`,
     },
-    description: `${SCHOOL.name} is a premier private secondary school in Lekki, Lagos. We nurture values, ignite potential, and prepare students for lifelong success across JSS 1–3, SS 1–3 and top-tier exam preparation.`,
-    keywords: ["Meclones College Lekki", "secondary school Lagos", "school in Lekki", "JSS SSS Lagos", "WAEC NECO JAMB SAT TOEFL prep"],
+    description: `${school.name} is a private secondary school in Nigeria. We nurture values, ignite potential, and prepare students for lifelong success across JSS 1–3, SS 1–3 and top-tier exam preparation.`,
+    keywords: [school.name, "secondary school Nigeria", "school portal", "JSS SSS", "WAEC NECO JAMB prep"],
     openGraph: {
       type: "website",
       locale: "en_NG",
-      url: SCHOOL.website,
-      siteName: SCHOOL.name,
-      title: `${SCHOOL.name} — ${SCHOOL.tagline}`,
-      description: `Raising confident, responsible students at ${SCHOOL.name}.`,
+      url: school.website,
+      siteName: school.name,
+      title: `${school.name}${tagline}`,
+      description: `Raising confident, responsible students at ${school.name}.`,
     },
     twitter: { card: "summary_large_image" },
     // PWA niceties — manifest is auto-resolved from app/manifest.ts; the
@@ -97,10 +98,10 @@ export async function generateMetadata(): Promise<Metadata> {
     manifest: "/manifest.webmanifest",
     appleWebApp: {
       capable: true,
-      title: SCHOOL.shortName,
+      title: school.shortName,
       statusBarStyle: "black-translucent",
     },
-    applicationName: `${SCHOOL.shortName} Portal`,
+    applicationName: `${school.shortName} Portal`,
   };
 }
 
@@ -115,11 +116,16 @@ export const viewport: Viewport = {
   maximumScale: 5,
 };
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  // Resolved once per request from the host; client components read it
+  // through useSchool(), server code through getSchoolPublic().
+  const school = await getSchoolPublic();
   return (
     <html lang="en" className={`${inter.variable} ${playfair.variable}`}>
       <body>
-        <Providers>{children}</Providers>
+        <SchoolProvider school={school}>
+          <Providers>{children}</Providers>
+        </SchoolProvider>
       </body>
     </html>
   );

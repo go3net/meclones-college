@@ -7,7 +7,8 @@ import { prisma } from "@/lib/prisma";
 import { getSessionUser } from "@/lib/auth-helpers";
 import { notify } from "@/lib/notify";
 import { sendNewMessageThreadEmail } from "@/lib/resend";
-import { SCHOOL } from "@/lib/constants";
+import { getSchoolPublic } from "@/lib/tenant";
+import { schoolSiteUrl } from "@/lib/school-public";
 import { canEmail } from "@/lib/notification-prefs";
 
 function readAttachment(formData: FormData) {
@@ -97,7 +98,8 @@ export async function startThreadAsParent(formData: FormData) {
       const studentName = d.studentId
         ? (await prisma.student.findUnique({ where: { id: d.studentId }, select: { user: { select: { name: true } } } }))?.user.name
         : null;
-      const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL ?? SCHOOL.website).replace(/\/$/, "");
+      const school = await getSchoolPublic();
+      const siteUrl = schoolSiteUrl(school);
       sendNewMessageThreadEmail({
         to: teacher.user.email,
         recipientName: teacher.user.name,
@@ -227,7 +229,8 @@ export async function startThreadAsTeacher(formData: FormData) {
         where: { id: d.studentId },
         select: { user: { select: { name: true } } },
       }))?.user.name;
-      const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL ?? SCHOOL.website).replace(/\/$/, "");
+      const school = await getSchoolPublic();
+      const siteUrl = schoolSiteUrl(school);
       sendNewMessageThreadEmail({
         to: parent.user.email,
         recipientName: parent.user.name,

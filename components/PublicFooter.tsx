@@ -1,31 +1,32 @@
 import Link from "next/link";
 import { Logo } from "./Logo";
 import { Phone, Mail, MapPin, Facebook, Instagram, Youtube, Linkedin } from "lucide-react";
-import { SCHOOL } from "@/lib/constants";
+import { getSchoolPublic } from "@/lib/tenant";
 
-export function PublicFooter() {
+export async function PublicFooter() {
+  const school = await getSchoolPublic();
   return (
     <>
       {/* Contact info strip (sits directly above footer) */}
       <section className="bg-brand-900 text-slate-100 border-t border-white/5">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-5 grid sm:grid-cols-3 gap-4 text-sm">
-          <a href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(SCHOOL.address)}`} target="_blank" rel="noreferrer noopener" className="flex items-center gap-3 hover:text-gold-300 transition-colors">
+          <a href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(school.address)}`} target="_blank" rel="noreferrer noopener" className="flex items-center gap-3 hover:text-gold-300 transition-colors">
             <span className="h-9 w-9 rounded-full bg-white/10 flex items-center justify-center shrink-0">
               <MapPin className="h-4 w-4 text-gold-400" />
             </span>
-            <span className="leading-tight">{SCHOOL.address}</span>
+            <span className="leading-tight">{school.address}</span>
           </a>
-          <a href={`tel:${SCHOOL.phoneIntl}`} className="flex items-center gap-3 hover:text-gold-300 transition-colors">
+          <a href={`tel:${school.phoneIntl}`} className="flex items-center gap-3 hover:text-gold-300 transition-colors">
             <span className="h-9 w-9 rounded-full bg-white/10 flex items-center justify-center shrink-0">
               <Phone className="h-4 w-4 text-gold-400" />
             </span>
-            <span className="font-medium">{SCHOOL.phone}</span>
+            <span className="font-medium">{school.phone}</span>
           </a>
-          <a href={`mailto:${SCHOOL.email}`} className="flex items-center gap-3 hover:text-gold-300 transition-colors">
+          <a href={`mailto:${school.email}`} className="flex items-center gap-3 hover:text-gold-300 transition-colors">
             <span className="h-9 w-9 rounded-full bg-white/10 flex items-center justify-center shrink-0">
               <Mail className="h-4 w-4 text-gold-400" />
             </span>
-            <span>{SCHOOL.email}</span>
+            <span>{school.email}</span>
           </a>
         </div>
       </section>
@@ -68,27 +69,35 @@ export function PublicFooter() {
             <div>
               <p className="font-semibold text-white mb-3">Connect With Us</p>
               <div className="flex flex-wrap gap-3">
-                <a aria-label="Facebook" href={SCHOOL.socials.facebook} target="_blank" rel="noreferrer noopener" className="h-9 w-9 rounded-full bg-white/10 flex items-center justify-center hover:bg-gold-400 hover:text-brand-900 transition-colors">
-                  <Facebook className="h-4 w-4" />
-                </a>
-                <a aria-label="Instagram" href={SCHOOL.socials.instagram} target="_blank" rel="noreferrer noopener" className="h-9 w-9 rounded-full bg-white/10 flex items-center justify-center hover:bg-gold-400 hover:text-brand-900 transition-colors">
-                  <Instagram className="h-4 w-4" />
-                </a>
-                <a aria-label="YouTube" href={SCHOOL.socials.youtube} target="_blank" rel="noreferrer noopener" className="h-9 w-9 rounded-full bg-white/10 flex items-center justify-center hover:bg-gold-400 hover:text-brand-900 transition-colors">
-                  <Youtube className="h-4 w-4" />
-                </a>
-                <a aria-label="LinkedIn" href={SCHOOL.socials.linkedin} target="_blank" rel="noreferrer noopener" className="h-9 w-9 rounded-full bg-white/10 flex items-center justify-center hover:bg-gold-400 hover:text-brand-900 transition-colors">
-                  <Linkedin className="h-4 w-4" />
-                </a>
+                {school.socials.facebook && (
+                  <a aria-label="Facebook" href={school.socials.facebook} target="_blank" rel="noreferrer noopener" className="h-9 w-9 rounded-full bg-white/10 flex items-center justify-center hover:bg-gold-400 hover:text-brand-900 transition-colors">
+                    <Facebook className="h-4 w-4" />
+                  </a>
+                )}
+                {school.socials.instagram && (
+                  <a aria-label="Instagram" href={school.socials.instagram} target="_blank" rel="noreferrer noopener" className="h-9 w-9 rounded-full bg-white/10 flex items-center justify-center hover:bg-gold-400 hover:text-brand-900 transition-colors">
+                    <Instagram className="h-4 w-4" />
+                  </a>
+                )}
+                {school.socials.youtube && (
+                  <a aria-label="YouTube" href={school.socials.youtube} target="_blank" rel="noreferrer noopener" className="h-9 w-9 rounded-full bg-white/10 flex items-center justify-center hover:bg-gold-400 hover:text-brand-900 transition-colors">
+                    <Youtube className="h-4 w-4" />
+                  </a>
+                )}
+                {school.socials.linkedin && (
+                  <a aria-label="LinkedIn" href={school.socials.linkedin} target="_blank" rel="noreferrer noopener" className="h-9 w-9 rounded-full bg-white/10 flex items-center justify-center hover:bg-gold-400 hover:text-brand-900 transition-colors">
+                    <Linkedin className="h-4 w-4" />
+                  </a>
+                )}
               </div>
               <p className="mt-6 text-xs text-slate-400 leading-relaxed">
-                {SCHOOL.hours}
+                {school.hours}
               </p>
             </div>
           </div>
 
           <div className="mt-10 pt-6 border-t border-white/10 flex flex-col md:flex-row justify-between gap-3 text-xs text-slate-400">
-            <p>© {new Date().getFullYear()} {SCHOOL.name}. All Rights Reserved.</p>
+            <p>© {new Date().getFullYear()} {school.name}. All Rights Reserved.</p>
             <div className="flex gap-6">
               <Link href="/privacy" className="hover:text-gold-300">Privacy Policy</Link>
               <Link href="/terms" className="hover:text-gold-300">Terms & Conditions</Link>

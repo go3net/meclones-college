@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { authorizeWebhook, formatFees } from "@/lib/whatsapp";
 import { withRelaySchool } from "@/lib/relay-tenant";
+import { getSchoolPublic } from "@/lib/tenant";
 
 export const dynamic = "force-dynamic";
 
@@ -56,7 +57,8 @@ async function handle(req: NextRequest) {
   const totalPaid = normalized.reduce((s, f) => s + f.amountPaid, 0);
   const outstanding = Math.max(0, totalBilled - totalPaid);
 
-  const message = formatFees({ studentName: student.user.name, fees: normalized });
+  const school = await getSchoolPublic();
+  const message = formatFees({ studentName: student.user.name, fees: normalized, school });
 
   return NextResponse.json({
     ok: true,

@@ -3,7 +3,7 @@
  * and avoids edge-runtime issues. All amounts are in kobo (NGN × 100).
  */
 
-import { SCHOOL } from "./constants";
+import { getSchoolPublic } from "./tenant";
 
 const API_BASE = "https://api.paystack.co";
 
@@ -42,6 +42,7 @@ export interface InitResult {
  * parent to. On success they bounce back to our callback URL.
  */
 export async function initTransaction(p: InitParams): Promise<InitResult> {
+  const school = await getSchoolPublic();
   const res = await fetch(`${API_BASE}/transaction/initialize`, {
     method: "POST",
     headers: {
@@ -59,7 +60,7 @@ export async function initTransaction(p: InitParams): Promise<InitResult> {
         custom_fields: [{
           display_name: "School",
           variable_name: "school_name",
-          value: SCHOOL.name,
+          value: school.name,
         }],
       },
       ...(p.subaccount ? { subaccount: p.subaccount } : {}),
@@ -104,7 +105,7 @@ export async function verifyTransaction(reference: string): Promise<VerifyResult
  * Generate a school-prefixed reference. Paystack requires uniqueness per
  * merchant, so namespacing by school + timestamp + random tail is safe.
  */
-export function genReference(prefix = "MCL"): string {
+export function genReference(prefix: string): string {
   const t = Date.now().toString(36);
   const r = Math.random().toString(36).slice(2, 8).toUpperCase();
   return `${prefix}-${t}-${r}`.toUpperCase();

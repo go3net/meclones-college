@@ -42,7 +42,8 @@ import {
 } from "./whatsapp";
 import { initTransaction, nairaToKobo } from "./paystack";
 import { normaliseNgPhone, type Outbound as CloudOutbound } from "./whatsapp-cloud";
-import { SCHOOL } from "./constants";
+import { getSchoolPublic } from "./tenant";
+import { schoolSiteUrl } from "./school-public";
 
 // The FSM's Outbound is the same discriminated union the Cloud client
 // dispatches on. Plain `{ body }` text still satisfies the text variant
@@ -151,6 +152,7 @@ async function loadChildren(parentUserId: string) {
 // ─── Main entry ──────────────────────────────────────────────────────
 
 export async function handleIncoming({ from, text }: FsmInput): Promise<FsmResult> {
+  const school = await getSchoolPublic();
   let session = await getSession(from);
   await logInbound(session.id, text);
 
@@ -166,7 +168,7 @@ export async function handleIncoming({ from, text }: FsmInput): Promise<FsmResul
   // Escalated → silent except for the "still escalated" notice.
   if (session.isEscalated) {
     outbox.push({
-      body: `A staff member will respond shortly. Reply *menu* to come back to the bot, or call ${SCHOOL.phone}.`,
+      body: `A staff member will respond shortly. Reply *menu* to come back to the bot, or call ${school.phone}.`,
     });
     return { outbox, sessionId: session.id };
   }
@@ -180,14 +182,14 @@ export async function handleIncoming({ from, text }: FsmInput): Promise<FsmResul
           where: { id: session.id },
           data: { userId: user.id, lastMenu: "TEACHER_MENU" },
         });
-        outbox.push({ body: formatTeacherMenu(user.name.split(" ")[0]) });
+        outbox.push({ body: formatTeacherMenu(user.name.split(" ")[0], school) });
         return { outbox, sessionId: session.id };
       }
       if (user.role === "PARENT") {
         const children = await loadChildren(user.id);
         if (children.length === 0) {
           outbox.push({
-            body: `Hello ${user.name.split(" ")[0]}, your account isn't linked to any active student yet. Please call ${SCHOOL.phone}.`,
+            body: `Hello ${user.name.split(" ")[0]}, your account isn't linked to any active student yet. Please call ${school.phone}.`,
           });
           return { outbox, sessionId: session.id };
         }
@@ -201,6 +203,7 @@ export async function handleIncoming({ from, text }: FsmInput): Promise<FsmResul
               parentName: user.name.split(" ")[0],
               currentChildName: children[0].user.name,
               hasMultipleChildren: false,
+              school,
             }),
           });
           return { outbox, sessionId: session.id };
@@ -224,12 +227,12 @@ export async function handleIncoming({ from, text }: FsmInput): Promise<FsmResul
       }
       // Other roles (admin/director/etc) — bounce to staff line via escalation.
       outbox.push({
-        body: `Hello ${user.name.split(" ")[0]}, the WhatsApp bot is for parents and teachers. For admin tools please use the portal: ${SCHOOL.website}/portal/login`,
+        body: `Hello ${user.name.split(" ")[0]}, the WhatsApp bot is for parents and teachers. For admin tools please use the portal: ${school.website}/portal/login`,
       });
       return { outbox, sessionId: session.id };
     }
     // No phone match → guest flow.
-    outbox.push({ body: welcomeGuest() });
+    outbox.push({ body: await welcomeGuest() });
     return { outbox, sessionId: session.id };
   }
 
@@ -310,6 +313,7 @@ export async function handleIncoming({ from, text }: FsmInput): Promise<FsmResul
 // ─── Reset / welcome ────────────────────────────────────────────────
 
 async function resetSession(sessionId: string, phone: string, outbox: Outbound[]): Promise<FsmResult> {
+  const school = await getSchoolPublic();
   const session = await prisma.whatsAppSession.findUnique({ where: { id: sessionId } });
   if (!session) return { outbox, sessionId };
 
@@ -324,7 +328,7 @@ async function resetSession(sessionId: string, phone: string, outbox: Outbound[]
         where: { id: session.id },
         data: { lastMenu: "TEACHER_MENU", isEscalated: false, escalatedAt: null },
       });
-      outbox.push({ body: formatTeacherMenu(user.name.split(" ")[0]) });
+      outbox.push({ body: formatTeacherMenu(user.name.split(" ")[0], school) });
       return { outbox, sessionId: session.id };
     }
     if (user?.role === "PARENT") {
@@ -344,6 +348,7 @@ async function resetSession(sessionId: string, phone: string, outbox: Outbound[]
           parentName: user.name.split(" ")[0],
           currentChildName: current?.user.name ?? null,
           hasMultipleChildren: children.length > 1,
+          school,
         }),
       });
       return { outbox, sessionId: session.id };
@@ -354,19 +359,20 @@ async function resetSession(sessionId: string, phone: string, outbox: Outbound[]
     where: { id: session.id },
     data: { lastMenu: "AUTH_PENDING", isEscalated: false, escalatedAt: null },
   });
-  outbox.push({ body: welcomeGuest() });
+  outbox.push({ body: await welcomeGuest() });
   return { outbox, sessionId: session.id };
 }
 
-function welcomeGuest() {
+async function welcomeGuest() {
+  const school = await getSchoolPublic();
   return [
-    `Hello, welcome to ${SCHOOL.name}.`,
+    `Hello, welcome to ${school.name}.`,
     "",
     "If you're a *parent* and your phone is linked, you'll be auto-recognised next time. For now, please reply with your child's *admission number* to continue.",
     "",
     "Example: MCL/SS3A/2526/001",
     "",
-    `Or reply *9* to speak to a staff member. Or call ${SCHOOL.phone}.`,
+    `Or reply *9* to speak to a staff member. Or call ${school.phone}.`,
   ].join("\n");
 }
 
@@ -407,11 +413,13 @@ async function handleGuestAuth(sessionId: string, input: string, outbox: Outboun
   outbox.push({
     body: `Got it — found *${student.user.name}*${student.classRef ? ` (${student.classRef.name}${student.classRef.arm})` : ""}.`,
   });
+  const school = await getSchoolPublic();
   outbox.push({
     body: formatParentMenu({
       parentName: greetName,
       currentChildName: student.user.name,
       hasMultipleChildren: false,
+      school,
     }),
   });
 }
@@ -424,7 +432,7 @@ async function handleChooseChild(
   outbox: Outbound[],
 ) {
   if (!session.userId) {
-    outbox.push({ body: welcomeGuest() });
+    outbox.push({ body: await welcomeGuest() });
     return;
   }
   const idx = Number(input.trim()) - 1;
@@ -441,11 +449,13 @@ async function handleChooseChild(
     data: { studentId: chosen.id, admissionNumber: chosen.admissionNumber, lastMenu: "PARENT_MENU" },
   });
   const parentUser = await prisma.user.findUnique({ where: { id: session.userId }, select: { name: true } });
+  const school = await getSchoolPublic();
   outbox.push({
     body: formatParentMenu({
       parentName: parentUser?.name.split(" ")[0] ?? "there",
       currentChildName: chosen.user.name,
       hasMultipleChildren: children.length > 1,
+      school,
     }),
   });
 }
@@ -458,7 +468,7 @@ async function handleParentMenu(
   outbox: Outbound[],
 ) {
   if (!session.studentId) {
-    outbox.push({ body: welcomeGuest() });
+    outbox.push({ body: await welcomeGuest() });
     return;
   }
   const choice = input.trim().toLowerCase();
@@ -482,7 +492,8 @@ async function handleParentMenu(
     await startMessageTeacherFlow(session, outbox); return;
   }
   if (choice === "0" || /^(exit|bye|thanks|thank you)/i.test(choice)) {
-    outbox.push({ body: "👋 Thanks for using Meclones College Lekki. Reply *menu* any time to come back." });
+    const school = await getSchoolPublic();
+    outbox.push({ body: `👋 Thanks for using ${school.name}. Reply *menu* any time to come back.` });
     return;
   }
 
@@ -506,7 +517,7 @@ async function offerChildSwitch(
   outbox: Outbound[],
 ) {
   if (!session.userId) {
-    outbox.push({ body: welcomeGuest() });
+    outbox.push({ body: await welcomeGuest() });
     return;
   }
   const children = await loadChildren(session.userId);
@@ -535,7 +546,7 @@ async function handleTeacherMenu(
   outbox: Outbound[],
 ) {
   if (!session.userId) {
-    outbox.push({ body: welcomeGuest() });
+    outbox.push({ body: await welcomeGuest() });
     return;
   }
   const choice = input.trim().toLowerCase();
@@ -577,7 +588,7 @@ async function handleTermPick(
   outbox: Outbound[],
 ) {
   if (!session.studentId) {
-    outbox.push({ body: welcomeGuest() });
+    outbox.push({ body: await welcomeGuest() });
     return;
   }
   const term = TERM_MAP[input.trim().toLowerCase()];
@@ -625,8 +636,9 @@ async function escalateSession(sessionId: string, reason: string, outbox: Outbou
     }).catch(err => console.error("[whatsapp-fsm] notify failed", err));
   }
 
+  const school = await getSchoolPublic();
   outbox.push({
-    body: `Got it — a staff member will reach out shortly. While you wait you can also call ${SCHOOL.phone}.`,
+    body: `Got it — a staff member will reach out shortly. While you wait you can also call ${school.phone}.`,
   });
 }
 
@@ -660,6 +672,7 @@ async function sendResults(studentId: string, term: "FIRST" | "SECOND" | "THIRD"
 
   const position = results.find(r => r.position !== null)?.position ?? null;
   const classSize = student.classId ? await prisma.student.count({ where: { classId: student.classId } }) : undefined;
+  const school = await getSchoolPublic();
 
   outbox.push({
     body: formatResults({
@@ -670,6 +683,7 @@ async function sendResults(studentId: string, term: "FIRST" | "SECOND" | "THIRD"
       position: position ?? undefined,
       classSize,
       results: results.map(r => ({ subject: r.subject.name, total: r.total, grade: r.grade })),
+      school,
     }),
   });
 }
@@ -732,6 +746,7 @@ async function sendFeesAndPayLinks(studentId: string, outbox: Outbound[]) {
     where: { studentId, termId: term.id },
     orderBy: { createdAt: "asc" },
   });
+  const school = await getSchoolPublic();
 
   outbox.push({
     body: formatFees({
@@ -743,6 +758,7 @@ async function sendFeesAndPayLinks(studentId: string, outbox: Outbound[]) {
         balance: Number(f.balance),
         status: f.status,
       })),
+      school,
     }),
   });
 
@@ -755,12 +771,12 @@ async function sendFeesAndPayLinks(studentId: string, outbox: Outbound[]) {
   const parentEmail = student.parentLinks[0]?.parent.user.email ?? null;
   if (!parentEmail) {
     outbox.push({
-      body: `To pay online, log in to the portal: ${SCHOOL.website}/portal/parent/fees`,
+      body: `To pay online, log in to the portal: ${school.website}/portal/parent/fees`,
     });
     return;
   }
 
-  const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL ?? SCHOOL.website).replace(/\/$/, "");
+  const siteUrl = schoolSiteUrl(school);
   const callbackUrl = `${siteUrl}/api/paystack/callback`;
   const links: Array<{ feeType: string; amount: number; balance: number; url: string }> = [];
 
@@ -857,7 +873,8 @@ async function sendAnnouncements(outbox: Outbound[]) {
     take: 3,
     select: { title: true, body: true, publishedAt: true },
   });
-  outbox.push({ body: formatAnnouncements(items) });
+  const school = await getSchoolPublic();
+  outbox.push({ body: formatAnnouncements(items, school) });
 }
 
 // ─── Content fetchers (teacher) ─────────────────────────────────────
@@ -978,6 +995,7 @@ async function sendTeacherDiscipline(userId: string, outbox: Outbound[]) {
     orderBy: { createdAt: "desc" },
     take: 6,
   });
+  const school = await getSchoolPublic();
 
   outbox.push({
     body: formatRecentDiscipline(cases.map(c => ({
@@ -987,7 +1005,7 @@ async function sendTeacherDiscipline(userId: string, outbox: Outbound[]) {
       severity: c.severity,
       status: c.status,
       date: c.incidentDate,
-    }))),
+    })), school),
   });
 }
 
@@ -1022,7 +1040,8 @@ async function returnToTeacherMenu(sessionId: string, userId: string | null, out
   });
   if (userId) {
     const u = await prisma.user.findUnique({ where: { id: userId }, select: { name: true } });
-    outbox.push({ body: formatTeacherMenu(u?.name.split(" ")[0] ?? "Teacher") });
+    const school = await getSchoolPublic();
+    outbox.push({ body: formatTeacherMenu(u?.name.split(" ")[0] ?? "Teacher", school) });
   }
 }
 
@@ -1037,11 +1056,13 @@ async function returnToParentMenu(sessionId: string, userId: string | null, stud
       prisma.student.findUnique({ where: { id: studentId }, include: { user: { select: { name: true } } } }),
     ]);
     const children = await loadChildren(userId);
+    const school = await getSchoolPublic();
     outbox.push({
       body: formatParentMenu({
         parentName: user?.name.split(" ")[0] ?? "there",
         currentChildName: student?.user.name ?? null,
         hasMultipleChildren: children.length > 1,
+        school,
       }),
     });
   }
@@ -1077,7 +1098,7 @@ async function teacherClassOptions(userId: string) {
 }
 
 async function startAttendanceFlow(session: { id: string; userId: string | null }, outbox: Outbound[]) {
-  if (!session.userId) { outbox.push({ body: welcomeGuest() }); return; }
+  if (!session.userId) { outbox.push({ body: await welcomeGuest() }); return; }
   const opts = await teacherClassOptions(session.userId);
   if (opts.length === 0) {
     outbox.push({ body: "You don't have any classes assigned yet. Talk to admin." });
@@ -1106,7 +1127,7 @@ async function handleAttendPickClass(
   input: string,
   outbox: Outbound[],
 ) {
-  if (!session.userId) { outbox.push({ body: welcomeGuest() }); return; }
+  if (!session.userId) { outbox.push({ body: await welcomeGuest() }); return; }
   const data = readPending<{ stage: string; opts: Array<{ id: string; label: string }> }>(session.pendingData);
   const opts = data.opts ?? [];
 
@@ -1160,7 +1181,7 @@ async function handleAttendMark(
   input: string,
   outbox: Outbound[],
 ) {
-  if (!session.userId) { outbox.push({ body: welcomeGuest() }); return; }
+  if (!session.userId) { outbox.push({ body: await welcomeGuest() }); return; }
   const data = readPending<{
     classId: string;
     classLabel: string;
@@ -1208,6 +1229,7 @@ async function handleAttendMark(
   }
 
   // Notify parents of absent students via WhatsApp (best-effort; non-blocking on failure).
+  const school = await getSchoolPublic();
   const absentNames: string[] = [];
   for (const i of absentIdxs) {
     absentNames.push(data.rosterNames[i]);
@@ -1226,7 +1248,7 @@ async function handleAttendMark(
         const { sendWhatsAppText } = await import("./whatsapp-cloud");
         await sendWhatsAppText(
           phone,
-          `${SCHOOL.shortName}: ${stu?.user.name ?? "Your child"} is marked absent today (${today.toLocaleDateString("en-NG", { weekday: "long", day: "numeric", month: "short" })}). If this is unexpected please reply to this thread or call the school office.`,
+          `${school.shortName}: ${stu?.user.name ?? "Your child"} is marked absent today (${today.toLocaleDateString("en-NG", { weekday: "long", day: "numeric", month: "short" })}). If this is unexpected please reply to this thread or call the school office.`,
         );
       }
     } catch (err) {
@@ -1252,7 +1274,7 @@ async function handleAttendMark(
 // ============================================================
 
 async function startIncidentFlow(session: { id: string; userId: string | null }, outbox: Outbound[]) {
-  if (!session.userId) { outbox.push({ body: welcomeGuest() }); return; }
+  if (!session.userId) { outbox.push({ body: await welcomeGuest() }); return; }
   await prisma.whatsAppSession.update({
     where: { id: session.id },
     data: { lastMenu: "INC_PICK_STUDENT", pendingData: { stage: "pick_student" } },
@@ -1267,7 +1289,7 @@ async function handleIncPickStudent(
   input: string,
   outbox: Outbound[],
 ) {
-  if (!session.userId) { outbox.push({ body: welcomeGuest() }); return; }
+  if (!session.userId) { outbox.push({ body: await welcomeGuest() }); return; }
   const candidate = input.trim();
 
   // Try admission number first.
@@ -1373,7 +1395,7 @@ async function handleIncSeverity(
   input: string,
   outbox: Outbound[],
 ) {
-  if (!session.userId) { outbox.push({ body: welcomeGuest() }); return; }
+  if (!session.userId) { outbox.push({ body: await welcomeGuest() }); return; }
   const norm = input.trim().toLowerCase();
   let severity: "MINOR" | "MODERATE" | "MAJOR" | "SEVERE" = "MINOR";
   if (norm.includes("moderate") || norm === "inc:sev:moderate" || norm === "2") severity = "MODERATE";
@@ -1421,6 +1443,7 @@ async function handleIncSeverity(
 
   // Notify parents on WhatsApp.
   try {
+    const school = await getSchoolPublic();
     const student = await prisma.student.findUnique({
       where: { id: data.studentId },
       include: { parentLinks: { include: { parent: { include: { user: { select: { phone: true, name: true, id: true } } } } } } },
@@ -1431,7 +1454,7 @@ async function handleIncSeverity(
       if (!phone) continue;
       await sendWhatsAppText(
         phone,
-        `${SCHOOL.shortName} · disciplinary notice\n\nA ${severity.toLowerCase()} incident involving ${data.studentName} was recorded today by ${reporter.name}.\n\nCategory: ${data.category}\nNotes: ${data.description.slice(0, 200)}\n\nReply *menu* and pick *discipline* to acknowledge, or call ${SCHOOL.phone}.`,
+        `${school.shortName} · disciplinary notice\n\nA ${severity.toLowerCase()} incident involving ${data.studentName} was recorded today by ${reporter.name}.\n\nCategory: ${data.category}\nNotes: ${data.description.slice(0, 200)}\n\nReply *menu* and pick *discipline* to acknowledge, or call ${school.phone}.`,
       );
       // In-app notification too, for the bell.
       try {
@@ -1462,7 +1485,7 @@ async function startMessageTeacherFlow(
   session: { id: string; userId: string | null; studentId: string | null },
   outbox: Outbound[],
 ) {
-  if (!session.studentId) { outbox.push({ body: welcomeGuest() }); return; }
+  if (!session.studentId) { outbox.push({ body: await welcomeGuest() }); return; }
 
   // Build the list of teachers — homeroom (Class.classTeacher) +
   // everyone teaching this class via the ClassTeacher join. We also
@@ -1544,7 +1567,7 @@ async function handleMsgPickTeacher(
   input: string,
   outbox: Outbound[],
 ) {
-  if (!session.userId || !session.studentId) { outbox.push({ body: welcomeGuest() }); return; }
+  if (!session.userId || !session.studentId) { outbox.push({ body: await welcomeGuest() }); return; }
   const data = readPending<{ teachers: Array<{ id: string; label: string; sub: string }> }>(session.pendingData);
   const teachers = data.teachers ?? [];
 
@@ -1580,7 +1603,7 @@ async function handleMsgCompose(
   input: string,
   outbox: Outbound[],
 ) {
-  if (!session.userId || !session.studentId) { outbox.push({ body: welcomeGuest() }); return; }
+  if (!session.userId || !session.studentId) { outbox.push({ body: await welcomeGuest() }); return; }
   const data = readPending<{ teacherId: string; teacherLabel: string }>(session.pendingData);
   if (!data.teacherId) {
     outbox.push({ body: "Something went wrong. Reply *menu* and try again." });
@@ -1652,10 +1675,11 @@ async function handleMsgCompose(
     }
     if (teacher?.user.phone) {
       const { sendWhatsAppText } = await import("./whatsapp-cloud");
+      const school = await getSchoolPublic();
       const parentUser = await prisma.user.findUnique({ where: { id: session.userId }, select: { name: true } });
       await sendWhatsAppText(
         teacher.user.phone,
-        `${SCHOOL.shortName} · parent message from ${parentUser?.name ?? "parent"}\n\nRe: ${student?.user.name ?? "student"}\n\n"${body.slice(0, 280)}"\n\nReply on the portal: ${(process.env.NEXT_PUBLIC_SITE_URL ?? SCHOOL.website).replace(/\/$/, "")}/portal/teacher/messages/${thread.id}`,
+        `${school.shortName} · parent message from ${parentUser?.name ?? "parent"}\n\nRe: ${student?.user.name ?? "student"}\n\n"${body.slice(0, 280)}"\n\nReply on the portal: ${schoolSiteUrl(school)}/portal/teacher/messages/${thread.id}`,
       );
     }
   } catch (err) {
@@ -1712,7 +1736,7 @@ async function teacherSubjectClassOptions(userId: string) {
 }
 
 async function startScoreFlow(session: { id: string; userId: string | null }, outbox: Outbound[]) {
-  if (!session.userId) { outbox.push({ body: welcomeGuest() }); return; }
+  if (!session.userId) { outbox.push({ body: await welcomeGuest() }); return; }
   const opts = await teacherSubjectClassOptions(session.userId);
   if (opts.length === 0) {
     outbox.push({ body: "You don't have any subject-class assignments yet. Talk to admin." });
@@ -1744,7 +1768,7 @@ async function handleScorePickSubjClass(
   input: string,
   outbox: Outbound[],
 ) {
-  if (!session.userId) { outbox.push({ body: welcomeGuest() }); return; }
+  if (!session.userId) { outbox.push({ body: await welcomeGuest() }); return; }
   const data = readPending<{ opts: Array<{ id: string; subjectId: string; subjectName: string; classId: string; classLabel: string }> }>(session.pendingData);
   const opts = data.opts ?? [];
 
@@ -1789,7 +1813,7 @@ async function handleScorePickAssess(
   input: string,
   outbox: Outbound[],
 ) {
-  if (!session.userId) { outbox.push({ body: welcomeGuest() }); return; }
+  if (!session.userId) { outbox.push({ body: await welcomeGuest() }); return; }
   const norm = input.trim().toLowerCase();
   let field: "ca1" | "ca2" | "exam" | null = null;
   let max = 20;
@@ -1843,7 +1867,7 @@ async function handleScoreEntry(
   input: string,
   outbox: Outbound[],
 ) {
-  if (!session.userId) { outbox.push({ body: welcomeGuest() }); return; }
+  if (!session.userId) { outbox.push({ body: await welcomeGuest() }); return; }
   const data = readPending<{
     classId: string;
     classLabel: string;

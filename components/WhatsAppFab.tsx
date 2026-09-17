@@ -1,12 +1,13 @@
 "use client";
 
-import { SCHOOL } from "@/lib/constants";
+import { useSchool } from "@/components/SchoolProvider";
 
 export function WhatsAppFab() {
+  const school = useSchool();
   const message = encodeURIComponent(
-    `Hello ${SCHOOL.shortName}, I'd like to ask a few questions about your school.`
+    `Hello ${school.shortName}, I'd like to ask a few questions about your school.`
   );
-  const href = `https://wa.me/${SCHOOL.whatsapp}?text=${message}`;
+  const href = `https://wa.me/${school.whatsapp}?text=${message}`;
 
   return (
     <a

@@ -8,7 +8,8 @@ import { getSessionUser } from "@/lib/auth-helpers";
 import { auditLog } from "@/lib/audit";
 import { notify } from "@/lib/notify";
 import { sendDisciplinaryCaseFiledEmail, sendDisciplinaryResolvedEmail } from "@/lib/resend";
-import { SCHOOL } from "@/lib/constants";
+import { getSchoolPublic } from "@/lib/tenant";
+import { schoolSiteUrl } from "@/lib/school-public";
 import { CATEGORY_LABEL, SEVERITY_LABEL, SANCTION_LABEL } from "@/lib/discipline";
 import { canEmail } from "@/lib/notification-prefs";
 
@@ -142,7 +143,8 @@ export async function createDisciplinaryCase(formData: FormData) {
     .map(l => ({ email: l.parent.user.email, name: l.parent.user.name }))
     .filter(p => Boolean(p.email));
   if (parentEmails.length > 0) {
-    const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL ?? SCHOOL.website).replace(/\/$/, "");
+    const school = await getSchoolPublic();
+    const siteUrl = schoolSiteUrl(school);
     const caseUrl = `${siteUrl}/portal/parent/discipline/${created.id}`;
     for (const p of parentEmails) {
       sendDisciplinaryCaseFiledEmail({
@@ -294,7 +296,8 @@ export async function resolveDisciplinaryCase(formData: FormData) {
     .map(l => ({ userId: l.parent.userId, email: l.parent.user.email, name: l.parent.user.name }))
     .filter(p => Boolean(p.email));
   if (parentTargets.length > 0) {
-    const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL ?? SCHOOL.website).replace(/\/$/, "");
+    const school = await getSchoolPublic();
+    const siteUrl = schoolSiteUrl(school);
     const caseUrl = `${siteUrl}/portal/parent/discipline/${d.id}`;
     for (const p of parentTargets) {
       if (!(await canEmail(p.userId, "emailDisciplinaryResolved"))) continue;

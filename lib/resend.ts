@@ -1,5 +1,6 @@
 import { Resend } from "resend";
-import { SCHOOL } from "./constants";
+import { getSchoolPublic } from "./tenant";
+import { schoolSiteUrl, type SchoolPublic } from "./school-public";
 
 // Lazy-init so missing API key doesn't crash builds. Email helpers degrade
 // gracefully to console logs in dev without RESEND_API_KEY.
@@ -11,7 +12,20 @@ function client() {
   return _resend;
 }
 
-const FROM = process.env.RESEND_FROM ?? `${SCHOOL.shortName} <noreply@meclonescollege.com>`;
+const DEFAULT_FROM_ADDRESS = "noreply@meclonescollege.com";
+
+/**
+ * Sender for outgoing mail. The address must stay the Resend-verified one
+ * from RESEND_FROM (`Name <addr>` or bare `addr`); only the display name
+ * follows the current school.
+ */
+function fromFor(school: SchoolPublic): string {
+  const raw = (process.env.RESEND_FROM ?? "").trim();
+  if (!raw) return `${school.shortName} <${DEFAULT_FROM_ADDRESS}>`;
+  const m = raw.match(/<([^>]+)>\s*$/);
+  const addr = m ? m[1].trim() : raw.includes("@") ? raw : "";
+  return addr ? `${school.shortName} <${addr}>` : raw;
+}
 
 export async function sendAdmissionConfirmation(input: {
   to: string;
@@ -20,21 +34,22 @@ export async function sendAdmissionConfirmation(input: {
   reference: string;
   classApplyingFor: string;
 }) {
-  const subject = `${SCHOOL.shortName} — Application received (${input.reference})`;
+  const school = await getSchoolPublic();
+  const subject = `${school.shortName} — Application received (${input.reference})`;
   const html = `
     <div style="font-family: Inter, Arial, sans-serif; color:#1a2c5a; max-width:560px; margin:0 auto; padding:24px;">
       <h2 style="color:#0B1F4B; font-family: Georgia, serif;">We've received your application</h2>
       <p>Dear ${input.parentName},</p>
-      <p>Thank you for choosing <strong>${SCHOOL.name}</strong>. We have received your application for
+      <p>Thank you for choosing <strong>${school.name}</strong>. We have received your application for
         <strong>${input.applicantName}</strong> (${input.classApplyingFor}).</p>
       <p>Your reference number is:</p>
       <p style="font-size:22px; font-weight:700; color:#D4A017; letter-spacing:0.04em;">${input.reference}</p>
       <p>Our admissions team will be in touch within 24 hours to confirm next steps.</p>
       <hr style="border:none; border-top:1px solid #e5e7eb; margin:20px 0;" />
       <p style="font-size:13px; color:#475569;">
-        ${SCHOOL.name}<br/>
-        ${SCHOOL.address}<br/>
-        ${SCHOOL.phone} · ${SCHOOL.email}
+        ${school.name}<br/>
+        ${school.address}<br/>
+        ${school.phone} · ${school.email}
       </p>
     </div>
   `;
@@ -44,7 +59,7 @@ export async function sendAdmissionConfirmation(input: {
     console.log("[resend stub] sendAdmissionConfirmation", { to: input.to, subject, reference: input.reference });
     return { id: "stub" };
   }
-  const r = await c.emails.send({ from: FROM, to: input.to, subject, html });
+  const r = await c.emails.send({ from: fromFor(school), to: input.to, subject, html, replyTo: school.email });
   return r;
 }
 
@@ -56,7 +71,8 @@ export async function sendAdmissionsAlert(input: {
   classApplyingFor: string;
   reference: string;
 }) {
-  const to = process.env.ADMISSIONS_NOTIFY_EMAIL ?? SCHOOL.admissionsEmail;
+  const school = await getSchoolPublic();
+  const to = process.env.ADMISSIONS_NOTIFY_EMAIL ?? school.admissionsEmail;
   const subject = `New admission application — ${input.applicantName} (${input.classApplyingFor})`;
   const html = `
     <div style="font-family: Inter, Arial, sans-serif; color:#1a2c5a;">
@@ -77,7 +93,7 @@ export async function sendAdmissionsAlert(input: {
     console.log("[resend stub] sendAdmissionsAlert", { to, subject });
     return { id: "stub" };
   }
-  return c.emails.send({ from: FROM, to, subject, html });
+  return c.emails.send({ from: fromFor(school), to, subject, html, replyTo: school.email });
 }
 
 export async function sendContactInquiry(input: {
@@ -88,7 +104,8 @@ export async function sendContactInquiry(input: {
   role?: string;
   message: string;
 }) {
-  const to = process.env.CONTACT_NOTIFY_EMAIL ?? SCHOOL.email;
+  const school = await getSchoolPublic();
+  const to = process.env.CONTACT_NOTIFY_EMAIL ?? school.email;
   const subject = `Website enquiry — ${input.subject ?? input.role ?? input.name}`;
   const html = `
     <div style="font-family: Inter, Arial, sans-serif; color:#1a2c5a;">
@@ -108,7 +125,7 @@ export async function sendContactInquiry(input: {
     console.log("[resend stub] sendContactInquiry", { to, subject });
     return { id: "stub" };
   }
-  return c.emails.send({ from: FROM, to, subject, html, replyTo: input.email });
+  return c.emails.send({ from: fromFor(school), to, subject, html, replyTo: input.email });
 }
 
 const naira = new Intl.NumberFormat("en-NG", { style: "currency", currency: "NGN", maximumFractionDigits: 0 });
@@ -125,14 +142,14 @@ export async function sendPaymentReceipt(input: {
   paidAt: Date;
   paymentId: string;
 }) {
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? SCHOOL.website;
-  const receiptUrl = `${siteUrl.replace(/\/$/, "")}/portal/parent/fees/receipt/${input.paymentId}`;
-  const subject = `${SCHOOL.shortName} — Payment receipt for ${input.studentName} (${naira.format(input.amountPaid)})`;
+  const school = await getSchoolPublic();
+  const receiptUrl = `${schoolSiteUrl(school)}/portal/parent/fees/receipt/${input.paymentId}`;
+  const subject = `${school.shortName} — Payment receipt for ${input.studentName} (${naira.format(input.amountPaid)})`;
   const html = `
     <div style="font-family: Inter, Arial, sans-serif; color:#1a2c5a; max-width:560px; margin:0 auto; padding:24px;">
       <div style="border-bottom:3px solid #0B1F4B; padding-bottom:12px; margin-bottom:20px;">
-        <h2 style="color:#0B1F4B; font-family: Georgia, serif; margin:0;">${SCHOOL.name}</h2>
-        <p style="font-size:12px; color:#5e3e17; font-weight:600; margin:4px 0 0;">${SCHOOL.tagline}</p>
+        <h2 style="color:#0B1F4B; font-family: Georgia, serif; margin:0;">${school.name}</h2>
+        <p style="font-size:12px; color:#5e3e17; font-weight:600; margin:4px 0 0;">${school.tagline}</p>
       </div>
 
       <h3 style="color:#0B1F4B; font-family: Georgia, serif;">Payment received — thank you!</h3>
@@ -153,7 +170,7 @@ export async function sendPaymentReceipt(input: {
 
       <hr style="border:none; border-top:1px solid #e5e7eb; margin:24px 0;" />
       <p style="font-size:12px; color:#64748b;">
-        ${SCHOOL.name}<br/>${SCHOOL.address}<br/>${SCHOOL.phone} · ${SCHOOL.email}
+        ${school.name}<br/>${school.address}<br/>${school.phone} · ${school.email}
       </p>
     </div>
   `;
@@ -163,7 +180,7 @@ export async function sendPaymentReceipt(input: {
     console.log("[resend stub] sendPaymentReceipt", { to: input.to, subject, reference: input.reference });
     return { id: "stub" };
   }
-  return c.emails.send({ from: FROM, to: input.to, subject, html });
+  return c.emails.send({ from: fromFor(school), to: input.to, subject, html, replyTo: school.email });
 }
 
 // ============================================================
@@ -175,12 +192,13 @@ export async function sendPasswordResetEmail(input: {
   name: string;
   resetUrl: string;
 }) {
-  const subject = `${SCHOOL.shortName} — Reset your password`;
+  const school = await getSchoolPublic();
+  const subject = `${school.shortName} — Reset your password`;
   const html = `
     <div style="font-family: Inter, Arial, sans-serif; color:#1a2c5a; max-width:560px; margin:0 auto; padding:24px;">
       <h2 style="color:#0B1F4B; font-family: Georgia, serif;">Reset your password</h2>
       <p>Hello ${input.name},</p>
-      <p>We received a request to reset your ${SCHOOL.shortName} portal password.
+      <p>We received a request to reset your ${school.shortName} portal password.
         Click the button below to set a new one — the link expires in 1 hour.</p>
       <p style="margin:24px 0;">
         <a href="${input.resetUrl}" style="display:inline-block; background:#D4A017; color:#0B1F4B; padding:12px 24px; border-radius:6px; text-decoration:none; font-weight:600;">Reset password</a>
@@ -188,7 +206,7 @@ export async function sendPasswordResetEmail(input: {
       <p style="font-size:12px; color:#64748b;">If you didn't request this, you can safely ignore this email — your password won't change.</p>
       <hr style="border:none; border-top:1px solid #e5e7eb; margin:20px 0;" />
       <p style="font-size:12px; color:#64748b;">
-        ${SCHOOL.name} · ${SCHOOL.phone} · ${SCHOOL.email}
+        ${school.name} · ${school.phone} · ${school.email}
       </p>
     </div>
   `;
@@ -197,7 +215,7 @@ export async function sendPasswordResetEmail(input: {
     console.log("[resend stub] sendPasswordResetEmail", { to: input.to, resetUrl: input.resetUrl });
     return { id: "stub" };
   }
-  return c.emails.send({ from: FROM, to: input.to, subject, html });
+  return c.emails.send({ from: fromFor(school), to: input.to, subject, html, replyTo: school.email });
 }
 
 export async function sendResultsPublishedEmail(input: {
@@ -212,7 +230,8 @@ export async function sendResultsPublishedEmail(input: {
   /** Filename for the PDF attachment, e.g. "Yusuf_Bello_FirstTerm.pdf". */
   pdfFilename?: string;
 }) {
-  const subject = `${SCHOOL.shortName} — ${input.studentName}'s ${input.termLabel} results are out`;
+  const school = await getSchoolPublic();
+  const subject = `${school.shortName} — ${input.studentName}'s ${input.termLabel} results are out`;
   const html = `
     <div style="font-family: Inter, Arial, sans-serif; color:#1a2c5a; max-width:560px; margin:0 auto; padding:24px;">
       <h2 style="color:#0B1F4B; font-family: Georgia, serif;">${input.termLabel} results published</h2>
@@ -223,7 +242,7 @@ export async function sendResultsPublishedEmail(input: {
       </p>
       <p style="font-size:13px; color:#475569;">You can also download a printable result slip from the same page.</p>
       <hr style="border:none; border-top:1px solid #e5e7eb; margin:20px 0;" />
-      <p style="font-size:12px; color:#64748b;">${SCHOOL.name} · ${SCHOOL.phone} · ${SCHOOL.email}</p>
+      <p style="font-size:12px; color:#64748b;">${school.name} · ${school.phone} · ${school.email}</p>
     </div>
   `;
   const c = client();
@@ -232,10 +251,11 @@ export async function sendResultsPublishedEmail(input: {
     return { id: "stub" };
   }
   return c.emails.send({
-    from: FROM,
+    from: fromFor(school),
     to: input.to,
     subject,
     html,
+    replyTo: school.email,
     ...(input.pdfBuffer && input.pdfFilename
       ? { attachments: [{ filename: input.pdfFilename, content: input.pdfBuffer }] }
       : {}),
@@ -249,7 +269,8 @@ export async function sendComplaintRepliedEmail(input: {
   resolution: string;
   portalUrl: string;
 }) {
-  const emailSubject = `${SCHOOL.shortName} — Re: ${input.subject}`;
+  const school = await getSchoolPublic();
+  const emailSubject = `${school.shortName} — Re: ${input.subject}`;
   const html = `
     <div style="font-family: Inter, Arial, sans-serif; color:#1a2c5a; max-width:560px; margin:0 auto; padding:24px;">
       <h2 style="color:#0B1F4B; font-family: Georgia, serif;">Your complaint has been resolved</h2>
@@ -263,7 +284,7 @@ export async function sendComplaintRepliedEmail(input: {
         <a href="${input.portalUrl}" style="display:inline-block; background:#D4A017; color:#0B1F4B; padding:10px 20px; border-radius:6px; text-decoration:none; font-weight:600;">View in portal</a>
       </p>
       <hr style="border:none; border-top:1px solid #e5e7eb; margin:20px 0;" />
-      <p style="font-size:12px; color:#64748b;">${SCHOOL.name} · ${SCHOOL.phone} · ${SCHOOL.email}</p>
+      <p style="font-size:12px; color:#64748b;">${school.name} · ${school.phone} · ${school.email}</p>
     </div>
   `;
   const c = client();
@@ -271,7 +292,7 @@ export async function sendComplaintRepliedEmail(input: {
     console.log("[resend stub] sendComplaintRepliedEmail", { to: input.to });
     return { id: "stub" };
   }
-  return c.emails.send({ from: FROM, to: input.to, subject: emailSubject, html });
+  return c.emails.send({ from: fromFor(school), to: input.to, subject: emailSubject, html, replyTo: school.email });
 }
 
 export async function sendFeeReminderEmail(input: {
@@ -284,7 +305,8 @@ export async function sendFeeReminderEmail(input: {
   portalUrl: string;
   customMessage?: string | null;
 }) {
-  const emailSubject = `${SCHOOL.shortName} — Fee reminder for ${input.studentName} (${naira.format(input.outstanding)})`;
+  const school = await getSchoolPublic();
+  const emailSubject = `${school.shortName} — Fee reminder for ${input.studentName} (${naira.format(input.outstanding)})`;
   const customBlock = input.customMessage
     ? `<div style="background:#fff7ed; border-left:3px solid #fb923c; border-radius:4px; padding:12px 14px; margin:16px 0;">
         <p style="margin:0; font-size:13px; color:#9a3412; white-space:pre-wrap;">${escapeHtml(input.customMessage)}</p>
@@ -293,8 +315,8 @@ export async function sendFeeReminderEmail(input: {
   const html = `
     <div style="font-family: Inter, Arial, sans-serif; color:#1a2c5a; max-width:560px; margin:0 auto; padding:24px;">
       <div style="border-bottom:3px solid #0B1F4B; padding-bottom:12px; margin-bottom:20px;">
-        <h2 style="color:#0B1F4B; font-family: Georgia, serif; margin:0;">${SCHOOL.name}</h2>
-        <p style="font-size:12px; color:#5e3e17; font-weight:600; margin:4px 0 0;">${SCHOOL.tagline}</p>
+        <h2 style="color:#0B1F4B; font-family: Georgia, serif; margin:0;">${school.name}</h2>
+        <p style="font-size:12px; color:#5e3e17; font-weight:600; margin:4px 0 0;">${school.tagline}</p>
       </div>
 
       <h3 style="color:#9a3412; font-family: Georgia, serif; margin:0 0 16px;">Friendly fee reminder</h3>
@@ -313,11 +335,11 @@ export async function sendFeeReminderEmail(input: {
       </p>
 
       <p style="font-size:13px; color:#475569;">You can also pay at the school office by cash, transfer, cheque or POS. The accountant will issue a receipt on the spot.</p>
-      <p style="font-size:13px; color:#475569;">Questions? Call us on ${SCHOOL.phone} — we're happy to help.</p>
+      <p style="font-size:13px; color:#475569;">Questions? Call us on ${school.phone} — we're happy to help.</p>
 
       <hr style="border:none; border-top:1px solid #e5e7eb; margin:24px 0;" />
       <p style="font-size:12px; color:#64748b;">
-        ${SCHOOL.name}<br/>${SCHOOL.address}<br/>${SCHOOL.phone} · ${SCHOOL.email}
+        ${school.name}<br/>${school.address}<br/>${school.phone} · ${school.email}
       </p>
     </div>
   `;
@@ -326,7 +348,7 @@ export async function sendFeeReminderEmail(input: {
     console.log("[resend stub] sendFeeReminderEmail", { to: input.to, student: input.studentName, outstanding: input.outstanding });
     return { id: "stub" };
   }
-  return c.emails.send({ from: FROM, to: input.to, subject: emailSubject, html });
+  return c.emails.send({ from: fromFor(school), to: input.to, subject: emailSubject, html, replyTo: school.email });
 }
 
 export async function sendWelcomeEmail(input: {
@@ -340,7 +362,8 @@ export async function sendWelcomeEmail(input: {
   children?: Array<{ name: string; admissionNumber: string; className: string }>;
 }) {
   const roleLabel = input.role === "PARENT" ? "parent" : input.role === "TEACHER" ? "teacher" : "staff member";
-  const subject = `Welcome to ${SCHOOL.shortName} — set up your portal account`;
+  const school = await getSchoolPublic();
+  const subject = `Welcome to ${school.shortName} — set up your portal account`;
 
   const childrenBlock = input.children && input.children.length > 0
     ? `<div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:6px; padding:12px 14px; margin:16px 0;">
@@ -360,12 +383,12 @@ export async function sendWelcomeEmail(input: {
   const html = `
     <div style="font-family: Inter, Arial, sans-serif; color:#1a2c5a; max-width:560px; margin:0 auto; padding:24px;">
       <div style="border-bottom:3px solid #0B1F4B; padding-bottom:12px; margin-bottom:20px;">
-        <h2 style="color:#0B1F4B; font-family: Georgia, serif; margin:0;">${SCHOOL.name}</h2>
-        <p style="font-size:12px; color:#5e3e17; font-weight:600; margin:4px 0 0;">${SCHOOL.tagline}</p>
+        <h2 style="color:#0B1F4B; font-family: Georgia, serif; margin:0;">${school.name}</h2>
+        <p style="font-size:12px; color:#5e3e17; font-weight:600; margin:4px 0 0;">${school.tagline}</p>
       </div>
 
       <h3 style="color:#0B1F4B; font-family: Georgia, serif;">Welcome, ${escapeHtml(input.recipientName)}!</h3>
-      <p>Your ${roleLabel} account on the ${SCHOOL.shortName} portal has been created. To get started, please set a password — the link below is valid for the next 7 days.</p>
+      <p>Your ${roleLabel} account on the ${school.shortName} portal has been created. To get started, please set a password — the link below is valid for the next 7 days.</p>
 
       <p style="margin:24px 0;">
         <a href="${input.setPasswordUrl}" style="display:inline-block; background:#D4A017; color:#0B1F4B; padding:12px 28px; border-radius:6px; text-decoration:none; font-weight:700;">Set your password</a>
@@ -386,7 +409,7 @@ export async function sendWelcomeEmail(input: {
 
       <hr style="border:none; border-top:1px solid #e5e7eb; margin:24px 0;" />
       <p style="font-size:12px; color:#64748b;">
-        ${SCHOOL.name}<br/>${SCHOOL.address}<br/>${SCHOOL.phone} · ${SCHOOL.email}
+        ${school.name}<br/>${school.address}<br/>${school.phone} · ${school.email}
       </p>
     </div>
   `;
@@ -395,7 +418,7 @@ export async function sendWelcomeEmail(input: {
     console.log("[resend stub] sendWelcomeEmail", { to: input.to, role: input.role });
     return { id: "stub" };
   }
-  return c.emails.send({ from: FROM, to: input.to, subject, html });
+  return c.emails.send({ from: fromFor(school), to: input.to, subject, html, replyTo: school.email });
 }
 
 export async function sendDisciplinaryCaseFiledEmail(input: {
@@ -409,7 +432,8 @@ export async function sendDisciplinaryCaseFiledEmail(input: {
   caseUrl: string;
   needsAck: boolean;
 }) {
-  const emailSubject = `${SCHOOL.shortName} — Disciplinary notice for ${input.studentName}`;
+  const school = await getSchoolPublic();
+  const emailSubject = `${school.shortName} — Disciplinary notice for ${input.studentName}`;
   const severityColor =
     input.severity === "Severe" ? "#b91c1c" :
     input.severity === "Major" ? "#c2410c" :
@@ -424,8 +448,8 @@ export async function sendDisciplinaryCaseFiledEmail(input: {
   const html = `
     <div style="font-family: Inter, Arial, sans-serif; color:#1a2c5a; max-width:560px; margin:0 auto; padding:24px;">
       <div style="border-bottom:3px solid #0B1F4B; padding-bottom:12px; margin-bottom:20px;">
-        <h2 style="color:#0B1F4B; font-family: Georgia, serif; margin:0;">${SCHOOL.name}</h2>
-        <p style="font-size:12px; color:#5e3e17; font-weight:600; margin:4px 0 0;">${SCHOOL.tagline}</p>
+        <h2 style="color:#0B1F4B; font-family: Georgia, serif; margin:0;">${school.name}</h2>
+        <p style="font-size:12px; color:#5e3e17; font-weight:600; margin:4px 0 0;">${school.tagline}</p>
       </div>
 
       <h3 style="color:#b91c1c; font-family: Georgia, serif; margin:0 0 16px;">Disciplinary notice</h3>
@@ -448,10 +472,10 @@ export async function sendDisciplinaryCaseFiledEmail(input: {
         <a href="${input.caseUrl}" style="display:inline-block; background:#D4A017; color:#0B1F4B; padding:12px 24px; border-radius:6px; text-decoration:none; font-weight:600;">Open case in portal</a>
       </p>
 
-      <p style="font-size:13px; color:#475569;">If you'd like to discuss this in person, please call us on ${SCHOOL.phone} or reply to this email.</p>
+      <p style="font-size:13px; color:#475569;">If you'd like to discuss this in person, please call us on ${school.phone} or reply to this email.</p>
 
       <hr style="border:none; border-top:1px solid #e5e7eb; margin:24px 0;" />
-      <p style="font-size:12px; color:#64748b;">${SCHOOL.name}<br/>${SCHOOL.address}<br/>${SCHOOL.phone} · ${SCHOOL.email}</p>
+      <p style="font-size:12px; color:#64748b;">${school.name}<br/>${school.address}<br/>${school.phone} · ${school.email}</p>
     </div>
   `;
   const c = client();
@@ -459,7 +483,7 @@ export async function sendDisciplinaryCaseFiledEmail(input: {
     console.log("[resend stub] sendDisciplinaryCaseFiledEmail", { to: input.to, student: input.studentName });
     return { id: "stub" };
   }
-  return c.emails.send({ from: FROM, to: input.to, subject: emailSubject, html });
+  return c.emails.send({ from: fromFor(school), to: input.to, subject: emailSubject, html, replyTo: school.email });
 }
 
 export async function sendDisciplinaryResolvedEmail(input: {
@@ -471,7 +495,8 @@ export async function sendDisciplinaryResolvedEmail(input: {
   resolutionNote: string;
   caseUrl: string;
 }) {
-  const emailSubject = `${SCHOOL.shortName} — Disciplinary case resolved for ${input.studentName}`;
+  const school = await getSchoolPublic();
+  const emailSubject = `${school.shortName} — Disciplinary case resolved for ${input.studentName}`;
   const html = `
     <div style="font-family: Inter, Arial, sans-serif; color:#1a2c5a; max-width:560px; margin:0 auto; padding:24px;">
       <h2 style="color:#047857; font-family: Georgia, serif; margin:0 0 16px;">Case closed</h2>
@@ -487,7 +512,7 @@ export async function sendDisciplinaryResolvedEmail(input: {
       </p>
 
       <hr style="border:none; border-top:1px solid #e5e7eb; margin:20px 0;" />
-      <p style="font-size:12px; color:#64748b;">${SCHOOL.name} · ${SCHOOL.phone} · ${SCHOOL.email}</p>
+      <p style="font-size:12px; color:#64748b;">${school.name} · ${school.phone} · ${school.email}</p>
     </div>
   `;
   const c = client();
@@ -495,7 +520,7 @@ export async function sendDisciplinaryResolvedEmail(input: {
     console.log("[resend stub] sendDisciplinaryResolvedEmail", { to: input.to, student: input.studentName });
     return { id: "stub" };
   }
-  return c.emails.send({ from: FROM, to: input.to, subject: emailSubject, html });
+  return c.emails.send({ from: fromFor(school), to: input.to, subject: emailSubject, html, replyTo: school.email });
 }
 
 export async function sendNewMessageThreadEmail(input: {
@@ -509,7 +534,8 @@ export async function sendNewMessageThreadEmail(input: {
   hasAttachment: boolean;
   threadUrl: string;
 }) {
-  const emailSubject = `${SCHOOL.shortName} — ${input.fromName}: ${input.subject}`;
+  const school = await getSchoolPublic();
+  const emailSubject = `${school.shortName} — ${input.fromName}: ${input.subject}`;
   const aboutLine = input.studentName ? `<p style="font-size:13px; color:#475569;">About <strong>${input.studentName}</strong>.</p>` : "";
   const attachLine = input.hasAttachment ? `<p style="font-size:12px; color:#64748b; margin:-4px 0 16px;">📎 Includes an attachment.</p>` : "";
   const html = `
@@ -530,7 +556,7 @@ export async function sendNewMessageThreadEmail(input: {
       </p>
 
       <hr style="border:none; border-top:1px solid #e5e7eb; margin:20px 0;" />
-      <p style="font-size:12px; color:#64748b;">${SCHOOL.name} · ${SCHOOL.phone} · ${SCHOOL.email}</p>
+      <p style="font-size:12px; color:#64748b;">${school.name} · ${school.phone} · ${school.email}</p>
     </div>
   `;
   const c = client();
@@ -538,7 +564,7 @@ export async function sendNewMessageThreadEmail(input: {
     console.log("[resend stub] sendNewMessageThreadEmail", { to: input.to, from: input.fromName });
     return { id: "stub" };
   }
-  return c.emails.send({ from: FROM, to: input.to, subject: emailSubject, html });
+  return c.emails.send({ from: fromFor(school), to: input.to, subject: emailSubject, html, replyTo: school.email });
 }
 
 /** Escape HTML to safely embed user-provided strings in email markup. */
@@ -560,7 +586,8 @@ export async function sendFeeChargedEmail(input: {
   dueDate: Date | null;
   portalUrl: string;
 }) {
-  const emailSubject = `${SCHOOL.shortName} — New fee charged for ${input.studentName}: ${naira.format(input.amount)}`;
+  const school = await getSchoolPublic();
+  const emailSubject = `${school.shortName} — New fee charged for ${input.studentName}: ${naira.format(input.amount)}`;
   const dueLine = input.dueDate
     ? `<p>Due by <strong>${dateF.format(input.dueDate)}</strong>.</p>`
     : "";
@@ -578,7 +605,7 @@ export async function sendFeeChargedEmail(input: {
         <a href="${input.portalUrl}" style="display:inline-block; background:#D4A017; color:#0B1F4B; padding:10px 20px; border-radius:6px; text-decoration:none; font-weight:600;">Pay now / view balance</a>
       </p>
       <hr style="border:none; border-top:1px solid #e5e7eb; margin:20px 0;" />
-      <p style="font-size:12px; color:#64748b;">${SCHOOL.name} · ${SCHOOL.phone} · ${SCHOOL.email}</p>
+      <p style="font-size:12px; color:#64748b;">${school.name} · ${school.phone} · ${school.email}</p>
     </div>
   `;
   const c = client();
@@ -586,5 +613,5 @@ export async function sendFeeChargedEmail(input: {
     console.log("[resend stub] sendFeeChargedEmail", { to: input.to, amount: input.amount });
     return { id: "stub" };
   }
-  return c.emails.send({ from: FROM, to: input.to, subject: emailSubject, html });
+  return c.emails.send({ from: fromFor(school), to: input.to, subject: emailSubject, html, replyTo: school.email });
 }

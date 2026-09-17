@@ -3,7 +3,8 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { getSessionUser } from "@/lib/auth-helpers";
 import { initTransaction, genReference } from "@/lib/paystack";
-import { SCHOOL } from "@/lib/constants";
+import { getSchoolPublic } from "@/lib/tenant";
+import { schoolSiteUrl } from "@/lib/school-public";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -68,7 +69,8 @@ export async function POST(req: NextRequest) {
   }
   const amountToPay = Math.min(amount, balance);
 
-  const reference = genReference("MCL-FEE");
+  const school = await getSchoolPublic();
+  const reference = genReference(`${school.code}-FEE`);
 
   // Pending Payment row — flips to SUCCESS on webhook/callback.
   await prisma.payment.create({
@@ -82,8 +84,7 @@ export async function POST(req: NextRequest) {
     },
   });
 
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? SCHOOL.website;
-  const callbackUrl = `${siteUrl.replace(/\/$/, "")}/api/paystack/callback`;
+  const callbackUrl = `${schoolSiteUrl(school)}/api/paystack/callback`;
   const email = fee.student.user.email; // Paystack requires *some* email
 
   try {

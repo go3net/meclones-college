@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { SCHOOL } from "./constants";
+import type { SchoolPublic } from "./school-public";
 
 /**
  * Shared-secret auth for n8n → Next.js calls.
@@ -44,20 +44,21 @@ export function authorizeWebhook(req: NextRequest): NextResponse | null {
 const nairaFmt = new Intl.NumberFormat("en-NG", { style: "currency", currency: "NGN", maximumFractionDigits: 0 });
 const dateFmt = new Intl.DateTimeFormat("en-NG", { dateStyle: "medium" });
 
-export function formatMainMenu(parentName: string) {
-  return formatParentMenu({ parentName, currentChildName: null, hasMultipleChildren: false });
+export function formatMainMenu(parentName: string, school: SchoolPublic) {
+  return formatParentMenu({ parentName, currentChildName: null, hasMultipleChildren: false, school });
 }
 
 export function formatParentMenu(input: {
   parentName: string;
   currentChildName: string | null;
   hasMultipleChildren: boolean;
+  school: SchoolPublic;
 }) {
   const childLine = input.currentChildName
     ? `Currently viewing: *${input.currentChildName}*`
     : null;
   const lines = [
-    `Hello ${input.parentName}, welcome back to ${SCHOOL.shortName}.`,
+    `Hello ${input.parentName}, welcome back to ${input.school.shortName}.`,
   ];
   if (childLine) lines.push(childLine);
   lines.push("", "What would you like to do?", "");
@@ -74,9 +75,9 @@ export function formatParentMenu(input: {
   return lines.join("\n");
 }
 
-export function formatTeacherMenu(teacherName: string) {
+export function formatTeacherMenu(teacherName: string, school: SchoolPublic) {
   return [
-    `Hello ${teacherName}, ${SCHOOL.shortName} staff line.`,
+    `Hello ${teacherName}, ${school.shortName} staff line.`,
     "",
     "What can I help you with?",
     "",
@@ -210,7 +211,7 @@ export function formatRecentDiscipline(cases: Array<{
   severity: string;
   status: string;
   date: Date;
-}>) {
+}>, school: SchoolPublic) {
   if (cases.length === 0) {
     return "🎉 *Clean.* No open disciplinary cases for your classes right now.";
   }
@@ -221,7 +222,7 @@ export function formatRecentDiscipline(cases: Array<{
     lines.push(`  ${c.severity.toLowerCase()} · ${c.status.toLowerCase()} · ${dateLabel}`);
   }
   lines.push("");
-  lines.push("Full detail in the portal: " + SCHOOL.website + "/portal/teacher/discipline");
+  lines.push("Full detail in the portal: " + school.website + "/portal/teacher/discipline");
   return lines.join("\n");
 }
 
@@ -233,6 +234,7 @@ export function formatResults(input: {
   position?: number | null;
   classSize?: number;
   results: { subject: string; total: number; grade?: string | null }[];
+  school: SchoolPublic;
 }) {
   const lines: string[] = [];
   const termLabel = input.term.charAt(0) + input.term.slice(1).toLowerCase();
@@ -255,7 +257,7 @@ export function formatResults(input: {
     }
   }
   lines.push("");
-  lines.push("For full result slip, log in: " + SCHOOL.website + "/portal/login");
+  lines.push("For full result slip, log in: " + input.school.website + "/portal/login");
   return lines.join("\n");
 }
 
@@ -283,6 +285,7 @@ export function formatAttendance(input: {
 export function formatFees(input: {
   studentName: string;
   fees: { feeType: string; amount: number; amountPaid: number; balance: number; status: string }[];
+  school: SchoolPublic;
 }) {
   const lines = [`💰 *Fee Status — ${input.studentName}*`, ""];
   if (input.fees.length === 0) {
@@ -300,18 +303,19 @@ export function formatFees(input: {
     lines.push("");
     lines.push(`*Total Outstanding: ${nairaFmt.format(outstanding)}*`);
     if (outstanding > 0) {
-      lines.push("Pay online: " + SCHOOL.website + "/portal/login");
+      lines.push("Pay online: " + input.school.website + "/portal/login");
     }
-    lines.push(`Or call: ${SCHOOL.phone}`);
+    lines.push(`Or call: ${input.school.phone}`);
   }
   return lines.join("\n");
 }
 
 export function formatAnnouncements(
   items: { title: string; body: string; publishedAt: Date | null }[],
+  school: SchoolPublic,
 ) {
   if (items.length === 0) return "No announcements at the moment. Check back soon.";
-  const lines = ["📢 *Latest from Meclones College Lekki*", ""];
+  const lines = [`📢 *Latest from ${school.name}*`, ""];
   for (const a of items) {
     lines.push(`*${a.title}*${a.publishedAt ? ` (${dateFmt.format(a.publishedAt)})` : ""}`);
     lines.push(a.body.length > 200 ? a.body.slice(0, 200).trim() + "…" : a.body);

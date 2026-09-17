@@ -2,7 +2,7 @@ import { PortalShell } from "@/components/PortalShell";
 import { Card, CardBody, CardHeader, CardTitle, Badge } from "@/components/ui";
 import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/auth-helpers";
-import { SCHOOL } from "@/lib/constants";
+import { getSchoolPublic } from "@/lib/tenant";
 import { Calendar, Plus, CheckCircle2, MapPin, Phone, Mail, Globe2 } from "lucide-react";
 import { setActiveTerm, createSession } from "./actions";
 
@@ -12,6 +12,7 @@ const dateFmt = new Intl.DateTimeFormat("en-NG", { dateStyle: "medium" });
 
 export default async function DirectorSettingsPage() {
   await requireRole(["DIRECTOR", "SUPER_ADMIN"]);
+  const school = await getSchoolPublic();
 
   const sessions = await prisma.academicSession.findMany({
     orderBy: { name: "desc" },
@@ -33,27 +34,27 @@ export default async function DirectorSettingsPage() {
           <CardBody className="space-y-3 text-sm">
             <div>
               <p className="text-xs text-slate-500 uppercase tracking-wide mb-0.5">Name</p>
-              <p className="font-medium text-slate-900">{SCHOOL.name}</p>
-              <p className="text-[12px] text-slate-500">{SCHOOL.tagline}</p>
+              <p className="font-medium text-slate-900">{school.name}</p>
+              <p className="text-[12px] text-slate-500">{school.tagline}</p>
             </div>
             <div className="flex gap-3">
               <MapPin className="h-4 w-4 text-slate-400 shrink-0 mt-0.5" />
-              <span className="text-slate-700">{SCHOOL.address}</span>
+              <span className="text-slate-700">{school.address}</span>
             </div>
             <div className="flex gap-3 items-center">
               <Phone className="h-4 w-4 text-slate-400 shrink-0" />
-              <span className="text-slate-700">{SCHOOL.phone}</span>
+              <span className="text-slate-700">{school.phone}</span>
             </div>
             <div className="flex gap-3 items-center">
               <Mail className="h-4 w-4 text-slate-400 shrink-0" />
-              <span className="text-slate-700">{SCHOOL.email}</span>
+              <span className="text-slate-700">{school.email}</span>
             </div>
             <div className="flex gap-3 items-center">
               <Globe2 className="h-4 w-4 text-slate-400 shrink-0" />
-              <a href={SCHOOL.website} className="text-brand-700 hover:underline">{SCHOOL.website.replace(/^https?:\/\//, "")}</a>
+              <a href={school.website} className="text-brand-700 hover:underline">{school.website.replace(/^https?:\/\//, "")}</a>
             </div>
             <p className="text-[11px] text-slate-400 pt-2 border-t border-slate-100">
-              Stored in <code className="bg-slate-100 px-1 rounded">lib/constants.ts</code>. Edit and redeploy to change.
+              Managed on the SchoolBot platform. Contact SchoolBot support to change these details.
             </p>
           </CardBody>
         </Card>

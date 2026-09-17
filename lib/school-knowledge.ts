@@ -11,8 +11,10 @@
  *      (fresh deploy with no edits yet) so the bot is never useless.
  */
 
-import { SCHOOL, STATS, PROGRAMS, EXAMS } from "./constants";
+import { PROGRAMS, EXAMS } from "./constants";
 import { prisma } from "./prisma";
+import { getSchoolPublic } from "./tenant";
+import type { SchoolPublic } from "./school-public";
 
 /**
  * Async loader used by the chatbot. Reads DB-stored sections + concatenates
@@ -22,16 +24,17 @@ import { prisma } from "./prisma";
  * the chatbot keeps answering.
  */
 export async function buildSchoolKnowledge(): Promise<string> {
+  const school = await getSchoolPublic();
   try {
     const sections = await prisma.knowledgeSection.findMany({
       where: { isActive: true },
       orderBy: { sortOrder: "asc" },
     });
-    if (sections.length === 0) return defaultKnowledge();
+    if (sections.length === 0) return defaultKnowledge(school);
     return sections.map(s => `# ${s.title}\n\n${s.body.trim()}`).join("\n\n");
   } catch (err) {
     console.error("[school-knowledge] DB read failed — falling back", err);
-    return defaultKnowledge();
+    return defaultKnowledge(school);
   }
 }
 
@@ -40,28 +43,28 @@ export async function buildSchoolKnowledge(): Promise<string> {
  * Other schools start from this and customise via the admin UI; the
  * defaults still apply to their deploy until they touch the table.
  */
-export function defaultKnowledge(): string {
+export function defaultKnowledge(school: SchoolPublic): string {
   return `
-# About ${SCHOOL.name}
+# About ${school.name}
 
-${SCHOOL.name} is a co-educational Nigerian secondary school based in
-${SCHOOL.address}. Motto: **"${SCHOOL.tagline}"**.
+${school.name} is a co-educational Nigerian secondary school based in
+${school.address}. Motto: **"${school.tagline}"**.
 
 We offer the six-year Nigerian secondary curriculum from JSS 1 through SS 3.
-Years of experience: ${STATS.yearsExperience}. Alumni community: ${STATS.alumni}+.
-Teaching staff: ~${STATS.teachers}.
+Years of experience: ${school.stats.yearsExperience}. Alumni community: ${school.stats.alumni}+.
+Teaching staff: ~${school.stats.teachers}.
 
 # Contact
 
-- Phone (local): ${SCHOOL.phone}
-- Phone (international): ${SCHOOL.phoneIntl}
-- WhatsApp: ${SCHOOL.phoneIntl}
-- General email: ${SCHOOL.email}
-- Admissions email: ${SCHOOL.admissionsEmail}
-- Address: ${SCHOOL.address}
-- Visiting hours: ${SCHOOL.hours}
-- Website: ${SCHOOL.website}
-- Socials: Facebook ${SCHOOL.socials.facebook}, Instagram ${SCHOOL.socials.instagram}, Twitter ${SCHOOL.socials.twitter}, YouTube ${SCHOOL.socials.youtube}
+- Phone (local): ${school.phone}
+- Phone (international): ${school.phoneIntl}
+- WhatsApp: ${school.phoneIntl}
+- General email: ${school.email}
+- Admissions email: ${school.admissionsEmail}
+- Address: ${school.address}
+- Visiting hours: ${school.hours}
+- Website: ${school.website}
+- Socials: Facebook ${school.socials.facebook}, Instagram ${school.socials.instagram}, Twitter ${school.socials.twitter}, YouTube ${school.socials.youtube}
 
 # Programs offered
 
@@ -73,25 +76,25 @@ Senior Secondary students prepare for: ${EXAMS.join(", ")}.
 
 # Admission process
 
-1. Apply online at ${SCHOOL.website}/apply (or visit the front desk).
+1. Apply online at ${school.website}/apply (or visit the front desk).
 2. Submit child's previous school records + birth certificate.
 3. Sit the school's entrance / placement test.
 4. Attend an interview with the admissions team.
 5. On offer, complete enrolment and pay the first-term fees.
 
 Applications can be tracked using the reference number emailed at submission.
-Admissions email: ${SCHOOL.admissionsEmail}.
+Admissions email: ${school.admissionsEmail}.
 
 # Visiting / booking a tour
 
-Walk-ins welcome during ${SCHOOL.hours}. To guarantee a guided tour, book at:
-${SCHOOL.website}/book-visit
-or call ${SCHOOL.phone}.
+Walk-ins welcome during ${school.hours}. To guarantee a guided tour, book at:
+${school.website}/book-visit
+or call ${school.phone}.
 
 # Portal access for parents / students / staff
 
 Every parent, student, teacher and staff member has a portal account.
-Sign in at ${SCHOOL.website}/portal/login.
+Sign in at ${school.website}/portal/login.
 
 Parents can:
 - Check their child's published results + download a PDF result slip
@@ -110,7 +113,7 @@ parents, and view their daily homeroom roster.
 
 # WhatsApp self-service
 
-Parents can also use the school's WhatsApp number (${SCHOOL.phoneIntl}) to
+Parents can also use the school's WhatsApp number (${school.phoneIntl}) to
 query results, attendance, fees, timetable and announcements — and to pay
 fees through a Paystack link. The bot auto-recognises any parent whose phone
 number is registered with the school.
@@ -120,8 +123,8 @@ number is registered with the school.
 ## How much are the fees?
 Fee amounts vary by class and term, and are set termly by the school. The
 exact amount for your child is shown in their parent portal under "Fees".
-For a general schedule, call the office on ${SCHOOL.phone} or email
-${SCHOOL.email}.
+For a general schedule, call the office on ${school.phone} or email
+${school.email}.
 
 ## How do I pay?
 Three options:
@@ -138,25 +141,25 @@ with the PDF result slip attached. They're also visible (and downloadable as
 PDF) anytime in the parent portal.
 
 ## Does the school provide transportation?
-Please call ${SCHOOL.phone} or email ${SCHOOL.email} for the latest
+Please call ${school.phone} or email ${school.email} for the latest
 transportation arrangements — we update routes each session.
 
 ## What's the uniform?
 The school has a specified daily uniform plus a sports / weekly variant.
-Detailed uniform list is shared at enrolment. Email ${SCHOOL.admissionsEmail}
+Detailed uniform list is shared at enrolment. Email ${school.admissionsEmail}
 for a current copy.
 
 ## When does the school year start?
 The Nigerian academic year runs September–July across three terms. Exact
 dates for the current session are on the portal under Director > Sessions.
-Call ${SCHOOL.phone} for the latest calendar.
+Call ${school.phone} for the latest calendar.
 
 ## How do I reach my child's teacher?
 Log into the parent portal and open "Messages" — you'll see every teacher of
 your child's class. Click "New message" to start a conversation.
 
 ## I'm a prospective parent. Can I visit?
-Yes — book a tour at ${SCHOOL.website}/book-visit or call ${SCHOOL.phone}.
+Yes — book a tour at ${school.website}/book-visit or call ${school.phone}.
 
 ## I forgot my portal password
 Use the "Forgot password" link on the login page. We email a reset link
@@ -173,8 +176,8 @@ medical matters, the school office reaches the emergency contact directly.
 - DO recommend specific portal pages (e.g. "log in and go to Messages") when
   the user is asking about something that lives in the portal.
 - DO be warm, concise, and professional — like a friendly front-desk officer.
-- DO recommend contacting the school directly (${SCHOOL.phone} or
-  ${SCHOOL.email}) for anything time-sensitive, sensitive, or specific to a
+- DO recommend contacting the school directly (${school.phone} or
+  ${school.email}) for anything time-sensitive, sensitive, or specific to a
   particular child's record (we can't access individual students from this
   public chat).
 - DO refuse politely if the question is unrelated to the school, harmful, or
@@ -185,8 +188,8 @@ medical matters, the school office reaches the emergency contact directly.
 - DO NOT pretend to access individual student records from this chat — the
   portal is the place for that.
 
-If you don't know, say so and point the visitor at ${SCHOOL.phone} or
-${SCHOOL.email}.
+If you don't know, say so and point the visitor at ${school.phone} or
+${school.email}.
 `.trim();
 }
 
@@ -194,7 +197,7 @@ ${SCHOOL.email}.
  * Default sections suitable for seeding a new tenant's KnowledgeSection
  * table. Each entry maps cleanly onto a row the admin can edit.
  */
-export function defaultKnowledgeSections(): Array<{
+export function defaultKnowledgeSections(school: SchoolPublic): Array<{
   key: string;
   title: string;
   body: string;
@@ -209,15 +212,15 @@ Senior Secondary students prepare for: ${EXAMS.join(", ")}.`;
   return [
     {
       key: "about",
-      title: `About ${SCHOOL.name}`,
+      title: `About ${school.name}`,
       sortOrder: 10,
-      body: `${SCHOOL.name} is a co-educational Nigerian secondary school based at ${SCHOOL.address}. Motto: "${SCHOOL.tagline}". We offer the six-year Nigerian secondary curriculum from JSS 1 through SS 3.`,
+      body: `${school.name} is a co-educational Nigerian secondary school based at ${school.address}. Motto: "${school.tagline}". We offer the six-year Nigerian secondary curriculum from JSS 1 through SS 3.`,
     },
     {
       key: "contact",
       title: "Contact us",
       sortOrder: 20,
-      body: `- Phone: ${SCHOOL.phone}\n- WhatsApp: ${SCHOOL.phoneIntl}\n- General email: ${SCHOOL.email}\n- Admissions email: ${SCHOOL.admissionsEmail}\n- Address: ${SCHOOL.address}\n- Office hours: ${SCHOOL.hours}\n- Website: ${SCHOOL.website}`,
+      body: `- Phone: ${school.phone}\n- WhatsApp: ${school.phoneIntl}\n- General email: ${school.email}\n- Admissions email: ${school.admissionsEmail}\n- Address: ${school.address}\n- Office hours: ${school.hours}\n- Website: ${school.website}`,
     },
     {
       key: "programs",
@@ -229,25 +232,25 @@ Senior Secondary students prepare for: ${EXAMS.join(", ")}.`;
       key: "admissions",
       title: "Admission process",
       sortOrder: 40,
-      body: `1. Apply online at ${SCHOOL.website}/apply.\n2. Submit your child's previous school records + birth certificate.\n3. Sit the school's entrance / placement test.\n4. Attend an interview with the admissions team.\n5. On offer, complete enrolment and pay first-term fees.\n\nApplications can be tracked via the reference number emailed at submission. Questions: ${SCHOOL.admissionsEmail}.`,
+      body: `1. Apply online at ${school.website}/apply.\n2. Submit your child's previous school records + birth certificate.\n3. Sit the school's entrance / placement test.\n4. Attend an interview with the admissions team.\n5. On offer, complete enrolment and pay first-term fees.\n\nApplications can be tracked via the reference number emailed at submission. Questions: ${school.admissionsEmail}.`,
     },
     {
       key: "fees",
       title: "Fees & payment options",
       sortOrder: 50,
-      body: `Fee amounts vary by class and term, and are set termly by the school. The exact figure for your child appears in their parent portal under "Fees".\n\nThree ways to pay:\n1. Online via the portal (Paystack — card / bank transfer / USSD).\n2. Bank transfer to the school account (call ${SCHOOL.phone} for details).\n3. In person at the school office (cash / POS / cheque).\n\nReceipts are emailed automatically on every successful payment.`,
+      body: `Fee amounts vary by class and term, and are set termly by the school. The exact figure for your child appears in their parent portal under "Fees".\n\nThree ways to pay:\n1. Online via the portal (Paystack — card / bank transfer / USSD).\n2. Bank transfer to the school account (call ${school.phone} for details).\n3. In person at the school office (cash / POS / cheque).\n\nReceipts are emailed automatically on every successful payment.`,
     },
     {
       key: "portal",
       title: "The school portal",
       sortOrder: 60,
-      body: `Every parent, student, teacher and staff member has a portal account. Sign in at ${SCHOOL.website}/portal/login.\n\nParents can: check results + download PDF slips, track attendance, view + pay fees, see the timetable, read announcements, acknowledge disciplinary notices, message teachers privately, update health records.\n\nStudents log in with either their email or their admission number.`,
+      body: `Every parent, student, teacher and staff member has a portal account. Sign in at ${school.website}/portal/login.\n\nParents can: check results + download PDF slips, track attendance, view + pay fees, see the timetable, read announcements, acknowledge disciplinary notices, message teachers privately, update health records.\n\nStudents log in with either their email or their admission number.`,
     },
     {
       key: "visiting",
       title: "Visiting the school",
       sortOrder: 70,
-      body: `Walk-ins welcome during ${SCHOOL.hours}. Book a guided tour at ${SCHOOL.website}/book-visit or call ${SCHOOL.phone}.`,
+      body: `Walk-ins welcome during ${school.hours}. Book a guided tour at ${school.website}/book-visit or call ${school.phone}.`,
     },
   ];
 }

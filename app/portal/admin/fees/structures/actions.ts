@@ -9,7 +9,8 @@ import { requireRole } from "@/lib/auth-helpers";
 import { sendFeeChargedEmail } from "@/lib/resend";
 import { notify } from "@/lib/notify";
 import { auditLog } from "@/lib/audit";
-import { SCHOOL } from "@/lib/constants";
+import { getSchoolPublic } from "@/lib/tenant";
+import { schoolSiteUrl } from "@/lib/school-public";
 import { canEmail } from "@/lib/notification-prefs";
 
 const LineItemSchema = z.object({ feeType: z.string().min(1), amount: z.coerce.number().min(0) });
@@ -166,7 +167,8 @@ async function notifyParentsAfterCharge(
   structureName: string,
 ) {
   const total = items.reduce((s, it) => s + Number(it.amount), 0);
-  const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL ?? SCHOOL.website).replace(/\/$/, "");
+  const school = await getSchoolPublic();
+  const siteUrl = schoolSiteUrl(school);
   const portalUrl = `${siteUrl}/portal/parent/fees`;
 
   const students = await prisma.student.findMany({

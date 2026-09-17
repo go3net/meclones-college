@@ -3,11 +3,12 @@ import { Card, CardBody, Button, Input, Label } from "@/components/ui";
 import { Logo } from "@/components/Logo";
 import { CheckCircle2, AlertCircle } from "lucide-react";
 import { requestPasswordReset } from "./actions";
-import { SCHOOL } from "@/lib/constants";
+import { getSchoolPublic } from "@/lib/tenant";
 
 type SearchParams = { sent?: string; error?: string };
 
-export default function ForgotPage({ searchParams }: { searchParams: SearchParams }) {
+export default async function ForgotPage({ searchParams }: { searchParams: SearchParams }) {
+  const school = await getSchoolPublic();
   const sent = !!searchParams.sent;
 
   return (
@@ -49,7 +50,7 @@ export default function ForgotPage({ searchParams }: { searchParams: SearchParam
                 </form>
 
                 <p className="text-[11px] text-slate-400 mt-4 text-center">
-                  Need help? Call {SCHOOL.phone}
+                  Need help? Call {school.phone}
                 </p>
               </>
             )}

@@ -7,6 +7,7 @@ import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/auth-helpers";
 import { auditLog } from "@/lib/audit";
 import { defaultKnowledgeSections } from "@/lib/school-knowledge";
+import { getSchoolPublic } from "@/lib/tenant";
 
 const CreateSchema = z.object({
   key: z.string().min(2).max(40).regex(/^[a-z0-9_-]+$/, "Lowercase letters, numbers, _ or -"),
@@ -128,7 +129,7 @@ export async function deleteKnowledgeSection(formData: FormData) {
 export async function seedDefaultKnowledge() {
   await requireRole(["DIRECTOR", "SUPER_ADMIN"]);
 
-  const defaults = defaultKnowledgeSections();
+  const defaults = defaultKnowledgeSections(await getSchoolPublic());
   let inserted = 0;
   for (const d of defaults) {
     const exists = await prisma.knowledgeSection.findFirst({ where: { key: d.key } });

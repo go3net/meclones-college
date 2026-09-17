@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { getSessionUser } from "@/lib/auth-helpers";
-import { SCHOOL } from "@/lib/constants";
+import { getSchoolPublic } from "@/lib/tenant";
 import { PrintButton } from "@/components/PrintButton";
 import { ArrowLeft, CheckCircle2 } from "lucide-react";
 
@@ -18,6 +18,7 @@ const dateFmt = new Intl.DateTimeFormat("en-NG", { dateStyle: "full", timeStyle:
  *   - student — only their own
  */
 export default async function ReceiptPage({ params }: { params: { id: string } }) {
+  const school = await getSchoolPublic();
   const user = await getSessionUser();
   if (!user) redirect("/portal/login");
 
@@ -73,10 +74,10 @@ export default async function ReceiptPage({ params }: { params: { id: string } }
         {/* Letterhead */}
         <div className="flex items-start justify-between border-b-2 border-brand-900 pb-4 mb-6">
           <div>
-            <h1 className="font-display text-2xl font-bold text-brand-900">{SCHOOL.name}</h1>
-            <p className="text-xs text-slate-600 mt-1">{SCHOOL.address}</p>
-            <p className="text-xs text-slate-600">Tel: {SCHOOL.phone} · {SCHOOL.email}</p>
-            <p className="text-xs text-gold-700 font-semibold mt-1">{SCHOOL.tagline}</p>
+            <h1 className="font-display text-2xl font-bold text-brand-900">{school.name}</h1>
+            <p className="text-xs text-slate-600 mt-1">{school.address}</p>
+            <p className="text-xs text-slate-600">Tel: {school.phone} · {school.email}</p>
+            <p className="text-xs text-gold-700 font-semibold mt-1">{school.tagline}</p>
           </div>
           <div className="h-16 w-16 rounded-lg bg-gradient-to-br from-brand-700 to-brand-900 flex items-center justify-center ring-2 ring-gold-400/30">
             <span className="text-gold-300 font-serif font-bold text-2xl leading-none">M</span>

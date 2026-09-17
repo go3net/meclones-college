@@ -1,10 +1,11 @@
 import Image from "next/image";
 import { Card, CardBody, SectionHeading, Badge } from "@/components/ui";
 import { Target, Eye, Heart, Award, Users, ShieldCheck, GraduationCap } from "lucide-react";
-import { SCHOOL, STATS } from "@/lib/constants";
+import { getSchoolPublic } from "@/lib/tenant";
 import { PLACE } from "@/lib/images";
 
-export default function AboutPage() {
+export default async function AboutPage() {
+  const school = await getSchoolPublic();
   return (
     <>
       <section className="relative bg-brand-900 text-white py-20 overflow-hidden">
@@ -13,7 +14,7 @@ export default function AboutPage() {
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <Badge tone="gold" className="mb-3">About Us</Badge>
           <h1 className="text-4xl md:text-5xl font-bold leading-tight max-w-3xl">A culture of excellence, anchored in character.</h1>
-          <p className="mt-5 text-slate-200 max-w-2xl text-lg">For over {STATS.yearsExperience} years, {SCHOOL.name} has been a quiet force in Lagos secondary education — known for academic rigour, warm community, and graduates who carry themselves with grace.</p>
+          <p className="mt-5 text-slate-200 max-w-2xl text-lg">For over {school.stats.yearsExperience} years, {school.name} has been a quiet force in Lagos secondary education — known for academic rigour, warm community, and graduates who carry themselves with grace.</p>
         </div>
       </section>
 
@@ -40,15 +41,15 @@ export default function AboutPage() {
           <SectionHeading eyebrow="History" title="From a small classroom to a beacon of education." />
           <div className="mt-10 grid md:grid-cols-2 gap-10">
             <div className="space-y-5 text-slate-700 leading-relaxed">
-              <p>{SCHOOL.name} was founded with a singular conviction: that Nigerian children deserve a secondary education that can stand shoulder-to-shoulder with the world's best — without losing the warmth, values, and identity that make a Lagos upbringing special.</p>
-              <p>What started as a single JSS classroom has grown over two decades into a full secondary school, a {STATS.teachers}-strong teaching faculty, and an alumni network of more than {STATS.alumni} graduates studying and working across Nigeria, the UK, the US, and Canada.</p>
+              <p>{school.name} was founded with a singular conviction: that Nigerian children deserve a secondary education that can stand shoulder-to-shoulder with the world's best — without losing the warmth, values, and identity that make a Lagos upbringing special.</p>
+              <p>What started as a single JSS classroom has grown over two decades into a full secondary school, a {school.stats.teachers}-strong teaching faculty, and an alumni network of more than {school.stats.alumni} graduates studying and working across Nigeria, the UK, the US, and Canada.</p>
               <p>We have grown — but the founding promise has not changed: <strong className="text-brand-900">know every child by name, stretch them to their potential, and send them into the world prepared.</strong></p>
             </div>
             <div className="grid grid-cols-2 gap-4">
               {[
-                { i: Award, n: `${STATS.yearsExperience}`, l: "Years of excellence" },
-                { i: Users, n: `${STATS.alumni}`, l: "Alumni network" },
-                { i: GraduationCap, n: `${STATS.teachers}`, l: "Teaching faculty" },
+                { i: Award, n: `${school.stats.yearsExperience}`, l: "Years of excellence" },
+                { i: Users, n: `${school.stats.alumni}`, l: "Alumni network" },
+                { i: GraduationCap, n: `${school.stats.teachers}`, l: "Teaching faculty" },
                 { i: ShieldCheck, n: "6", l: "Major exams prepared" },
               ].map(s => (
                 <Card key={s.l}>

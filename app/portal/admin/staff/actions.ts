@@ -9,7 +9,8 @@ import { requireRole } from "@/lib/auth-helpers";
 import { auditLog } from "@/lib/audit";
 import { createResetToken } from "@/lib/password-reset";
 import { sendWelcomeEmail } from "@/lib/resend";
-import { SCHOOL } from "@/lib/constants";
+import { getSchoolPublic } from "@/lib/tenant";
+import { schoolSiteUrl } from "@/lib/school-public";
 
 const ResetSchema = z.object({
   userId: z.string().min(1),
@@ -117,7 +118,8 @@ export async function createStaffUser(formData: FormData) {
   // Send welcome email with set-password link (7-day TTL).
   try {
     const token = await createResetToken(d.email, { ttlHours: 24 * 7 });
-    const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL ?? SCHOOL.website).replace(/\/$/, "");
+    const school = await getSchoolPublic();
+    const siteUrl = schoolSiteUrl(school);
     await sendWelcomeEmail({
       to: d.email,
       recipientName: d.name,
@@ -168,7 +170,8 @@ export async function resendWelcomeEmail(formData: FormData) {
 
   try {
     const token = await createResetToken(target.email, { ttlHours: 24 * 7 });
-    const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL ?? SCHOOL.website).replace(/\/$/, "");
+    const school = await getSchoolPublic();
+    const siteUrl = schoolSiteUrl(school);
     const children = target.parent
       ? target.parent.children.map(c => ({
           name: c.student.user.name,

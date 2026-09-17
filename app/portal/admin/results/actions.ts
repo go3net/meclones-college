@@ -7,7 +7,8 @@ import { requireRole } from "@/lib/auth-helpers";
 import { sendResultsPublishedEmail } from "@/lib/resend";
 import { notify } from "@/lib/notify";
 import { auditLog } from "@/lib/audit";
-import { SCHOOL } from "@/lib/constants";
+import { getSchoolPublic } from "@/lib/tenant";
+import { schoolSiteUrl } from "@/lib/school-public";
 import { loadResultSlipData } from "@/lib/result-slip-data";
 import { renderToBuffer } from "@react-pdf/renderer";
 import { ResultSlipPdf } from "@/components/ResultSlipPdf";
@@ -98,7 +99,8 @@ async function notifyResultsPublished(studentIds: string[], termId: string) {
   if (!term) return;
 
   const termLabel = `${term.name.charAt(0)}${term.name.slice(1).toLowerCase()} Term ${term.session.name}`;
-  const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL ?? SCHOOL.website).replace(/\/$/, "");
+  const school = await getSchoolPublic();
+  const siteUrl = schoolSiteUrl(school);
 
   // Collect every recipient user id for one bulk notification fan-out.
   const notifyUserIds = new Set<string>();

@@ -5,7 +5,8 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { createResetToken } from "@/lib/password-reset";
 import { sendPasswordResetEmail } from "@/lib/resend";
-import { SCHOOL } from "@/lib/constants";
+import { getSchoolPublic } from "@/lib/tenant";
+import { schoolSiteUrl } from "@/lib/school-public";
 
 const Schema = z.object({ email: z.string().email() });
 
@@ -25,8 +26,9 @@ export async function requestPasswordReset(formData: FormData) {
 
   if (user && user.isActive) {
     const rawToken = await createResetToken(email);
-    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? SCHOOL.website;
-    const resetUrl = `${siteUrl.replace(/\/$/, "")}/portal/reset-password/${rawToken}`;
+    const school = await getSchoolPublic();
+    const siteUrl = schoolSiteUrl(school);
+    const resetUrl = `${siteUrl}/portal/reset-password/${rawToken}`;
     try {
       await sendPasswordResetEmail({ to: email, name: user.name, resetUrl });
     } catch (err) {

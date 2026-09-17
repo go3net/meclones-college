@@ -4,7 +4,7 @@ import { Card, CardBody, CardHeader, CardTitle, Badge, StatCard } from "@/compon
 import { prisma } from "@/lib/prisma";
 import { getCurrentParentWithChildren, getActiveContext } from "@/lib/auth-helpers";
 import { CreditCard, Wallet, AlertCircle, Phone } from "lucide-react";
-import { SCHOOL } from "@/lib/constants";
+import { getSchoolPublic } from "@/lib/tenant";
 import { PayNowButton } from "@/components/PayNowButton";
 
 export const dynamic = "force-dynamic";
@@ -21,6 +21,7 @@ const feeTone: Record<string, "success" | "warning" | "danger"> = {
 };
 
 export default async function ParentFeesPage({ searchParams }: { searchParams: SearchParams }) {
+  const school = await getSchoolPublic();
   const parent = await getCurrentParentWithChildren();
   const { term, session } = await getActiveContext();
 
@@ -160,10 +161,10 @@ export default async function ParentFeesPage({ searchParams }: { searchParams: S
                 <p className="mt-1 text-sm text-slate-200">Click "Pay now" on any unpaid item above to checkout securely with card, bank transfer or USSD. You'll get an email receipt on success.</p>
               </div>
               <a
-                href={`tel:${SCHOOL.phoneIntl}`}
+                href={`tel:${school.phoneIntl}`}
                 className="inline-flex items-center gap-2 bg-white/10 hover:bg-white/20 text-white font-semibold px-4 py-2 rounded-lg text-sm"
               >
-                <Phone className="h-4 w-4" /> Prefer to call: {SCHOOL.phone}
+                <Phone className="h-4 w-4" /> Prefer to call: {school.phone}
               </a>
             </div>
           </CardBody>

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { authorizeWebhook, formatAnnouncements } from "@/lib/whatsapp";
 import { withRelaySchool } from "@/lib/relay-tenant";
+import { getSchoolPublic } from "@/lib/tenant";
 
 export const dynamic = "force-dynamic";
 
@@ -26,10 +27,11 @@ async function handle(req: NextRequest) {
     select: { id: true, title: true, body: true, publishedAt: true },
   });
 
+  const school = await getSchoolPublic();
   return NextResponse.json({
     ok: true,
     count: items.length,
     items,
-    message: formatAnnouncements(items),
+    message: formatAnnouncements(items, school),
   });
 }

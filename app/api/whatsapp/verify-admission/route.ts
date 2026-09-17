@@ -3,6 +3,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { authorizeWebhook, formatMainMenu } from "@/lib/whatsapp";
 import { withRelaySchool } from "@/lib/relay-tenant";
+import { getSchoolPublic } from "@/lib/tenant";
 
 export const dynamic = "force-dynamic";
 
@@ -84,6 +85,7 @@ async function handle(req: NextRequest) {
     sessionId = upserted.id;
   }
 
+  const school = await getSchoolPublic();
   return NextResponse.json({
     ok: true,
     sessionId,
@@ -98,6 +100,6 @@ async function handle(req: NextRequest) {
       phone: primaryParent.user.phone,
       email: primaryParent.user.email,
     } : null,
-    menu: formatMainMenu(parentName),
+    menu: formatMainMenu(parentName, school),
   });
 }

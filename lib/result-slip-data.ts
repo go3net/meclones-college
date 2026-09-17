@@ -8,6 +8,7 @@
  */
 
 import { prisma } from "./prisma";
+import { getSchoolPublic } from "./tenant";
 import type { ResultSlipData } from "@/components/ResultSlipPdf";
 
 export async function loadResultSlipData(
@@ -63,6 +64,7 @@ export async function loadResultSlipData(
   const position = results.find(r => r.position !== null)?.position ?? null;
 
   return {
+    school: await getSchoolPublic(),
     student: {
       name: student.user.name,
       admissionNumber: student.admissionNumber,

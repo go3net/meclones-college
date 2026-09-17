@@ -7,7 +7,8 @@ import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/auth-helpers";
 import { createResetToken } from "@/lib/password-reset";
 import { sendWelcomeEmail } from "@/lib/resend";
-import { SCHOOL } from "@/lib/constants";
+import { getSchoolPublic } from "@/lib/tenant";
+import { schoolSiteUrl } from "@/lib/school-public";
 import { resolveBranchIdForCreate } from "@/lib/branch";
 
 const DEFAULT_PASSWORD = process.env.SEED_PASSWORD ?? "Meclones123!";
@@ -88,7 +89,8 @@ export async function createTeacher(formData: FormData) {
   if (isNewUser) {
     try {
       const token = await createResetToken(email, { ttlHours: 24 * 7 });
-      const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL ?? SCHOOL.website).replace(/\/$/, "");
+      const school = await getSchoolPublic();
+      const siteUrl = schoolSiteUrl(school);
       await sendWelcomeEmail({
         to: email,
         recipientName: name,

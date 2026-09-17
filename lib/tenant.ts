@@ -18,6 +18,7 @@ import { headers } from "next/headers";
 import type { School } from "@prisma/client";
 import { tenantStorage } from "./tenant-context";
 import { loadSchoolById, resolveSchoolByHost } from "./host";
+import { PLATFORM_SCHOOL, toPublicSchool, type SchoolPublic } from "./school-public";
 
 const memo = new WeakMap<object, Promise<School | null>>();
 
@@ -64,4 +65,15 @@ export async function requireCurrentSchool(): Promise<School> {
   const school = await getCurrentSchool();
   if (!school) throw new Error("No school could be resolved for this request");
   return school;
+}
+
+/**
+ * The current school's public identity for templates, pages and
+ * messages. Never null: with no tenant (platform host, platform admin)
+ * it returns SchoolBot's own identity so nothing has to special-case it.
+ * This is the replacement for the old `SCHOOL` env-constant object.
+ */
+export async function getSchoolPublic(): Promise<SchoolPublic> {
+  const school = await getCurrentSchool();
+  return school ? toPublicSchool(school) : PLATFORM_SCHOOL;
 }

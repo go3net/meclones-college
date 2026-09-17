@@ -8,7 +8,8 @@ import { requireRole, getActiveContext } from "@/lib/auth-helpers";
 import { notify } from "@/lib/notify";
 import { sendFeeReminderEmail } from "@/lib/resend";
 import { auditLog } from "@/lib/audit";
-import { SCHOOL } from "@/lib/constants";
+import { getSchoolPublic } from "@/lib/tenant";
+import { schoolSiteUrl } from "@/lib/school-public";
 
 const ReminderSchema = z.object({
   classId: z.string().optional().or(z.literal("")),
@@ -75,7 +76,8 @@ export async function sendFeeReminders(formData: FormData) {
 
   let emailsSent = 0;
   let bellsSent = 0;
-  const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL ?? SCHOOL.website).replace(/\/$/, "");
+  const school = await getSchoolPublic();
+  const siteUrl = schoolSiteUrl(school);
   const portalUrl = `${siteUrl}/portal/parent/fees`;
 
   // Fire per-student.

@@ -3,9 +3,10 @@
 import { useState } from "react";
 import { Card, CardBody, Button, Input, Label, Textarea, Badge, Toast } from "@/components/ui";
 import { Phone, Mail, MapPin, Clock, MessageCircle } from "lucide-react";
-import { SCHOOL } from "@/lib/constants";
+import { useSchool } from "@/components/SchoolProvider";
 
 export default function ContactPage() {
+  const school = useSchool();
   const [form, setForm] = useState({ name: "", email: "", phone: "", subject: "", message: "" });
   const [toast, setToast] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -61,11 +62,11 @@ export default function ContactPage() {
             <Card><CardBody>
               <h3 className="font-semibold text-brand-900 mb-3">Reach Us</h3>
               <ul className="space-y-3 text-sm">
-                <li className="flex gap-3"><MapPin className="h-5 w-5 text-brand-700 mt-0.5 shrink-0" /><span className="text-slate-700">{SCHOOL.address}</span></li>
-                <li className="flex gap-3"><Phone className="h-5 w-5 text-brand-700 mt-0.5 shrink-0" /><a href={`tel:${SCHOOL.phoneIntl}`} className="text-slate-700 hover:text-brand-700">{SCHOOL.phone}</a></li>
-                <li className="flex gap-3"><MessageCircle className="h-5 w-5 text-emerald-600 mt-0.5 shrink-0" /><a href={`https://wa.me/${SCHOOL.whatsapp}`} target="_blank" rel="noreferrer noopener" className="text-slate-700 hover:text-emerald-700">WhatsApp: {SCHOOL.phone}</a></li>
-                <li className="flex gap-3"><Mail className="h-5 w-5 text-brand-700 mt-0.5 shrink-0" /><a href={`mailto:${SCHOOL.email}`} className="text-slate-700 hover:text-brand-700">{SCHOOL.email}</a></li>
-                <li className="flex gap-3"><Clock className="h-5 w-5 text-brand-700 mt-0.5 shrink-0" /><span className="text-slate-700">{SCHOOL.hours}</span></li>
+                <li className="flex gap-3"><MapPin className="h-5 w-5 text-brand-700 mt-0.5 shrink-0" /><span className="text-slate-700">{school.address}</span></li>
+                <li className="flex gap-3"><Phone className="h-5 w-5 text-brand-700 mt-0.5 shrink-0" /><a href={`tel:${school.phoneIntl}`} className="text-slate-700 hover:text-brand-700">{school.phone}</a></li>
+                <li className="flex gap-3"><MessageCircle className="h-5 w-5 text-emerald-600 mt-0.5 shrink-0" /><a href={`https://wa.me/${school.whatsapp}`} target="_blank" rel="noreferrer noopener" className="text-slate-700 hover:text-emerald-700">WhatsApp: {school.phone}</a></li>
+                <li className="flex gap-3"><Mail className="h-5 w-5 text-brand-700 mt-0.5 shrink-0" /><a href={`mailto:${school.email}`} className="text-slate-700 hover:text-brand-700">{school.email}</a></li>
+                <li className="flex gap-3"><Clock className="h-5 w-5 text-brand-700 mt-0.5 shrink-0" /><span className="text-slate-700">{school.hours}</span></li>
               </ul>
             </CardBody></Card>
             <Card className="bg-gold-50 border-gold-200"><CardBody>

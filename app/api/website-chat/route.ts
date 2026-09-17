@@ -21,7 +21,8 @@ import { NextRequest } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 import { buildSchoolKnowledge } from "@/lib/school-knowledge";
 import { staticFaqAnswer, genericFallback } from "@/lib/school-faq";
-import { SCHOOL } from "@/lib/constants";
+import { getSchoolPublic } from "@/lib/tenant";
+import type { SchoolPublic } from "@/lib/school-public";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -47,10 +48,10 @@ function rateLimitHit(ip: string): boolean {
  * Build the system prompt fresh per request — the knowledge base reads
  * from DB (KnowledgeSection rows) so admin edits take effect immediately.
  */
-async function buildSystemPrompt(): Promise<string> {
+async function buildSystemPrompt(school: SchoolPublic): Promise<string> {
   const knowledge = await buildSchoolKnowledge();
-  return `You are the AI front-desk assistant for ${SCHOOL.name}, a Nigerian secondary
-school in Lekki, Lagos. You are the first impression for every prospective
+  return `You are the AI front-desk assistant for ${school.name}, a Nigerian secondary
+school (${school.addressShort}). You are the first impression for every prospective
 parent, current parent, alumnus, or curious visitor who reaches out via the
 website. Treat every conversation like a warm, professional school office
 staffer who genuinely cares about getting the family the right answer.
@@ -86,12 +87,12 @@ Handling rules:
 - If the knowledge base doesn't cover something specific (e.g. exact
   current-term fee figures, a particular teacher's bio), say so honestly
   and offer the right channel: "I don't have that exact figure on hand —
-  please call ${SCHOOL.phone} or email ${SCHOOL.email} and the office
+  please call ${school.phone} or email ${school.email} and the office
   will quote it for you straight away."
 - For a particular child's records (results, fees, attendance, report
   cards, WhatsApp notifications), direct them to the parent portal at
-  ${SCHOOL.website}/portal/login OR the school's WhatsApp number
-  ${SCHOOL.phoneIntl} (parents are auto-recognised by phone number on
+  ${school.website}/portal/login OR the school's WhatsApp number
+  ${school.phoneIntl} (parents are auto-recognised by phone number on
   WhatsApp).
 - For sensitive complaints, urgent matters, or emotional topics, lead
   with empathy and immediately offer phone / WhatsApp — don't try to
@@ -144,12 +145,14 @@ export async function POST(req: NextRequest) {
     if (typeof m.content !== "string" || m.content.length > 4000) return new Response("bad content", { status: 400 });
   }
 
+  const school = await getSchoolPublic();
+
   // Graceful fallback when no API key: try the keyword-matched static
   // FAQ first, then a generic "call/email" message. Either way the
   // visitor gets a useful answer instead of "I'm not fully wired up".
   if (!process.env.ANTHROPIC_API_KEY) {
     const lastUser = [...messages].reverse().find(m => m.role === "user");
-    const answer = (lastUser ? staticFaqAnswer(lastUser.content) : null) ?? genericFallback();
+    const answer = (lastUser ? staticFaqAnswer(lastUser.content, school) : null) ?? genericFallback(school);
     return new Response(
       JSON.stringify({ type: "delta", text: answer }) + "\n" +
       JSON.stringify({ type: "end" }) + "\n",
@@ -162,7 +165,7 @@ export async function POST(req: NextRequest) {
   // Build the system prompt with the latest DB-backed knowledge before
   // we start streaming. One extra DB hit per request — fine at school
   // traffic scale, and lets admin edits propagate without a redeploy.
-  const systemPrompt = await buildSystemPrompt();
+  const systemPrompt = await buildSystemPrompt(school);
 
   // Stream from Claude → newline-delimited JSON to the client.
   const encoder = new TextEncoder();
@@ -196,7 +199,7 @@ export async function POST(req: NextRequest) {
         controller.close();
       } catch (err) {
         console.error("[website-chat] Anthropic stream failed", err);
-        const msg = `Sorry, I hit a snag. Please call ${SCHOOL.phone} or email ${SCHOOL.email}.`;
+        const msg = `Sorry, I hit a snag. Please call ${school.phone} or email ${school.email}.`;
         controller.enqueue(encoder.encode(JSON.stringify({ type: "delta", text: msg }) + "\n"));
         controller.enqueue(encoder.encode(JSON.stringify({ type: "end" }) + "\n"));
         controller.close();
