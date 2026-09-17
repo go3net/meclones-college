@@ -4,16 +4,50 @@
  * List messages (10 row max). If the required env vars aren't set, the
  * helpers log and no-op so dev environments don't blow up.
  *
- * Required env:
- * - WHATSAPP_PHONE_NUMBER_ID (from your WhatsApp Business App)
- * - WHATSAPP_ACCESS_TOKEN (long-lived system-user token recommended)
+ * Credentials come from the current school (School.whatsappPhoneNumberId
+ * and the encrypted School.whatsappAccessTokenEnc), falling back to the
+ * deployment-level env values:
+ * - WHATSAPP_PHONE_NUMBER_ID (the default school's number)
+ * - WHATSAPP_ACCESS_TOKEN (a business-level system-user token covers
+ *   every number under the same WhatsApp Business Account, so most
+ *   schools never need their own stored token)
  *
- * Both are stable per-deployment values. The school's own phone number
- * itself is configured on Meta's side; we only need the PHONE_NUMBER_ID
- * Meta assigns to it.
+ * The school's own phone number itself is configured on Meta's side; we
+ * only need the PHONE_NUMBER_ID Meta assigns to it.
  */
 
+import { getCurrentSchool } from "./tenant";
+import { decrypt } from "./crypto";
+
 const GRAPH_VERSION = "v20.0";
+
+interface Credentials {
+  phoneNumberId: string;
+  token: string;
+}
+
+/**
+ * Resolve the sending credentials for the current school. Null when
+ * nothing is configured (dev), in which case sends are logged and
+ * skipped instead of failing.
+ */
+async function credentials(): Promise<Credentials | null> {
+  const school = await getCurrentSchool();
+  const phoneNumberId = (school?.whatsappPhoneNumberId ?? process.env.WHATSAPP_PHONE_NUMBER_ID ?? "").trim();
+
+  let token = "";
+  if (school?.whatsappAccessTokenEnc) {
+    try {
+      token = decrypt(school.whatsappAccessTokenEnc);
+    } catch (err) {
+      console.error(`[whatsapp-cloud] cannot decrypt token for school ${school.slug}; using env token`, err);
+    }
+  }
+  if (!token) token = (process.env.WHATSAPP_ACCESS_TOKEN ?? "").trim();
+
+  if (!phoneNumberId || !token) return null;
+  return { phoneNumberId, token };
+}
 
 interface SendResult {
   ok: boolean;
@@ -43,10 +77,6 @@ export type Outbound =
       }>;
     };
 
-function isConfigured() {
-  return Boolean(process.env.WHATSAPP_PHONE_NUMBER_ID && process.env.WHATSAPP_ACCESS_TOKEN);
-}
-
 /**
  * Normalise a Nigerian phone number into the E.164 form Meta expects
  * (digits only, country code prefixed). Accepts:
@@ -63,12 +93,12 @@ export function normaliseNgPhone(raw: string): string {
 }
 
 async function postToMeta(payload: Record<string, unknown>): Promise<SendResult> {
-  if (!isConfigured()) {
+  const creds = await credentials();
+  if (!creds) {
     console.log("[whatsapp-cloud] not configured — would have sent", JSON.stringify(payload).slice(0, 200));
     return { ok: false, status: 0, error: "not_configured" };
   }
-  const phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID!;
-  const token = process.env.WHATSAPP_ACCESS_TOKEN!;
+  const { phoneNumberId, token } = creds;
   const url = `https://graph.facebook.com/${GRAPH_VERSION}/${phoneNumberId}/messages`;
   try {
     const res = await fetch(url, {

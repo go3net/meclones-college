@@ -3,14 +3,32 @@
  * and avoids edge-runtime issues. All amounts are in kobo (NGN × 100).
  */
 
-import { getSchoolPublic } from "./tenant";
+import type { School } from "@prisma/client";
+import { getCurrentSchool, getSchoolPublic } from "./tenant";
+import { decrypt } from "./crypto";
 
 const API_BASE = "https://api.paystack.co";
 
-function key(): string {
+/**
+ * Secret key for a given school: its own encrypted key when stored,
+ * otherwise the platform key from env. Schools that only set a
+ * subaccount code share the platform key and get paid by split.
+ */
+export function paystackSecretKeyFor(school: School | null): string {
+  if (school?.paystackSecretKeyEnc) {
+    try {
+      return decrypt(school.paystackSecretKeyEnc);
+    } catch (err) {
+      console.error(`[paystack] cannot decrypt secret key for school ${school.slug}; using platform key`, err);
+    }
+  }
   const k = process.env.PAYSTACK_SECRET_KEY;
   if (!k) throw new Error("PAYSTACK_SECRET_KEY is not set");
   return k;
+}
+
+async function key(): Promise<string> {
+  return paystackSecretKeyFor(await getCurrentSchool());
 }
 
 export function nairaToKobo(naira: number): number {
@@ -43,10 +61,13 @@ export interface InitResult {
  */
 export async function initTransaction(p: InitParams): Promise<InitResult> {
   const school = await getSchoolPublic();
+  // Settle into the school's own Paystack subaccount when one is
+  // configured and the caller didn't pick one explicitly.
+  const subaccount = p.subaccount ?? (await getCurrentSchool())?.paystackSubaccountCode ?? undefined;
   const res = await fetch(`${API_BASE}/transaction/initialize`, {
     method: "POST",
     headers: {
-      Authorization: `Bearer ${key()}`,
+      Authorization: `Bearer ${await key()}`,
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
@@ -63,7 +84,7 @@ export async function initTransaction(p: InitParams): Promise<InitResult> {
           value: school.name,
         }],
       },
-      ...(p.subaccount ? { subaccount: p.subaccount } : {}),
+      ...(subaccount ? { subaccount } : {}),
     }),
     cache: "no-store",
   });
@@ -91,7 +112,7 @@ export interface VerifyResult {
  */
 export async function verifyTransaction(reference: string): Promise<VerifyResult> {
   const res = await fetch(`${API_BASE}/transaction/verify/${encodeURIComponent(reference)}`, {
-    headers: { Authorization: `Bearer ${key()}` },
+    headers: { Authorization: `Bearer ${await key()}` },
     cache: "no-store",
   });
   const json = await res.json();
