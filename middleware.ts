@@ -1,16 +1,18 @@
 import NextAuth from "next-auth";
 import { NextResponse } from "next/server";
 import { authConfig } from "./auth.config";
+import { isPlatformHost } from "./lib/host-utils";
 
 // Edge-runtime safe — uses only the JWT-strategy session check, no Prisma.
 // `authorized()` in auth.config.ts decides allow/redirect for /portal/*
 // paths; everything else passes through.
 const { auth } = NextAuth(authConfig);
 
-// Hosts that should serve the SchoolBot SaaS landing instead of the
-// Meclones school site. The host header check is split out so both
-// the rewrite and the meclones-only redirect agree on the same set.
-const SCHOOLBOT_HOSTS = new Set(["schoolbot.com.ng", "www.schoolbot.com.ng"]);
+// The bare platform host (PLATFORM_ROOT_DOMAIN, with or without www)
+// serves the SchoolBot SaaS landing. Every other host — a school's
+// {slug}.<root> subdomain, its custom domain, or the Railway URL — is
+// resolved to a school in Node code (lib/host.ts); the middleware only
+// needs the pure string check.
 
 // Public school pages that ONLY make sense on meclonescollege.com.
 // On schoolbot.com.ng these would leak Meclones-specific copy (about,
@@ -37,14 +39,10 @@ const MECLONES_ONLY_RE = /^\/(about|academics|admission|apply|book-visit|contact
  */
 export default auth(req => {
   const rawHost = req.headers.get("host") ?? "";
-  // Strip the optional :port suffix — Railway never serves on a
-  // non-standard port externally but defensively normalising means
-  // local dev (host:3000) also matches.
-  const host = rawHost.toLowerCase().split(":")[0];
   const pathname = req.nextUrl.pathname;
 
   // ── SchoolBot host routing ──
-  if (SCHOOLBOT_HOSTS.has(host)) {
+  if (isPlatformHost(rawHost)) {
     // Root → internal rewrite to the SaaS landing. URL bar stays
     // "/" because the rewrite is server-side; no 301, no SEO penalty.
     if (pathname === "/") {

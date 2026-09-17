@@ -9,6 +9,7 @@ import type { NextAuthConfig } from "next-auth";
  */
 
 export const ROLE_HOME: Record<string, string> = {
+  PLATFORM_ADMIN: "/portal/platform",
   SUPER_ADMIN: "/portal/director",
   DIRECTOR: "/portal/director",
   ADMIN: "/portal/admin",
@@ -20,6 +21,7 @@ export const ROLE_HOME: Record<string, string> = {
 
 // Which role(s) may access which path prefix in /portal/*
 export const PORTAL_ACL: { prefix: string; roles: string[] }[] = [
+  { prefix: "/portal/platform", roles: ["PLATFORM_ADMIN"] },
   { prefix: "/portal/director", roles: ["SUPER_ADMIN", "DIRECTOR"] },
   { prefix: "/portal/admin", roles: ["SUPER_ADMIN", "DIRECTOR", "ADMIN"] },
   { prefix: "/portal/accountant", roles: ["SUPER_ADMIN", "DIRECTOR", "ADMIN", "ACCOUNTANT"] },
@@ -41,6 +43,8 @@ export const authConfig = {
       if (user) {
         token.id = (user as { id: string }).id;
         token.role = (user as { role: string }).role;
+        // Tenant the account belongs to; null for platform admins.
+        token.schoolId = (user as { schoolId?: string | null }).schoolId ?? null;
         token.name = (user as { name?: string }).name ?? token.name;
         token.picture = (user as { image?: string | null }).image ?? token.picture;
       }
@@ -57,6 +61,11 @@ export const authConfig = {
       if (session.user) {
         (session.user as { id?: string }).id = token.id as string | undefined;
         (session.user as { role?: string }).role = token.role as string | undefined;
+        // Left undefined (not null) for tokens issued before tenancy so
+        // getSessionUser() can tell "legacy token" from "no school".
+        if (token.schoolId !== undefined) {
+          (session.user as { schoolId?: string | null }).schoolId = token.schoolId as string | null;
+        }
         if (typeof token.name === "string") session.user.name = token.name;
         if (token.picture !== undefined) {
           (session.user as { image?: string | null }).image = token.picture as string | null;

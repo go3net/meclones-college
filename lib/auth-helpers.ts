@@ -1,16 +1,42 @@
+import { cache } from "react";
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
-import { prisma } from "@/lib/prisma";
+import { prisma, prismaBase } from "@/lib/prisma";
+import { getCurrentSchool } from "@/lib/tenant";
 
 /**
- * Get the current session user with id + role, or null.
+ * Sessions issued before tenancy carry no schoolId. Rather than force a
+ * re-login, look it up once per request (React cache dedupes) until the
+ * token is naturally refreshed.
+ */
+const legacySchoolId = cache(async (userId: string): Promise<string | null> => {
+  const row = await prismaBase.user.findUnique({ where: { id: userId }, select: { schoolId: true } });
+  return row?.schoolId ?? null;
+});
+
+/**
+ * Get the current session user with id + role + schoolId, or null.
  * Use inside server components.
+ *
+ * Returns null (i.e. "not signed in") when a school user's session is
+ * used on another school's host, so a cookie from one tenant can never
+ * read another tenant's portal.
  */
 export async function getSessionUser() {
   const session = await auth();
-  const user = session?.user as { id?: string; role?: string; name?: string | null; email?: string | null } | undefined;
+  const user = session?.user as
+    | { id?: string; role?: string; name?: string | null; email?: string | null; schoolId?: string | null }
+    | undefined;
   if (!user?.id || !user.role) return null;
-  return { id: user.id, role: user.role, name: user.name ?? "", email: user.email ?? "" };
+
+  const schoolId = user.schoolId === undefined ? await legacySchoolId(user.id) : user.schoolId;
+
+  if (user.role !== "PLATFORM_ADMIN" && schoolId) {
+    const current = await getCurrentSchool();
+    if (current && current.id !== schoolId) return null;
+  }
+
+  return { id: user.id, role: user.role, name: user.name ?? "", email: user.email ?? "", schoolId };
 }
 
 /**

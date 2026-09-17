@@ -45,8 +45,21 @@ function createPrisma() {
   return client;
 }
 
-export const prisma = global.__prisma ?? createPrisma();
+/**
+ * The raw, UNSCOPED client. Every query on it sees every school. Reserve
+ * it for code that must cross tenants on purpose: host -> school lookup,
+ * login, webhook school resolution, the backup loop, platform admin.
+ * Grep for `prismaBase.` when auditing tenant isolation.
+ */
+export const prismaBase = global.__prisma ?? createPrisma();
 
 if (process.env.NODE_ENV !== "production") {
-  global.__prisma = prisma;
+  global.__prisma = prismaBase;
 }
+
+/**
+ * The tenant-scoped client all application code uses. The next tenancy
+ * commit wraps it with the school-injecting extension; until then it is
+ * the same object as `prismaBase`.
+ */
+export const prisma = prismaBase;

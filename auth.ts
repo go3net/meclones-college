@@ -2,9 +2,11 @@ import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import bcrypt from "bcryptjs";
 import { z } from "zod";
+import { headers } from "next/headers";
 import { authConfig } from "./auth.config";
-import { prisma } from "./lib/prisma";
+import { prismaBase } from "./lib/prisma";
 import { verifyTotpCode, consumeRecoveryCode } from "./lib/totp";
+import { resolveSchoolByHost } from "./lib/host";
 
 // NOTE: We use JWT session strategy (set in auth.config.ts) — the Prisma
 // adapter is intentionally NOT attached. The adapter exists to persist
@@ -22,6 +24,27 @@ const Credentials_Schema = z.object({
 function looksLikeEmail(s: string): boolean {
   return s.includes("@");
 }
+
+/**
+ * School the login request arrived at, by host. Null on the bare
+ * platform host or when no request context is available.
+ */
+async function hostSchoolId(): Promise<string | null> {
+  try {
+    const h = headers();
+    const school = await resolveSchoolByHost(h.get("host") ?? h.get("x-forwarded-host") ?? "");
+    return school?.id ?? null;
+  } catch {
+    return null;
+  }
+}
+
+// Login is deliberately unscoped: it runs before any tenant is known, so it
+// reads through prismaBase and enforces the school match itself below.
+const USER_SELECT = {
+  id: true, name: true, email: true, passwordHash: true, role: true, isActive: true,
+  image: true, totpSecret: true, totpEnabledAt: true, schoolId: true,
+} as const;
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
   ...authConfig,
@@ -43,20 +66,18 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         const parsed = Credentials_Schema.safeParse({ identifier: raw, password });
         if (!parsed.success) return null;
 
-        let user: { id: string; name: string; email: string; passwordHash: string; role: string; isActive: boolean; image: string | null; totpSecret: string | null; totpEnabledAt: Date | null } | null = null;
+        let user: { id: string; name: string; email: string; passwordHash: string; role: string; isActive: boolean; image: string | null; totpSecret: string | null; totpEnabledAt: Date | null; schoolId: string | null } | null = null;
 
         if (looksLikeEmail(raw)) {
-          user = await prisma.user.findUnique({
+          user = await prismaBase.user.findUnique({
             where: { email: raw.toLowerCase() },
-            select: { id: true, name: true, email: true, passwordHash: true, role: true, isActive: true, image: true, totpSecret: true, totpEnabledAt: true },
+            select: USER_SELECT,
           });
         } else {
           // Treat as admission number — find the linked User via Student.
-          const student = await prisma.student.findUnique({
+          const student = await prismaBase.student.findUnique({
             where: { admissionNumber: raw },
-            include: {
-              user: { select: { id: true, name: true, email: true, passwordHash: true, role: true, isActive: true, image: true, totpSecret: true, totpEnabledAt: true } },
-            },
+            include: { user: { select: USER_SELECT } },
           });
           user = student?.user ?? null;
         }
@@ -65,6 +86,17 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
 
         const ok = await bcrypt.compare(password, user.passwordHash);
         if (!ok) return null;
+
+        // Tenant check: a school's users may only sign in on that school's
+        // host (its subdomain or custom domain). The bare platform host
+        // resolves to no school and accepts anyone; platform admins belong
+        // to no school and may sign in anywhere. A user still lacking a
+        // schoolId (row not yet backfilled) is let through rather than
+        // locked out.
+        if (user.role !== "PLATFORM_ADMIN" && user.schoolId) {
+          const hostSchool = await hostSchoolId();
+          if (hostSchool && hostSchool !== user.schoolId) return null;
+        }
 
         // 2FA: enforced when the user has enrolled. Accept either a 6-digit
         // TOTP code OR a 10-char recovery code (xxxxx-xxxxx). Recovery
@@ -86,6 +118,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           email: user.email,
           image: user.image ?? undefined,
           role: user.role,
+          schoolId: user.schoolId,
         };
       },
     }),

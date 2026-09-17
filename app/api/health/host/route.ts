@@ -1,57 +1,91 @@
 // app/api/health/host/route.ts
 //
-// Tiny diagnostic endpoint: returns the host the request arrived on
-// + which brand the rewrite layer would render. Used to verify the
-// schoolbot.com.ng custom domain + DNS setup without leaving the
-// browser:
+// Diagnostic endpoint: which host the request arrived on, which school
+// (tenant) that host resolves to, and how the tenancy backfill went.
+// Lets us verify DNS, custom domains and the multi-tenant plumbing from
+// a browser without shell access to Railway:
 //
 //   curl https://schoolbot.com.ng/api/health/host
-//   → { host: "schoolbot.com.ng", brand: "SCHOOLBOT", indexRoute: "/for-schools" }
+//   → { host: "schoolbot.com.ng", brand: "SCHOOLBOT", school: null, ... }
 //
 //   curl https://meclonescollege.com/api/health/host
-//   → { host: "meclonescollege.com", brand: "MECLONES", indexRoute: "/" }
+//   → { host: "meclonescollege.com", brand: "MECLONES", school: { slug: "meclones", ... } }
 //
-// If either domain returns the wrong brand, the next.config rewrite
-// isn't matching — usually means Railway's Cloudflare proxy is
-// stripping the Host header. The endpoint surfaces the actual host
-// it received so we can pinpoint the layer that's wrong.
+//   curl "https://.../api/health/host?orphans=1"
+//   → adds per-model counts of rows whose schoolId is still NULL (should
+//     all be zero once the boot backfill has run).
+//
+// Reads through prismaBase on purpose: this is a platform-level view.
 
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { headers } from "next/headers";
+import { Prisma } from "@prisma/client";
+import { prismaBase } from "@/lib/prisma";
+import { resolveSchoolByHost, isPlatformHost, slugFromHost, PLATFORM_ROOT_DOMAIN, DEFAULT_SCHOOL_SLUG } from "@/lib/host";
 
 export const dynamic = "force-dynamic";
+export const runtime = "nodejs";
 
-const SCHOOLBOT_HOSTS = new Set([
-  "schoolbot.com.ng",
-  "www.schoolbot.com.ng",
-]);
+const TENANT_MODELS = Prisma.dmmf.datamodel.models
+  .filter(m => m.fields.some(f => f.name === "schoolId"))
+  .map(m => m.name);
 
-export async function GET() {
-  // Read the host the way Next.js's rewrite engine reads it — same
-  // header it matches against in the `has: [{ type: "host" }]` rule.
-  // Falling back to x-forwarded-host because Railway's proxy
-  // sometimes rewrites Host but leaves x-forwarded-host intact.
-  const h    = headers();
+async function orphanCounts(): Promise<Record<string, number>> {
+  const out: Record<string, number> = {};
+  for (const model of TENANT_MODELS) {
+    const delegate = (prismaBase as unknown as Record<string, { count: (args: unknown) => Promise<number> }>)[
+      model[0].toLowerCase() + model.slice(1)
+    ];
+    const n = await delegate.count({ where: { schoolId: null } });
+    if (n > 0) out[model] = n;
+  }
+  return out;
+}
+
+export async function GET(req: NextRequest) {
+  const h = headers();
   const host = (h.get("host") ?? h.get("x-forwarded-host") ?? "").toLowerCase();
+  const platform = isPlatformHost(host);
 
-  const isSchoolbot = SCHOOLBOT_HOSTS.has(host);
+  let school: { id: string; slug: string; name: string; customDomain: string | null; status: string } | null = null;
+  let schoolCount: number | null = null;
+  let error: string | null = null;
+  try {
+    const s = await resolveSchoolByHost(host);
+    if (s) school = { id: s.id, slug: s.slug, name: s.name, customDomain: s.customDomain, status: s.status };
+    schoolCount = await prismaBase.school.count();
+  } catch (err) {
+    error = err instanceof Error ? err.message : String(err);
+  }
+
+  const wantOrphans = req.nextUrl.searchParams.get("orphans") === "1";
+  let orphans: Record<string, number> | null = null;
+  if (wantOrphans && !error) {
+    try {
+      orphans = await orphanCounts();
+    } catch (err) {
+      error = err instanceof Error ? err.message : String(err);
+    }
+  }
 
   return NextResponse.json({
-    ok:               true,
+    ok:               !error,
     host,
     forwardedHost:    h.get("x-forwarded-host") ?? null,
     forwardedProto:   h.get("x-forwarded-proto") ?? null,
-    brand:            isSchoolbot ? "SCHOOLBOT" : "MECLONES",
-    // What the user sees when they hit "/" on this host. If a
-    // visitor reports "schoolbot.com.ng shows the school home",
-    // this field is what tells us the rewrite isn't matching.
-    indexRoute:       isSchoolbot ? "/for-schools" : "/",
-    // Build fingerprint — increments per commit that touches host
-    // routing so we can tell which version is actually live.
-    // Bump this whenever you change middleware.ts or
-    // layout.tsx generateMetadata so the next deploy is easy
-    // to verify with one curl.
-    buildFingerprint: "host-metadata-2026-06-04",
+    platformRoot:     PLATFORM_ROOT_DOMAIN,
+    defaultSchoolSlug: DEFAULT_SCHOOL_SLUG,
+    brand:            platform ? "SCHOOLBOT" : "SCHOOL",
+    indexRoute:       platform ? "/for-schools" : "/",
+    slugFromHost:     slugFromHost(host),
+    school,
+    schoolCount,
+    tenantModels:     TENANT_MODELS.length,
+    orphans,          // null unless ?orphans=1; {} means fully backfilled
+    error,
+    // Bump whenever host routing / tenancy plumbing changes so the next
+    // deploy is easy to verify with one curl.
+    buildFingerprint: "tenancy-context-2026-09-17",
     timestamp:        new Date().toISOString(),
   });
 }

@@ -3,6 +3,7 @@ import type { Metadata, Viewport } from "next";
 import { Inter, Playfair_Display } from "next/font/google";
 import { headers } from "next/headers";
 import { SCHOOL } from "@/lib/constants";
+import { PLATFORM_ROOT_DOMAIN, isPlatformHost } from "@/lib/host-utils";
 import { Providers } from "@/components/Providers";
 
 const inter = Inter({
@@ -18,13 +19,6 @@ const playfair = Playfair_Display({
   weight: ["400", "500", "600", "700", "800"],
 });
 
-// Hosts that should render with the SchoolBot SaaS brand instead of
-// the Meclones school brand. Kept in sync with middleware.ts —
-// changes here without changes there (or vice versa) cause titles
-// and routing to disagree, which is exactly the kind of subtle bug
-// that's hard to spot in production.
-const SCHOOLBOT_HOSTS = new Set(["schoolbot.com.ng", "www.schoolbot.com.ng"]);
-
 /**
  * Host-aware metadata. Same Next.js app serves two brands from one
  * deployment (Meclones the school + SchoolBot the SaaS), so the
@@ -38,11 +32,12 @@ const SCHOOLBOT_HOSTS = new Set(["schoolbot.com.ng", "www.schoolbot.com.ng"]);
  * computed per-request from the host header.
  */
 export async function generateMetadata(): Promise<Metadata> {
-  const host = (headers().get("host") ?? "").toLowerCase().split(":")[0];
-  const isSchoolbot = SCHOOLBOT_HOSTS.has(host);
+  // Same check middleware.ts uses (lib/host-utils.ts), so titles and
+  // routing can never disagree about which host is the platform.
+  const isSchoolbot = isPlatformHost(headers().get("host"));
 
   if (isSchoolbot) {
-    const SBOT_URL = "https://schoolbot.com.ng";
+    const SBOT_URL = `https://${PLATFORM_ROOT_DOMAIN}`;
     return {
       metadataBase: new URL(SBOT_URL),
       title: {
