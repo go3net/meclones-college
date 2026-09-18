@@ -76,6 +76,33 @@ to `https://<railway-domain>/api/whatsapp/meta` with the app-level
 
 ---
 
+## 3b · Schools that already have a website: the widget
+
+They keep their site and add one line before `</body>` on every page:
+
+```html
+<script src="https://schoolbot.com.ng/embed/v1.js" data-key="sb_…" async></script>
+```
+
+- The director finds the exact snippet, a preview link and the settings
+  at `/portal/director/website-widget` (platform admins see the same
+  snippet on the school's page). The key only identifies the school.
+- Default mode shows a "Chat with us" button that opens the AI assistant
+  (answers from the school's Chatbot KB) with a WhatsApp handoff.
+  `data-mode="whatsapp"` gives a WhatsApp-only button; `data-position="left"`
+  and `data-color="#hex"` adjust placement and colour.
+- Settings: enable/disable, and an allowed-websites list. Empty = any
+  site can load it; once filled, only those origins (and subdomains) can
+  load the widget or use the assistant. "Issue a new key" invalidates
+  the old snippet.
+- `/embed/preview` on the school's host renders the widget on a blank
+  page for testing.
+- Endpoints behind it: `GET /api/embed/config?key=` and
+  `POST /api/embed/chat?key=` (CORS, per-school + IP rate limit).
+  They resolve the school from the key, never from the host.
+
+---
+
 ## 4 · Hand over
 
 Send the school:

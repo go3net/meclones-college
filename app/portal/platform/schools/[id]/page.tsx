@@ -6,6 +6,7 @@ import { prismaBase } from "@/lib/prisma";
 import { requireRole } from "@/lib/auth-helpers";
 import { PLATFORM_ROOT_DOMAIN } from "@/lib/host-utils";
 import { isEncryptionConfigured } from "@/lib/crypto";
+import { allowedOrigins, embedSnippet, ensureEmbedKey } from "@/lib/embed";
 import { updateSchool, updateIntegrations, deleteSchool } from "../actions";
 import { ArrowLeft, CheckCircle2, AlertCircle, Users, GraduationCap, Smartphone, CreditCard, Trash2, ExternalLink } from "lucide-react";
 
@@ -33,6 +34,8 @@ export default async function PlatformSchoolPage({ params, searchParams }: { par
 
   const portalUrl = s.customDomain ? `https://${s.customDomain}` : `https://${s.slug}.${PLATFORM_ROOT_DOMAIN}`;
   const encryptionReady = isEncryptionConfigured();
+  const embedKey = await ensureEmbedKey(s.id);
+  const embedOrigins = allowedOrigins(s);
 
   return (
     <PlatformShell>
@@ -205,6 +208,23 @@ export default async function PlatformSchoolPage({ params, searchParams }: { par
               <Button type="submit" variant="gold">Save integrations</Button>
             </div>
           </form>
+        </CardBody>
+      </Card>
+
+      <Card className="mb-6">
+        <CardHeader>
+          <CardTitle>Website widget</CardTitle>
+          <Badge tone={s.embedEnabled ? "gold" : "danger"}>{s.embedEnabled ? "on" : "off"}</Badge>
+        </CardHeader>
+        <CardBody>
+          <p className="text-sm text-slate-600 mb-2">
+            For schools with their own website. The director manages this at <code className="bg-slate-100 px-1 rounded">/portal/director/website-widget</code>; shown here for support.
+          </p>
+          <pre className="bg-slate-900 text-slate-100 text-xs rounded-lg p-3 overflow-x-auto select-all">{embedSnippet(embedKey)}</pre>
+          <p className="text-xs text-slate-500 mt-2">
+            Allowed websites: {embedOrigins.length === 0 ? "any" : embedOrigins.join(", ")} · preview at{" "}
+            <a href={`${portalUrl}/embed/preview`} target="_blank" rel="noreferrer noopener" className="text-brand-700 hover:underline">{portalUrl.replace(/^https:\/\//, "")}/embed/preview</a>
+          </p>
         </CardBody>
       </Card>
 

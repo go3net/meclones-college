@@ -68,6 +68,14 @@ model School {
   paystackSecretKeyEnc   String?
   paystackPublicKey      String?
 
+  /// Public key for the embeddable website widget (script tag on the
+  /// school's own site). Safe to expose; it only selects the school.
+  embedKey            String? @unique
+  embedEnabled        Boolean @default(true)
+  /// Origins allowed to load the widget, e.g. ["https://school.com"].
+  /// Null / empty = any origin.
+  embedAllowedOrigins Json?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 

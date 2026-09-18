@@ -14,6 +14,7 @@ import { encrypt, isEncryptionConfigured } from "@/lib/crypto";
 import { toPublicSchool } from "@/lib/school-public";
 import { defaultKnowledgeSections } from "@/lib/school-knowledge";
 import { TENANT_MODELS } from "@/lib/prisma-tenant-extension";
+import { generateEmbedKey } from "@/lib/embed";
 
 // ─── Validation ─────────────────────────────────────────────────────
 
@@ -148,6 +149,7 @@ export async function createSchool(formData: FormData) {
       status: "TRIAL",
       socials: {},
       stats: {},
+      embedKey: generateEmbedKey(),
     },
   });
 

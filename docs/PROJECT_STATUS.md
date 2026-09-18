@@ -761,8 +761,28 @@ identity from DB → per-school credentials → platform admin → docs.
 - Cloudflare + Railway: wildcard `*.schoolbot.com.ng`; `meclonescollege.com`
   currently returns 404 (not attached to this deployment).
 
+### Embeddable website widget — shipped 2026-09-18
+- `School.embedKey` (public, unique), `embedEnabled`, `embedAllowedOrigins`
+  (JSON string[]). Keys are issued on school creation or lazily by
+  `ensureEmbedKey()` (`lib/embed.ts`).
+- `GET /embed/v1.js` serves `embed/widget.js` (vanilla JS, Shadow DOM,
+  no build step; 5-minute cache + ETag). The script reads `data-key` /
+  `data-mode` / `data-position` / `data-color` from its own tag and calls
+  `GET /api/embed/config?key=` then `POST /api/embed/chat?key=` on the
+  platform origin it was loaded from.
+- Both endpoints resolve the school by key (60s cache), refuse disabled or
+  SUSPENDED schools, enforce the origin allowlist (`originAllowed`, empty =
+  any; entries also cover subdomains), send CORS headers, and rate-limit
+  per school + IP. Chat runs inside `runAsSchool` so the knowledge base is
+  the school's own.
+- `lib/website-chat.ts` now holds the shared chat implementation
+  (`chatResponse`, `parseMessages`, rate limiter); `/api/website-chat` is a
+  thin wrapper for the on-site widget.
+- Director UI: `/portal/director/website-widget` (snippet, preview link,
+  enable toggle, allowed websites, issue a new key). `/embed/preview`
+  renders the school's widget on a blank page.
+
 ### Next phases (not started)
-- Self-serve signup + billing; embeddable script-tag widget (WhatsApp
-  button + AI chat with CORS/origin allowlist) for schools with a website;
-  DB-driven school websites from the `/showcase` templates; per-school
-  Resend sender domains; migration files instead of `db push`.
+- Self-serve signup + billing; DB-driven school websites from the
+  `/showcase` templates; per-school Resend sender domains; migration
+  files instead of `db push`.
