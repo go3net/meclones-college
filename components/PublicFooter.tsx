@@ -3,8 +3,58 @@ import { Logo } from "./Logo";
 import { Phone, Mail, MapPin, Facebook, Instagram, Youtube, Linkedin } from "lucide-react";
 import { getSchoolPublic } from "@/lib/tenant";
 
+/** A footer link column. The platform host and a school get different ones. */
+function LinkColumn({ title, links }: { title: string; links: { href: string; label: string }[] }) {
+  return (
+    <div>
+      <p className="font-semibold text-white mb-3">{title}</p>
+      <ul className="space-y-2 text-sm">
+        {links.map(l => (
+          <li key={l.href}><Link href={l.href} className="hover:text-gold-300">{l.label}</Link></li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
 export async function PublicFooter() {
   const school = await getSchoolPublic();
+  // No tenant = the SchoolBot product site; the school pages don't exist there.
+  const isPlatform = school.id === null;
+  const blurb = isPlatform
+    ? "The school management product parents and teachers don't have to learn. Fees, results, attendance and messaging, all from WhatsApp."
+    : "Raising confident, responsible students equipped to make a positive impact in a dynamic world.";
+  const columns = isPlatform
+    ? [
+        { title: "Product", links: [
+          { href: "/", label: "Home" },
+          { href: "/whatsapp", label: "How it works" },
+          { href: "/#pricing", label: "Pricing" },
+          { href: "/#demo", label: "Request a demo" },
+        ] },
+        { title: "For schools", links: [
+          { href: "/showcase", label: "Sample school websites" },
+          { href: "/portal/login", label: "Portal login" },
+        ] },
+      ]
+    : [
+        { title: "Quick Links", links: [
+          { href: "/", label: "Home" },
+          { href: "/about", label: "About Us" },
+          { href: "/academics", label: "Academy" },
+          { href: "/admission", label: "Admissions" },
+          { href: "/news", label: "News & Events" },
+          { href: "/gallery", label: "Gallery" },
+          { href: "/contact", label: "Contact" },
+          { href: "/portal/login", label: "Parent Portal" },
+        ] },
+        { title: "Academy", links: [
+          { href: "/academics/jss", label: "JSS 1–3" },
+          { href: "/academics/sss", label: "SS 1–3" },
+          { href: "/academics/exam-prep", label: "Exam Preparation" },
+          { href: "/academics#co-curricular", label: "Co-Curricular" },
+        ] },
+      ];
   return (
     <>
       {/* Contact info strip (sits directly above footer) */}
@@ -37,34 +87,10 @@ export async function PublicFooter() {
           <div className="grid md:grid-cols-4 gap-10">
             <div className="md:col-span-1">
               <Logo variant="light" />
-              <p className="mt-4 text-sm text-slate-400 leading-relaxed">
-                Raising confident, responsible students equipped to make a positive impact in a dynamic world.
-              </p>
+              <p className="mt-4 text-sm text-slate-400 leading-relaxed">{blurb}</p>
             </div>
 
-            <div>
-              <p className="font-semibold text-white mb-3">Quick Links</p>
-              <ul className="space-y-2 text-sm">
-                <li><Link href="/" className="hover:text-gold-300">Home</Link></li>
-                <li><Link href="/about" className="hover:text-gold-300">About Us</Link></li>
-                <li><Link href="/academics" className="hover:text-gold-300">Academy</Link></li>
-                <li><Link href="/admission" className="hover:text-gold-300">Admissions</Link></li>
-                <li><Link href="/news" className="hover:text-gold-300">News & Events</Link></li>
-                <li><Link href="/gallery" className="hover:text-gold-300">Gallery</Link></li>
-                <li><Link href="/contact" className="hover:text-gold-300">Contact</Link></li>
-                <li><Link href="/portal/login" className="hover:text-gold-300">Parent Portal</Link></li>
-              </ul>
-            </div>
-
-            <div>
-              <p className="font-semibold text-white mb-3">Academy</p>
-              <ul className="space-y-2 text-sm">
-                <li><Link href="/academics/jss" className="hover:text-gold-300">JSS 1–3</Link></li>
-                <li><Link href="/academics/sss" className="hover:text-gold-300">SS 1–3</Link></li>
-                <li><Link href="/academics/exam-prep" className="hover:text-gold-300">Exam Preparation</Link></li>
-                <li><Link href="/academics#co-curricular" className="hover:text-gold-300">Co-Curricular</Link></li>
-              </ul>
-            </div>
+            {columns.map(col => <LinkColumn key={col.title} title={col.title} links={col.links} />)}
 
             <div>
               <p className="font-semibold text-white mb-3">Connect With Us</p>

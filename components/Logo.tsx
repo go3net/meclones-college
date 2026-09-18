@@ -41,14 +41,16 @@ export function Logo({ variant = "dark", className }: { variant?: "dark" | "ligh
 
   if (isPlatform) {
     return (
-      <div className={clsx("flex items-center", className)}>
+      <div className={clsx("flex items-center shrink-0", className)}>
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src={variant === "light" ? "/brand/schoolbot-logo-light.png" : "/brand/schoolbot-logo.png"}
           alt="SchoolBot"
           width={200}
           height={32}
-          className="h-8 w-auto"
+          // max-w-none + shrink-0: a crowded flex row must never squeeze
+          // the wordmark to zero width.
+          className="h-8 w-auto max-w-none shrink-0"
         />
       </div>
     );

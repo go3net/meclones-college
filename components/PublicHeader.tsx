@@ -4,8 +4,21 @@ import { useState } from "react";
 import { Menu, X, ChevronDown } from "lucide-react";
 import { Logo } from "./Logo";
 import { Button } from "./ui";
+import { useSchool } from "./SchoolProvider";
 
-const NAV = [
+type NavItem = { href: string; label: string } | { label: string; children: { href: string; label: string }[] };
+
+// The bare platform host (schoolbot.com.ng) is a product site, not a
+// school: it gets SchoolBot's own short menu. The school pages below
+// don't exist there (middleware redirects them home).
+const PLATFORM_NAV: NavItem[] = [
+  { href: "/", label: "Home" },
+  { href: "/whatsapp", label: "How it works" },
+  { href: "/showcase", label: "Sample websites" },
+  { href: "/#pricing", label: "Pricing" },
+];
+
+const NAV: NavItem[] = [
   { href: "/", label: "Home" },
   { href: "/about", label: "About" },
   {
@@ -27,15 +40,20 @@ const NAV = [
 ];
 
 export function PublicHeader() {
+  const school = useSchool();
+  const isPlatform = school.id === null;
+  const nav = isPlatform ? PLATFORM_NAV : NAV;
+  // Primary call to action: a demo for the product, an application for a school.
+  const cta = isPlatform ? { href: "/#demo", label: "Request a demo" } : { href: "/apply", label: "Apply Now" };
   const [open, setOpen] = useState(false);
   const [acadOpen, setAcadOpen] = useState(false);
   return (
     <header className="bg-white border-b border-slate-200 sticky top-0 z-40">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16 lg:h-20">
-          <Link href="/"><Logo /></Link>
+          <Link href="/" className="shrink-0"><Logo /></Link>
           <nav className="hidden lg:flex items-center gap-1">
-            {NAV.map(item =>
+            {nav.map(item =>
               "children" in item ? (
                 <div key={item.label} className="relative" onMouseEnter={() => setAcadOpen(true)} onMouseLeave={() => setAcadOpen(false)}>
                   <button className="px-3 py-2 text-sm font-medium text-slate-700 hover:text-brand-700 flex items-center gap-1">
@@ -58,7 +76,7 @@ export function PublicHeader() {
           </nav>
           <div className="hidden lg:flex items-center gap-2">
             <Link href="/portal/login"><Button variant="outline">Portal Login</Button></Link>
-            <Link href="/apply"><Button variant="gold">Apply Now</Button></Link>
+            <Link href={cta.href}><Button variant="gold">{cta.label}</Button></Link>
           </div>
           <button className="lg:hidden p-2 text-slate-700" onClick={() => setOpen(!open)} aria-label="Menu">
             {open ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
@@ -68,7 +86,7 @@ export function PublicHeader() {
       {open && (
         <div className="lg:hidden border-t border-slate-100 bg-white">
           <div className="px-4 py-3 space-y-1">
-            {NAV.flatMap(item =>
+            {nav.flatMap(item =>
               "children" in item
                 ? [<p key={item.label} className="px-3 pt-2 pb-1 text-xs font-semibold uppercase text-slate-400">{item.label}</p>,
                   ...item.children!.map(c => (
@@ -78,7 +96,7 @@ export function PublicHeader() {
             )}
             <div className="pt-3 mt-2 border-t border-slate-100 flex gap-2">
               <Link href="/portal/login" className="flex-1" onClick={() => setOpen(false)}><Button variant="outline" className="w-full">Portal Login</Button></Link>
-              <Link href="/apply" className="flex-1" onClick={() => setOpen(false)}><Button variant="gold" className="w-full">Apply Now</Button></Link>
+              <Link href={cta.href} className="flex-1" onClick={() => setOpen(false)}><Button variant="gold" className="w-full">{cta.label}</Button></Link>
             </div>
           </div>
         </div>
