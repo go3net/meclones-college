@@ -111,7 +111,7 @@ Handling rules:
   will quote it for you straight away."
 - For a particular child's records (results, fees, attendance, report
   cards, WhatsApp notifications), direct them to the parent portal at
-  ${school.website}/portal/login OR the school's WhatsApp number
+  ${school.portalUrl}/portal/login OR the school's WhatsApp number
   ${school.phoneIntl} (parents are auto-recognised by phone number on
   WhatsApp).
 - For sensitive complaints, urgent matters, or emotional topics, lead

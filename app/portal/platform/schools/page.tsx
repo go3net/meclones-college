@@ -1,9 +1,10 @@
 import Link from "next/link";
 import { PlatformShell } from "@/components/PlatformShell";
-import { Card, CardBody, CardHeader, CardTitle, Badge, Button, Input, Label, StatCard } from "@/components/ui";
+import { Card, CardBody, CardHeader, CardTitle, Badge, Button, Input, Label, Select, StatCard } from "@/components/ui";
 import { prismaBase } from "@/lib/prisma";
 import { requireRole } from "@/lib/auth-helpers";
 import { PLATFORM_ROOT_DOMAIN } from "@/lib/host-utils";
+import { PACKAGE_LABEL, schoolPackage } from "@/lib/school-public";
 import { createSchool } from "./actions";
 import { Building2, Plus, CheckCircle2, AlertCircle, ArrowRight, Users } from "lucide-react";
 
@@ -72,6 +73,7 @@ export default async function PlatformSchoolsPage({ searchParams }: { searchPara
                     <p className="font-semibold text-brand-900">{s.name}</p>
                     <Badge tone="neutral" className="font-mono">{s.code}</Badge>
                     <Badge tone={STATUS_TONE[s.status] ?? "neutral"}>{s.status}</Badge>
+                    <Badge tone="neutral">{schoolPackage(s) === "PORTAL" ? "Portal only" : "Complete"}</Badge>
                     {s.whatsappPhoneNumberId && <Badge tone="gold">WhatsApp</Badge>}
                   </div>
                   <p className="text-xs text-slate-500 mt-1">
@@ -140,8 +142,9 @@ export default async function PlatformSchoolsPage({ searchParams }: { searchPara
               <Input name="admissionsEmail" type="email" placeholder="admissions@school.com" />
             </div>
             <div>
-              <Label>Website</Label>
+              <Label>Their own website</Label>
               <Input name="website" placeholder="https://school.com" />
+              <p className="text-[11px] text-slate-500 mt-1">Portal-only schools: where &quot;back to website&quot; links go and where the widget is installed.</p>
             </div>
             <div className="sm:col-span-2">
               <Label>Address</Label>
@@ -155,11 +158,13 @@ export default async function PlatformSchoolsPage({ searchParams }: { searchPara
               <Label>Office hours</Label>
               <Input name="hours" placeholder="Mon – Fri, 8:00am – 4:00pm" />
             </div>
-            <div className="flex items-end pb-2">
-              <label className="inline-flex items-center gap-2 text-sm text-slate-700">
-                <input type="checkbox" name="publicSiteEnabled" defaultChecked className="h-4 w-4" />
-                Serve a public website for this school
-              </label>
+            <div>
+              <Label>Package *</Label>
+              <Select name="package" defaultValue="COMPLETE">
+                <option value="COMPLETE">{PACKAGE_LABEL.COMPLETE}</option>
+                <option value="PORTAL">{PACKAGE_LABEL.PORTAL}</option>
+              </Select>
+              <p className="text-[11px] text-slate-500 mt-1">Portal only: they keep their website and add our widget; &quot;/&quot; goes to the portal login.</p>
             </div>
 
             <div className="sm:col-span-2 lg:col-span-3 border-t border-slate-100 pt-3 mt-1">

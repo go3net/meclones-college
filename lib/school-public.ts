@@ -45,13 +45,49 @@ export interface SchoolPublic {
   /** Digits only, no "+", as wa.me links want it. */
   whatsapp: string;
   hours: string;
-  /** Canonical public URL, no trailing slash. */
+  /**
+   * Where THIS PLATFORM serves the school: its custom domain or its
+   * `{slug}.<root>` subdomain. Every `/portal/...`, `/api/...` and
+   * `/embed/...` link must be built from this. No trailing slash.
+   */
+  portalUrl: string;
+  /**
+   * The school's marketing website. For a COMPLETE school that is the
+   * site we serve (same as portalUrl); for a PORTAL-only school it is
+   * their own existing website (falls back to portalUrl if unknown).
+   * No trailing slash.
+   */
   website: string;
+  /**
+   * Where "back to website" links go from the portal: "/" for a COMPLETE
+   * school, the school's own site for PORTAL-only, "" when unknown (hide
+   * the link).
+   */
+  homeUrl: string;
+  /**
+   * What the school bought. COMPLETE = website + portal + WhatsApp;
+   * PORTAL = portal + WhatsApp + the embeddable widget for their own site.
+   */
+  package: SchoolPackage;
+  /**
+   * Show the click-to-fill demo accounts on the login page. Only ever
+   * true for the designated demo school (DEMO_SCHOOL_SLUG, defaulting to
+   * the default school); never for a customer.
+   */
+  demoLogins: boolean;
   socials: SchoolSocials;
   stats: SchoolStats;
+  /** True for COMPLETE. Kept as its own flag because pages gate on it. */
   publicSiteEnabled: boolean;
   status: School["status"] | "PLATFORM";
 }
+
+export type SchoolPackage = "COMPLETE" | "PORTAL";
+
+export const PACKAGE_LABEL: Record<SchoolPackage, string> = {
+  COMPLETE: "Complete (website + portal)",
+  PORTAL: "Portal only (own website)",
+};
 
 const PLATFORM_ROOT = (process.env.PLATFORM_ROOT_DOMAIN ?? "schoolbot.com.ng").trim().toLowerCase();
 
@@ -75,7 +111,11 @@ export const PLATFORM_SCHOOL: SchoolPublic = {
   admissionsEmail: (process.env.PLATFORM_EMAIL ?? `hello@${PLATFORM_ROOT}`).trim(),
   whatsapp: (process.env.PLATFORM_WHATSAPP ?? "2348060246634").trim(),
   hours: "Mon – Fri, 9:00am – 5:00pm",
+  portalUrl: `https://${PLATFORM_ROOT}`,
   website: `https://${PLATFORM_ROOT}`,
+  homeUrl: "/",
+  package: "COMPLETE",
+  demoLogins: false,
   socials: { facebook: "", instagram: "", twitter: "", youtube: "", linkedin: "" },
   stats: { alumni: 0, teachers: 0, yearsExperience: 0 },
   publicSiteEnabled: true,
@@ -101,29 +141,52 @@ function toWhatsAppDigits(raw: string): string {
   return digits;
 }
 
+const DEFAULT_SLUG = (process.env.DEFAULT_SCHOOL_SLUG ?? "meclones").trim().toLowerCase();
+/** The one school whose login page offers demo accounts. "" disables it. */
+const DEMO_SLUG = (process.env.DEMO_SCHOOL_SLUG ?? DEFAULT_SLUG).trim().toLowerCase();
+
 /**
- * Canonical public URL for a school: its custom domain if set, else
- * its platform subdomain. Never ends with a slash.
+ * Where this platform serves a school (portal, APIs, and the website too
+ * for COMPLETE schools): its custom domain if set, else its platform
+ * subdomain. Deliberately ignores School.website, which for a PORTAL-only
+ * school is a site we do not host. For the default school
+ * NEXT_PUBLIC_SITE_URL still wins when set, so the original deployment's
+ * links keep working while its custom domain is being wired up.
  */
-export function schoolBaseUrl(school: Pick<School, "slug" | "customDomain" | "website">): string {
+export function schoolPortalUrl(school: Pick<School, "slug" | "customDomain">): string {
+  const env = (process.env.NEXT_PUBLIC_SITE_URL ?? "").trim();
+  if (env && school.slug === DEFAULT_SLUG) return env.replace(/\/$/, "");
   if (school.customDomain) return `https://${school.customDomain}`;
-  if (school.website) return school.website.replace(/\/$/, "");
   return `https://${school.slug}.${PLATFORM_ROOT}`;
 }
 
-const DEFAULT_SLUG = (process.env.DEFAULT_SCHOOL_SLUG ?? "meclones").trim().toLowerCase();
+/** What the school bought, from the stored plan or the public-site flag. */
+export function schoolPackage(school: Pick<School, "plan" | "publicSiteEnabled">): SchoolPackage {
+  if (school.plan === "PORTAL" || school.plan === "COMPLETE") return school.plan;
+  return school.publicSiteEnabled ? "COMPLETE" : "PORTAL";
+}
 
 /**
- * Base URL to build portal links from (emails, WhatsApp, receipts). No
- * trailing slash. For the default school NEXT_PUBLIC_SITE_URL still wins
- * when set, so the original deployment's links keep working while its
- * custom domain is being wired up; every other school uses its own
- * public URL.
+ * Base URL to build portal links from (emails, WhatsApp, receipts, the
+ * Paystack callback). Same as `school.portalUrl`; kept as a function
+ * because many call sites already use it.
  */
 export function schoolSiteUrl(school: SchoolPublic): string {
-  const env = (process.env.NEXT_PUBLIC_SITE_URL ?? "").trim();
-  if (env && school.slug === DEFAULT_SLUG) return env.replace(/\/$/, "");
-  return school.website.replace(/\/$/, "");
+  return school.portalUrl;
+}
+
+/** How a family applies: our /apply page only exists for COMPLETE schools. */
+export function applyInstruction(school: SchoolPublic): string {
+  return school.publicSiteEnabled
+    ? `Apply online at ${school.website}/apply`
+    : `Request an admission form from the admissions office (${school.admissionsEmail || school.email} or ${school.phone})`;
+}
+
+/** How a family books a tour: /book-visit only exists for COMPLETE schools. */
+export function tourInstruction(school: SchoolPublic): string {
+  return school.publicSiteEnabled
+    ? `book a guided tour at ${school.website}/book-visit`
+    : `arrange a guided tour by emailing ${school.admissionsEmail || school.email}`;
 }
 
 export function toPublicSchool(school: School): SchoolPublic {
@@ -131,8 +194,14 @@ export function toPublicSchool(school: School): SchoolPublic {
   const stats = (school.stats ?? {}) as Partial<Record<keyof SchoolStats, unknown>>;
   const phone = str(school.phone);
   const phoneIntl = str(school.phoneIntl, phone);
-  const website = schoolBaseUrl(school);
   const email = str(school.email);
+  const portalUrl = schoolPortalUrl(school);
+  const pkg = schoolPackage(school);
+  const hasPublicSite = pkg === "COMPLETE";
+  const ownWebsite = str(school.website).replace(/\/$/, "");
+  // COMPLETE: we serve the website. PORTAL: the school's own site.
+  const website = hasPublicSite ? portalUrl : (ownWebsite || portalUrl);
+  const homeUrl = hasPublicSite ? "/" : ownWebsite;
 
   return {
     id: school.id,
@@ -149,7 +218,11 @@ export function toPublicSchool(school: School): SchoolPublic {
     admissionsEmail: str(school.admissionsEmail, email),
     whatsapp: toWhatsAppDigits(str(school.whatsapp, phoneIntl)),
     hours: str(school.hours),
+    portalUrl,
     website,
+    homeUrl,
+    package: pkg,
+    demoLogins: DEMO_SLUG !== "" && school.slug === DEMO_SLUG,
     socials: {
       facebook: str(socials.facebook),
       instagram: str(socials.instagram),
@@ -162,7 +235,7 @@ export function toPublicSchool(school: School): SchoolPublic {
       teachers: num(stats.teachers),
       yearsExperience: num(stats.yearsExperience),
     },
-    publicSiteEnabled: school.publicSiteEnabled,
+    publicSiteEnabled: hasPublicSite,
     status: school.status,
   };
 }

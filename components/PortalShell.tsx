@@ -6,6 +6,7 @@ import { useRouter, usePathname } from "next/navigation";
 import { useSession, signOut } from "next-auth/react";
 import type { Role as MockRole } from "@/lib/mock-data";
 import { Logo } from "./Logo";
+import { useSchool } from "./SchoolProvider";
 import { NotificationsBell } from "./NotificationsBell";
 import { MobileBottomNav } from "./MobileBottomNav";
 import { BranchSwitcher } from "./BranchSwitcher";
@@ -136,6 +137,7 @@ const roleLabel: Record<MockRole, string> = {
 };
 
 export function PortalShell({ role, children }: { role: MockRole; children: ReactNode }) {
+  const school = useSchool();
   const router = useRouter();
   const pathname = usePathname();
   const { data: session, status } = useSession();
@@ -272,7 +274,15 @@ export function PortalShell({ role, children }: { role: MockRole; children: Reac
                     <p className="text-xs text-slate-500">{userEmail}</p>
                   </div>
                   <Link href="/portal/me/profile" className="block px-3 py-2 text-sm text-slate-700 hover:bg-slate-50">My profile</Link>
-                  <Link href="/" className="block px-3 py-2 text-sm text-slate-700 hover:bg-slate-50">School website</Link>
+                  {school.homeUrl && (
+                    <a
+                      href={school.homeUrl}
+                      {...(school.homeUrl.startsWith("/") ? {} : { target: "_blank", rel: "noreferrer noopener" })}
+                      className="block px-3 py-2 text-sm text-slate-700 hover:bg-slate-50"
+                    >
+                      School website
+                    </a>
+                  )}
                   <button onClick={doLogout} className="w-full text-left px-3 py-2 text-sm text-red-600 hover:bg-red-50">Sign out</button>
                 </div>
               )}

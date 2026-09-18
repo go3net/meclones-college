@@ -45,7 +45,7 @@ export async function GET(req: NextRequest) {
         email: pub.email,
         whatsapp: pub.whatsapp,
         website: pub.website,
-        portalUrl: `${pub.website}/portal/login`,
+        portalUrl: `${pub.portalUrl}/portal/login`,
       },
       brand: {
         primaryHex: brand?.primaryHex ?? "#0B1F4B",

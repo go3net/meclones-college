@@ -7,6 +7,7 @@ import { requireRole } from "@/lib/auth-helpers";
 import { PLATFORM_ROOT_DOMAIN } from "@/lib/host-utils";
 import { isEncryptionConfigured } from "@/lib/crypto";
 import { allowedOrigins, embedSnippet, ensureEmbedKey } from "@/lib/embed";
+import { PACKAGE_LABEL, schoolPackage } from "@/lib/school-public";
 import { updateSchool, updateIntegrations, deleteSchool } from "../actions";
 import { ArrowLeft, CheckCircle2, AlertCircle, Users, GraduationCap, Smartphone, CreditCard, Trash2, ExternalLink } from "lucide-react";
 
@@ -36,6 +37,7 @@ export default async function PlatformSchoolPage({ params, searchParams }: { par
   const encryptionReady = isEncryptionConfigured();
   const embedKey = await ensureEmbedKey(s.id);
   const embedOrigins = allowedOrigins(s);
+  const pkg = schoolPackage(s);
 
   return (
     <PlatformShell>
@@ -48,6 +50,7 @@ export default async function PlatformSchoolPage({ params, searchParams }: { par
             <h1 className="text-2xl font-bold text-brand-900">{s.name}</h1>
             <Badge tone="neutral" className="font-mono">{s.code}</Badge>
             <Badge tone={s.status === "SUSPENDED" ? "danger" : s.status === "TRIAL" ? "gold" : "neutral"}>{s.status}</Badge>
+            <Badge tone="neutral">{pkg === "PORTAL" ? "Portal only" : "Complete"}</Badge>
           </div>
           <p className="text-sm text-slate-500">
             <a href={portalUrl} target="_blank" rel="noreferrer noopener" className="text-brand-700 hover:underline inline-flex items-center gap-1">
@@ -134,8 +137,8 @@ export default async function PlatformSchoolPage({ params, searchParams }: { par
               <Input name="admissionsEmail" type="email" defaultValue={s.admissionsEmail ?? ""} />
             </div>
             <div>
-              <Label>Website</Label>
-              <Input name="website" defaultValue={s.website ?? ""} />
+              <Label>Their own website</Label>
+              <Input name="website" defaultValue={s.website ?? ""} placeholder="https://school.com" />
             </div>
             <div className="sm:col-span-2">
               <Label>Address</Label>
@@ -149,11 +152,17 @@ export default async function PlatformSchoolPage({ params, searchParams }: { par
               <Label>Office hours</Label>
               <Input name="hours" defaultValue={s.hours ?? ""} />
             </div>
-            <div className="flex items-end pb-2">
-              <label className="inline-flex items-center gap-2 text-sm text-slate-700">
-                <input type="checkbox" name="publicSiteEnabled" defaultChecked={s.publicSiteEnabled} className="h-4 w-4" />
-                Serve a public website
-              </label>
+            <div>
+              <Label>Package</Label>
+              <Select name="package" defaultValue={pkg}>
+                <option value="COMPLETE">{PACKAGE_LABEL.COMPLETE}</option>
+                <option value="PORTAL">{PACKAGE_LABEL.PORTAL}</option>
+              </Select>
+              <p className="text-[11px] text-slate-500 mt-1">
+                {pkg === "PORTAL"
+                  ? "We serve only the portal; \"/\" goes to the login. Their site uses the widget below."
+                  : "We serve their public website and the portal on the same address."}
+              </p>
             </div>
             <div className="sm:col-span-2 lg:col-span-3 flex justify-end">
               <Button type="submit" variant="gold">Save changes</Button>

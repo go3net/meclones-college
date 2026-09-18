@@ -7,6 +7,29 @@ checklist.
 
 ---
 
+## Two packages
+
+| | **Portal only** | **Complete** |
+|---|---|---|
+| Who it's for | Schools that already have a website | Schools with no website |
+| We serve | Portal + WhatsApp bot + the embeddable widget | Public website + portal + WhatsApp bot |
+| `/` on their address | Goes to the portal login | Their public home page |
+| Their own website | Stays theirs; they paste the widget snippet | n/a, ours is their website |
+| "Back to website" in the portal | Their own site (the *Their own website* field) | `/` |
+| AI assistant wording | "request a form from admissions", "email to arrange a tour" | links to our `/apply` and `/book-visit` |
+
+Pick the package when creating the school and change it any time on the
+school's platform page. Every portal link (emails, WhatsApp messages,
+receipts, the Paystack return address) is built from the **portal
+address** (custom domain or `{slug}.schoolbot.com.ng`), never from the
+school's own website, so a Portal-only school's links always work.
+
+A typical Portal-only setup: portal on `portal.theirschool.com` (set as
+the custom domain), *Their own website* = `https://theirschool.com`, and
+the widget snippet pasted into that site.
+
+---
+
 ## 0 · What you'll need from the school
 
 - Legal school name + a short version (e.g. "Greensprings School Lekki" / "Greensprings")

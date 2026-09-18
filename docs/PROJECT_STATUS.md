@@ -782,6 +782,30 @@ identity from DB → per-school credentials → platform admin → docs.
   enable toggle, allowed websites, issue a new key). `/embed/preview`
   renders the school's widget on a blank page.
 
+### Portal and website sold separately — shipped 2026-09-18
+- Two packages, stored in `School.plan`: `COMPLETE` (we serve website +
+  portal) and `PORTAL` (portal + WhatsApp + widget; the school keeps its
+  own website). `publicSiteEnabled` follows the package; legacy rows with
+  no plan derive it from the flag (`schoolPackage()`).
+- `SchoolPublic` now separates `portalUrl` (where this platform serves
+  the school: custom domain or `{slug}.<root>`; build ALL `/portal`,
+  `/api`, `/embed` links from it) from `website` (the marketing site:
+  ours for COMPLETE, the school's own for PORTAL) and adds `homeUrl`
+  ("/" | their site | "" = hide the link) and `package`.
+  `schoolSiteUrl(school)` returns `portalUrl`. Before this, a PORTAL
+  school's emails, WhatsApp links and the Paystack callback would have
+  pointed at the school's own website.
+- `applyInstruction()` / `tourInstruction()` make the knowledge base, FAQ
+  and AI prompt stop promising `/apply` and `/book-visit` to PORTAL schools.
+- Login page is school-branded (no more hard-coded "Meclones") and shows
+  the demo accounts only when `school.demoLogins` (the school whose slug
+  is `DEMO_SCHOOL_SLUG`, default = the default school; set it to an empty
+  string to switch demo logins off everywhere).
+- Platform admin: package picker on create/edit, package badge in the list.
+- **Not yet separable:** the COMPLETE website's page copy and photos are
+  still Meclones-specific. A second COMPLETE school needs the DB-driven
+  website work below before its site is sellable. PORTAL is sellable now.
+
 ### Next phases (not started)
 - Self-serve signup + billing; DB-driven school websites from the
   `/showcase` templates; per-school Resend sender domains; migration

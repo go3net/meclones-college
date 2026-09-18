@@ -7,6 +7,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { signIn } from "next-auth/react";
 import { Card, CardBody, Button, Input, Label } from "@/components/ui";
 import { Logo } from "@/components/Logo";
+import { useSchool } from "@/components/SchoolProvider";
 import { ROLE_HOME } from "@/auth.config";
 import { PLACE } from "@/lib/images";
 import { ShieldCheck, AlertCircle, ArrowRight, Lock, KeyRound } from "lucide-react";
@@ -32,6 +33,7 @@ export default function LoginPage() {
 }
 
 function LoginInner() {
+  const school = useSchool();
   const router = useRouter();
   const params = useSearchParams();
   const callbackUrl = params.get("callbackUrl");
@@ -91,8 +93,12 @@ function LoginInner() {
     <div className="min-h-screen bg-slate-50 flex flex-col">
       <header className="bg-white border-b border-slate-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-          <Link href="/"><Logo /></Link>
-          <Link href="/" className="text-sm text-slate-600 hover:text-brand-700">← Back to website</Link>
+          {/* COMPLETE schools go back to the site we serve ("/"); PORTAL-only
+              schools go to their own website; unknown = no link. */}
+          {school.homeUrl ? <a href={school.homeUrl}><Logo /></a> : <Logo />}
+          {school.homeUrl && (
+            <a href={school.homeUrl} className="text-sm text-slate-600 hover:text-brand-700">← Back to website</a>
+          )}
         </div>
       </header>
 
@@ -101,7 +107,7 @@ function LoginInner() {
           {/* Full-height hero photo behind a navy gradient for legibility */}
           <Image
             src={PLACE.homeHero}
-            alt="Meclones College students"
+            alt={`${school.shortName} students`}
             fill
             priority
             sizes="50vw"
@@ -114,11 +120,11 @@ function LoginInner() {
             <div className="max-w-md">
               <ShieldCheck className="h-12 w-12 text-gold-300 mb-4" />
               <h1 className="font-display text-3xl md:text-4xl font-bold leading-tight">
-                Welcome to the<br />Meclones <span className="text-gold-300">Portal</span>
+                Welcome to the<br />{school.shortName} <span className="text-gold-300">Portal</span>
               </h1>
               <div className="mt-4 h-1 w-16 bg-gold-400 rounded-full" />
               <p className="mt-5 text-slate-200 leading-relaxed">
-                Your secure gateway to academic excellence. Access important information, manage activities and stay connected with the Meclones community.
+                Your secure gateway to academic excellence. Access important information, manage activities and stay connected with the {school.shortName} community.
               </p>
               <div className="mt-8 space-y-2 text-sm text-slate-200">
                 <p className="flex gap-2"><span className="text-gold-300">✓</span> Real-time WhatsApp notifications</p>
@@ -134,7 +140,7 @@ function LoginInner() {
                   <Lock className="h-4 w-4" />
                 </div>
                 <div>
-                  <p className="font-semibold text-sm">Secure. Trusted. Meclones.</p>
+                  <p className="font-semibold text-sm">Secure. Trusted. {school.shortName}.</p>
                   <p className="text-xs text-slate-300 mt-0.5">Your data is protected with enterprise-grade security and privacy standards.</p>
                 </div>
               </div>
@@ -145,7 +151,11 @@ function LoginInner() {
         <div className="flex items-center justify-center p-6 lg:p-12">
           <div className="w-full max-w-md">
             <h2 className="text-2xl font-bold text-brand-900">Sign in to your portal</h2>
-            <p className="mt-1 text-sm text-slate-600">Use any demo account below to explore each role.</p>
+            <p className="mt-1 text-sm text-slate-600">
+              {school.demoLogins
+                ? "Use any demo account below to explore each role."
+                : "Parents, students and staff sign in with the details the school gave you."}
+            </p>
 
             <form onSubmit={submit} className="mt-6 space-y-4">
               <div>
@@ -154,11 +164,11 @@ function LoginInner() {
                   type="text"
                   value={email}
                   onChange={e => setEmail(e.target.value)}
-                  placeholder="you@meclonescollege.com  or  MCL/SS3A/2526/001"
+                  placeholder={`you@example.com  or  ${school.code}/SS3A/2526/001`}
                   required
                   autoComplete="username"
                 />
-                <p className="text-[11px] text-slate-500 mt-1">Students may sign in with their admission number (e.g. MCL/SS3A/2526/001) instead of an email.</p>
+                <p className="text-[11px] text-slate-500 mt-1">Students may sign in with their admission number (e.g. {school.code}/SS3A/2526/001) instead of an email.</p>
               </div>
               <div>
                 <div className="flex justify-between mb-1.5">
@@ -200,6 +210,9 @@ function LoginInner() {
               <Button type="submit" className="w-full" disabled={loading}>{loading ? "Signing in..." : "Sign In"} <ArrowRight className="h-4 w-4" /></Button>
             </form>
 
+            {/* Demo accounts exist only on the designated demo school. A
+                customer's login page must never offer them. */}
+            {school.demoLogins && (
             <div className="mt-8">
               <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">Demo Accounts · Click to autofill</p>
               <div className="grid grid-cols-2 gap-2">
@@ -212,6 +225,7 @@ function LoginInner() {
               </div>
               <p className="text-[11px] text-slate-400 mt-3">All demo passwords: <code className="bg-slate-100 px-1 rounded">{DEMO_PASSWORD}</code></p>
             </div>
+            )}
           </div>
         </div>
       </div>

@@ -222,7 +222,7 @@ export function formatRecentDiscipline(cases: Array<{
     lines.push(`  ${c.severity.toLowerCase()} · ${c.status.toLowerCase()} · ${dateLabel}`);
   }
   lines.push("");
-  lines.push("Full detail in the portal: " + school.website + "/portal/teacher/discipline");
+  lines.push("Full detail in the portal: " + school.portalUrl + "/portal/teacher/discipline");
   return lines.join("\n");
 }
 
@@ -257,7 +257,7 @@ export function formatResults(input: {
     }
   }
   lines.push("");
-  lines.push("For full result slip, log in: " + input.school.website + "/portal/login");
+  lines.push("For full result slip, log in: " + input.school.portalUrl + "/portal/login");
   return lines.join("\n");
 }
 
@@ -303,7 +303,7 @@ export function formatFees(input: {
     lines.push("");
     lines.push(`*Total Outstanding: ${nairaFmt.format(outstanding)}*`);
     if (outstanding > 0) {
-      lines.push("Pay online: " + input.school.website + "/portal/login");
+      lines.push("Pay online: " + input.school.portalUrl + "/portal/login");
     }
     lines.push(`Or call: ${input.school.phone}`);
   }

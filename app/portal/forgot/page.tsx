@@ -15,7 +15,7 @@ export default async function ForgotPage({ searchParams }: { searchParams: Searc
     <div className="min-h-screen bg-slate-50">
       <header className="bg-white border-b border-slate-200">
         <div className="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
-          <Link href="/"><Logo /></Link>
+          {school.homeUrl ? <a href={school.homeUrl}><Logo /></a> : <Logo />}
           <Link href="/portal/login" className="text-sm text-slate-600 hover:text-brand-700">← Back to login</Link>
         </div>
       </header>

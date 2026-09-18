@@ -77,7 +77,8 @@ export async function generateMetadata(): Promise<Metadata> {
   const school = await getSchoolPublic();
   const tagline = school.tagline ? ` — ${school.tagline}` : "";
   return {
-    metadataBase: new URL(school.website),
+    // The host we serve, never a PORTAL-only school's own website.
+    metadataBase: new URL(school.portalUrl),
     title: {
       default:  `${school.name}${tagline}`,
       template: `%s · ${school.name}`,

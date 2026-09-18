@@ -23,7 +23,9 @@ const FAQ: FaqEntry[] = [
   {
     keywords: ["apply", "application", "admission", "admit", "register", "enrol", "enroll", "intake"],
     answer: (school) => (
-`To apply to ${school.shortName}, fill out the online admission form right here on this site — there's an "Apply" link in the top menu, or go directly to ${school.website}/apply.
+`${school.publicSiteEnabled
+  ? `To apply to ${school.shortName}, fill out the online admission form at ${school.website}/apply (there's an "Apply" link in the site's top menu).`
+  : `To apply to ${school.shortName}, request an admission form from the admissions office using the contacts below, or pick one up at the front desk.`}
 
 You'll provide your child's details, your contact info, and previous school. The admissions team usually responds within 24 hours to schedule the entrance assessment.
 
@@ -67,7 +69,9 @@ ${school.stats.teachers}+ teachers and ${school.stats.yearsExperience} years of 
   {
     keywords: ["tour", "visit", "see the school", "come around", "book", "open day", "inspect"],
     answer: (school) => (
-`Yes — we'd love to show you around. Book a school visit on this site (look for the "Book a visit" page in the menu) and pick a slot that works for you.
+`Yes — we'd love to show you around. ${school.publicSiteEnabled
+  ? `Book a school visit at ${school.website}/book-visit and pick a slot that works for you.`
+  : `Call or email the office and we'll fix a time that works for you.`}
 
 You can also just walk in during office hours: ${school.hours}.
 
@@ -106,7 +110,7 @@ Outside those hours you can still drop us a WhatsApp on ${school.phoneIntl} or e
   {
     keywords: ["portal", "login", "log in", "sign in", "parent account", "student account", "password"],
     answer: (school) => (
-`Parents, teachers and students sign in at ${school.website}/portal/login.
+`Parents, teachers and students sign in at ${school.portalUrl}/portal/login.
 
 You can log in with either your email OR your admission number (for students). Forgot your password? There's a "Forgot password?" link on the login page — we'll email you a reset link.
 
@@ -118,7 +122,7 @@ If you've never received your login details, call ${school.phone} and we'll set 
   {
     keywords: ["my child", "my son", "my daughter", "result", "attendance", "score", "report card"],
     answer: (school) => (
-`For your child's specific records — results, attendance, fee balance, term reports — please log in to the parent portal at ${school.website}/portal/login.
+`For your child's specific records — results, attendance, fee balance, term reports — please log in to the parent portal at ${school.portalUrl}/portal/login.
 
 If you haven't been issued portal credentials yet, call ${school.phone} or email ${school.admissionsEmail} and we'll get you set up.`
     ),

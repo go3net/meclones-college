@@ -227,7 +227,7 @@ export async function handleIncoming({ from, text }: FsmInput): Promise<FsmResul
       }
       // Other roles (admin/director/etc) — bounce to staff line via escalation.
       outbox.push({
-        body: `Hello ${user.name.split(" ")[0]}, the WhatsApp bot is for parents and teachers. For admin tools please use the portal: ${school.website}/portal/login`,
+        body: `Hello ${user.name.split(" ")[0]}, the WhatsApp bot is for parents and teachers. For admin tools please use the portal: ${school.portalUrl}/portal/login`,
       });
       return { outbox, sessionId: session.id };
     }
@@ -771,7 +771,7 @@ async function sendFeesAndPayLinks(studentId: string, outbox: Outbound[]) {
   const parentEmail = student.parentLinks[0]?.parent.user.email ?? null;
   if (!parentEmail) {
     outbox.push({
-      body: `To pay online, log in to the portal: ${school.website}/portal/parent/fees`,
+      body: `To pay online, log in to the portal: ${school.portalUrl}/portal/parent/fees`,
     });
     return;
   }

@@ -14,7 +14,7 @@
 import { PROGRAMS, EXAMS } from "./constants";
 import { prisma } from "./prisma";
 import { getSchoolPublic } from "./tenant";
-import type { SchoolPublic } from "./school-public";
+import { applyInstruction, tourInstruction, type SchoolPublic } from "./school-public";
 
 /**
  * Async loader used by the chatbot. Reads DB-stored sections + concatenates
@@ -76,7 +76,7 @@ Senior Secondary students prepare for: ${EXAMS.join(", ")}.
 
 # Admission process
 
-1. Apply online at ${school.website}/apply (or visit the front desk).
+1. ${applyInstruction(school)} (or visit the front desk).
 2. Submit child's previous school records + birth certificate.
 3. Sit the school's entrance / placement test.
 4. Attend an interview with the admissions team.
@@ -87,14 +87,13 @@ Admissions email: ${school.admissionsEmail}.
 
 # Visiting / booking a tour
 
-Walk-ins welcome during ${school.hours}. To guarantee a guided tour, book at:
-${school.website}/book-visit
+Walk-ins welcome during ${school.hours}. To guarantee one, ${tourInstruction(school)}
 or call ${school.phone}.
 
 # Portal access for parents / students / staff
 
 Every parent, student, teacher and staff member has a portal account.
-Sign in at ${school.website}/portal/login.
+Sign in at ${school.portalUrl}/portal/login.
 
 Parents can:
 - Check their child's published results + download a PDF result slip
@@ -159,7 +158,7 @@ Log into the parent portal and open "Messages" — you'll see every teacher of
 your child's class. Click "New message" to start a conversation.
 
 ## I'm a prospective parent. Can I visit?
-Yes — book a tour at ${school.website}/book-visit or call ${school.phone}.
+Yes — ${tourInstruction(school)} or call ${school.phone}.
 
 ## I forgot my portal password
 Use the "Forgot password" link on the login page. We email a reset link
@@ -232,7 +231,7 @@ Senior Secondary students prepare for: ${EXAMS.join(", ")}.`;
       key: "admissions",
       title: "Admission process",
       sortOrder: 40,
-      body: `1. Apply online at ${school.website}/apply.\n2. Submit your child's previous school records + birth certificate.\n3. Sit the school's entrance / placement test.\n4. Attend an interview with the admissions team.\n5. On offer, complete enrolment and pay first-term fees.\n\nApplications can be tracked via the reference number emailed at submission. Questions: ${school.admissionsEmail}.`,
+      body: `1. ${applyInstruction(school)}.\n2. Submit your child's previous school records + birth certificate.\n3. Sit the school's entrance / placement test.\n4. Attend an interview with the admissions team.\n5. On offer, complete enrolment and pay first-term fees.\n\nApplications can be tracked via the reference number emailed at submission. Questions: ${school.admissionsEmail}.`,
     },
     {
       key: "fees",
@@ -244,13 +243,13 @@ Senior Secondary students prepare for: ${EXAMS.join(", ")}.`;
       key: "portal",
       title: "The school portal",
       sortOrder: 60,
-      body: `Every parent, student, teacher and staff member has a portal account. Sign in at ${school.website}/portal/login.\n\nParents can: check results + download PDF slips, track attendance, view + pay fees, see the timetable, read announcements, acknowledge disciplinary notices, message teachers privately, update health records.\n\nStudents log in with either their email or their admission number.`,
+      body: `Every parent, student, teacher and staff member has a portal account. Sign in at ${school.portalUrl}/portal/login.\n\nParents can: check results + download PDF slips, track attendance, view + pay fees, see the timetable, read announcements, acknowledge disciplinary notices, message teachers privately, update health records.\n\nStudents log in with either their email or their admission number.`,
     },
     {
       key: "visiting",
       title: "Visiting the school",
       sortOrder: 70,
-      body: `Walk-ins welcome during ${school.hours}. Book a guided tour at ${school.website}/book-visit or call ${school.phone}.`,
+      body: `Walk-ins welcome during ${school.hours}. You can also ${tourInstruction(school)} or call ${school.phone}.`,
     },
   ];
 }

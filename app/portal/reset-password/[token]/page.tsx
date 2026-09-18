@@ -5,10 +5,12 @@ import { AlertCircle, KeyRound } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { hashToken } from "@/lib/password-reset";
 import { resetPasswordWithToken } from "./actions";
+import { getSchoolPublic } from "@/lib/tenant";
 
 type Props = { params: { token: string }; searchParams: { error?: string } };
 
 export default async function ResetPasswordPage({ params, searchParams }: Props) {
+  const school = await getSchoolPublic();
   // Pre-validate so we can show a nicer "link expired" page instead of failing
   // only when the user clicks submit.
   const row = await prisma.passwordResetToken.findUnique({
@@ -20,7 +22,7 @@ export default async function ResetPasswordPage({ params, searchParams }: Props)
     <div className="min-h-screen bg-slate-50">
       <header className="bg-white border-b border-slate-200">
         <div className="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
-          <Link href="/"><Logo /></Link>
+          {school.homeUrl ? <a href={school.homeUrl}><Logo /></a> : <Logo />}
           <Link href="/portal/login" className="text-sm text-slate-600 hover:text-brand-700">← Back to login</Link>
         </div>
       </header>

@@ -43,7 +43,9 @@ const IdentitySchema = z.object({
     .string().trim().toLowerCase().max(120)
     .regex(/^(?!-)[a-z0-9-]+(\.[a-z0-9-]+)+$/, "Enter a bare domain like school.com")
     .optional().or(blank),
-  publicSiteEnabled: z.boolean(),
+  // What the school bought. COMPLETE = we serve their website too;
+  // PORTAL = portal + WhatsApp + widget, their website stays theirs.
+  package: z.enum(["COMPLETE", "PORTAL"]),
 });
 
 const CreateSchema = IdentitySchema.extend({
@@ -76,7 +78,7 @@ function identityFrom(fd: FormData) {
     hours: field(fd, "hours"),
     website: field(fd, "website"),
     customDomain: field(fd, "customDomain").toLowerCase(),
-    publicSiteEnabled: fd.get("publicSiteEnabled") === "on",
+    package: field(fd, "package") || "COMPLETE",
   };
 }
 
@@ -145,7 +147,8 @@ export async function createSchool(formData: FormData) {
       hours: nullable(d.hours),
       website: nullable(d.website),
       customDomain: nullable(d.customDomain),
-      publicSiteEnabled: d.publicSiteEnabled,
+      plan: d.package,
+      publicSiteEnabled: d.package === "COMPLETE",
       status: "TRIAL",
       socials: {},
       stats: {},
@@ -226,7 +229,8 @@ export async function updateSchool(formData: FormData) {
       hours: nullable(d.hours),
       website: nullable(d.website),
       customDomain: nullable(d.customDomain),
-      publicSiteEnabled: d.publicSiteEnabled,
+      plan: d.package,
+      publicSiteEnabled: d.package === "COMPLETE",
       status: d.status,
     },
   });
