@@ -154,10 +154,28 @@ const DEMO_SLUG = (process.env.DEMO_SCHOOL_SLUG ?? DEFAULT_SLUG).trim().toLowerC
  * links keep working while its custom domain is being wired up.
  */
 export function schoolPortalUrl(school: Pick<School, "slug" | "customDomain">): string {
-  const env = (process.env.NEXT_PUBLIC_SITE_URL ?? "").trim();
-  if (env && school.slug === DEFAULT_SLUG) return env.replace(/\/$/, "");
+  const env = absoluteUrl(process.env.NEXT_PUBLIC_SITE_URL);
+  if (env && school.slug === DEFAULT_SLUG) return env;
   if (school.customDomain) return `https://${school.customDomain}`;
   return `https://${school.slug}.${PLATFORM_ROOT}`;
+}
+
+/**
+ * Turn a configured address into a valid absolute URL with no trailing
+ * slash, or "" if it cannot be one. Env values are often a bare hostname
+ * ("app.up.railway.app"); callers feed the result to `new URL()`, which
+ * throws on those and would take every page down.
+ */
+export function absoluteUrl(raw: string | null | undefined): string {
+  const s = (raw ?? "").trim();
+  if (!s) return "";
+  const withScheme = /^https?:\/\//i.test(s) ? s : `https://${s}`;
+  try {
+    const u = new URL(withScheme);
+    return `${u.protocol}//${u.host}${u.pathname.replace(/\/$/, "")}`;
+  } catch {
+    return "";
+  }
 }
 
 /** What the school bought, from the stored plan or the public-site flag. */
@@ -198,7 +216,7 @@ export function toPublicSchool(school: School): SchoolPublic {
   const portalUrl = schoolPortalUrl(school);
   const pkg = schoolPackage(school);
   const hasPublicSite = pkg === "COMPLETE";
-  const ownWebsite = str(school.website).replace(/\/$/, "");
+  const ownWebsite = absoluteUrl(school.website);
   // COMPLETE: we serve the website. PORTAL: the school's own site.
   const website = hasPublicSite ? portalUrl : (ownWebsite || portalUrl);
   const homeUrl = hasPublicSite ? "/" : ownWebsite;

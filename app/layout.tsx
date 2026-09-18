@@ -32,6 +32,15 @@ const playfair = Playfair_Display({
  * into a school-specific tail. The whole metadata block is now
  * computed per-request from the host header.
  */
+/** Metadata must never be able to take a page down over a bad address. */
+function safeUrl(value: string): URL {
+  try {
+    return new URL(value);
+  } catch {
+    return new URL(`https://${PLATFORM_ROOT_DOMAIN}`);
+  }
+}
+
 export async function generateMetadata(): Promise<Metadata> {
   // Same check middleware.ts uses (lib/host-utils.ts), so titles and
   // routing can never disagree about which host is the platform.
@@ -78,7 +87,7 @@ export async function generateMetadata(): Promise<Metadata> {
   const tagline = school.tagline ? ` — ${school.tagline}` : "";
   return {
     // The host we serve, never a PORTAL-only school's own website.
-    metadataBase: new URL(school.portalUrl),
+    metadataBase: safeUrl(school.portalUrl),
     title: {
       default:  `${school.name}${tagline}`,
       template: `%s · ${school.name}`,
