@@ -40,7 +40,15 @@
     });
   }
 
-  var WA_ICON = '<svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor" aria-hidden="true"><path d="M12.04 2C6.58 2 2.13 6.45 2.13 11.91c0 1.75.46 3.45 1.32 4.95L2 22l5.25-1.38a9.9 9.9 0 0 0 4.79 1.22c5.46 0 9.91-4.45 9.91-9.91S17.5 2 12.04 2zm0 18.15c-1.48 0-2.93-.4-4.2-1.15l-.3-.18-3.12.82.83-3.04-.2-.31a8.2 8.2 0 0 1-1.26-4.38c0-4.54 3.7-8.24 8.25-8.24 4.54 0 8.24 3.7 8.24 8.24 0 4.55-3.7 8.24-8.24 8.24zm4.52-6.16c-.25-.12-1.47-.72-1.69-.81-.23-.08-.39-.12-.56.12-.16.25-.64.81-.78.97-.14.17-.29.19-.54.06-.25-.12-1.05-.39-1.99-1.23-.74-.66-1.23-1.47-1.38-1.72-.14-.25-.02-.38.11-.51.11-.11.25-.29.37-.43.12-.14.16-.25.25-.41.08-.17.04-.31-.02-.43-.06-.12-.56-1.34-.76-1.84-.2-.48-.41-.42-.56-.43h-.48c-.17 0-.43.06-.66.31-.22.25-.86.85-.86 2.07 0 1.22.89 2.4 1.01 2.56.12.17 1.75 2.67 4.23 3.74.59.26 1.05.41 1.41.52.59.19 1.13.16 1.56.1.48-.07 1.47-.6 1.67-1.18.21-.58.21-1.07.14-1.18-.06-.1-.22-.16-.47-.28z"/></svg>';
+  // Minimal, safe formatting for assistant replies: escape everything
+  // first, then allow **bold** and turn bare URLs into links.
+  function fmt(text) {
+    return esc(text)
+      .replace(/\*\*([^*\n]+)\*\*/g, "<b>$1</b>")
+      .replace(/(https?:\/\/[^\s<]+[^\s<.,;:!?)\]])/g, '<a href="$1" target="_blank" rel="noreferrer noopener">$1</a>');
+  }
+
+  var WA_ICON ='<svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor" aria-hidden="true"><path d="M12.04 2C6.58 2 2.13 6.45 2.13 11.91c0 1.75.46 3.45 1.32 4.95L2 22l5.25-1.38a9.9 9.9 0 0 0 4.79 1.22c5.46 0 9.91-4.45 9.91-9.91S17.5 2 12.04 2zm0 18.15c-1.48 0-2.93-.4-4.2-1.15l-.3-.18-3.12.82.83-3.04-.2-.31a8.2 8.2 0 0 1-1.26-4.38c0-4.54 3.7-8.24 8.25-8.24 4.54 0 8.24 3.7 8.24 8.24 0 4.55-3.7 8.24-8.24 8.24zm4.52-6.16c-.25-.12-1.47-.72-1.69-.81-.23-.08-.39-.12-.56.12-.16.25-.64.81-.78.97-.14.17-.29.19-.54.06-.25-.12-1.05-.39-1.99-1.23-.74-.66-1.23-1.47-1.38-1.72-.14-.25-.02-.38.11-.51.11-.11.25-.29.37-.43.12-.14.16-.25.25-.41.08-.17.04-.31-.02-.43-.06-.12-.56-1.34-.76-1.84-.2-.48-.41-.42-.56-.43h-.48c-.17 0-.43.06-.66.31-.22.25-.86.85-.86 2.07 0 1.22.89 2.4 1.01 2.56.12.17 1.75 2.67 4.23 3.74.59.26 1.05.41 1.41.52.59.19 1.13.16 1.56.1.48-.07 1.47-.6 1.67-1.18.21-.58.21-1.07.14-1.18-.06-.1-.22-.16-.47-.28z"/></svg>';
   var CHAT_ICON = '<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>';
   var CLOSE_ICON = '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M18 6L6 18M6 6l12 12"/></svg>';
   var SEND_ICON = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/></svg>';
@@ -71,6 +79,7 @@
       ".sb-bub{max-width:85%;border-radius:16px;padding:8px 12px;white-space:pre-wrap;word-wrap:break-word}",
       ".sb-row.user .sb-bub{background:" + primary + ";color:#fff;border-bottom-right-radius:4px}",
       ".sb-row.bot .sb-bub{background:#fff;color:#1e293b;border:1px solid #e2e8f0;border-bottom-left-radius:4px}",
+      ".sb-row.bot .sb-bub a{color:" + primary + ";text-decoration:underline;word-break:break-all}",
       ".sb-typing{display:inline-block;width:32px;text-align:left;letter-spacing:2px;color:#94a3b8}",
       ".sb-quick{display:flex;flex-wrap:wrap;gap:6px;padding:8px 12px 4px;border-top:1px solid #f1f5f9;background:#fff}",
       ".sb-quick button{font-size:11px;padding:4px 10px;border-radius:999px;border:1px solid #e2e8f0;background:#f8fafc;color:" + primary + ";cursor:pointer}",
@@ -177,8 +186,10 @@
         bub.className = "sb-bub";
         if (!m.content && busy && i === history.length - 1) {
           bub.innerHTML = '<span class="sb-typing">•••</span>';
-        } else {
+        } else if (m.role === "user") {
           bub.textContent = m.content;
+        } else {
+          bub.innerHTML = fmt(m.content);
         }
         row.appendChild(bub);
         msgs.appendChild(row);
@@ -256,7 +267,8 @@
 
     form.addEventListener("submit", function (e) { e.preventDefault(); send(input.value); });
     input.addEventListener("keydown", function (e) {
-      if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(input.value); }
+      var isEnter = e.key === "Enter" || e.key === "Return" || e.keyCode === 13;
+      if (isEnter && !e.shiftKey) { e.preventDefault(); send(input.value); }
     });
     fab.addEventListener("click", function () {
       panel.style.display = "flex";
