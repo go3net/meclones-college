@@ -45,12 +45,10 @@ export function PlatformShell({ children }: { children: ReactNode }) {
         open ? "translate-x-0" : "-translate-x-full",
       )}>
         <div className="h-16 flex items-center justify-between px-4 border-b border-white/10">
-          <div className="flex items-center gap-2">
-            <span className="h-9 w-9 rounded-lg bg-gradient-to-br from-brand-700 to-brand-900 ring-2 ring-gold-400/30 flex items-center justify-center font-serif font-bold text-gold-300">S</span>
-            <div className="leading-tight">
-              <p className="font-serif font-bold text-lg">SchoolBot</p>
-              <p className="text-[10px] uppercase tracking-[0.14em] text-gold-300">Platform</p>
-            </div>
+          <div className="leading-tight">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/brand/schoolbot-logo-light.png" alt="SchoolBot" width={162} height={26} className="h-[26px] w-auto" />
+            <p className="text-[10px] uppercase tracking-[0.14em] text-gold-300 mt-1">Platform admin</p>
           </div>
           <button className="lg:hidden text-white" onClick={() => setOpen(false)} aria-label="Close menu"><X className="h-5 w-5" /></button>
         </div>

@@ -73,6 +73,13 @@ export async function generateMetadata(): Promise<Metadata> {
       },
       twitter: { card: "summary_large_image" },
       manifest: "/manifest.webmanifest",
+      icons: {
+        icon: [
+          { url: "/brand/schoolbot-icon-64.png", sizes: "64x64", type: "image/png" },
+          { url: "/brand/schoolbot-icon-192.png", sizes: "192x192", type: "image/png" },
+        ],
+        apple: "/brand/schoolbot-icon-192.png",
+      },
       appleWebApp: {
         capable: true,
         title: "SchoolBot",
@@ -106,6 +113,9 @@ export async function generateMetadata(): Promise<Metadata> {
     // PWA niceties — manifest is auto-resolved from app/manifest.ts; the
     // appleWebApp block makes iOS Safari treat the installed app properly.
     manifest: "/manifest.webmanifest",
+    // Set explicitly (not via the app/icon.svg file convention) so the tab
+    // icon can differ per host: schools here, SchoolBot on the platform.
+    icons: { icon: [{ url: "/icon.svg", type: "image/svg+xml" }], apple: "/icon.svg" },
     appleWebApp: {
       capable: true,
       title: school.shortName,

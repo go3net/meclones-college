@@ -29,11 +29,30 @@ export function Logo({ variant = "dark", className }: { variant?: "dark" | "ligh
   /** First letter of the school's short name — used in the monogram fallback. */
   const monogram = (school.shortName.replace(/^the\s+/i, "").trim()[0] ?? "M").toUpperCase();
 
+  // No tenant = the SchoolBot platform itself (sales site, platform login).
+  const isPlatform = school.id === null;
+
   useEffect(() => {
+    if (isPlatform) return; // the platform has its own fixed logo, no brand row
     let cancelled = false;
     getBrandOnce().then(b => { if (!cancelled) setBrand(b); });
     return () => { cancelled = true; };
-  }, []);
+  }, [isPlatform]);
+
+  if (isPlatform) {
+    return (
+      <div className={clsx("flex items-center", className)}>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={variant === "light" ? "/brand/schoolbot-logo-light.png" : "/brand/schoolbot-logo.png"}
+          alt="SchoolBot"
+          width={200}
+          height={32}
+          className="h-8 w-auto"
+        />
+      </div>
+    );
+  }
 
   const text = variant === "light" ? "text-white" : "text-brand-900";
   const sub = variant === "light" ? "text-gold-300" : "text-gold-600";

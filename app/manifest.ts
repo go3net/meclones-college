@@ -10,6 +10,17 @@ import { getSchoolPublic } from "@/lib/tenant";
  */
 export default async function manifest(): Promise<MetadataRoute.Manifest> {
   const school = await getSchoolPublic();
+  // The platform host installs as SchoolBot with the bot icon; a school
+  // host installs as that school.
+  const icons: MetadataRoute.Manifest["icons"] = school.id === null
+    ? [
+        { src: "/brand/schoolbot-icon-192.png", sizes: "192x192", type: "image/png", purpose: "any" },
+        { src: "/brand/schoolbot-icon-512.png", sizes: "512x512", type: "image/png", purpose: "any" },
+      ]
+    : [
+        { src: "/icon.svg", sizes: "any", type: "image/svg+xml", purpose: "any" },
+        { src: "/icon.svg", sizes: "any", type: "image/svg+xml", purpose: "maskable" },
+      ];
   return {
     name: `${school.name} Portal`,
     short_name: school.shortName,
@@ -23,20 +34,7 @@ export default async function manifest(): Promise<MetadataRoute.Manifest> {
     categories: ["education"],
     lang: "en-NG",
     dir: "ltr",
-    icons: [
-      {
-        src: "/icon.svg",
-        sizes: "any",
-        type: "image/svg+xml",
-        purpose: "any",
-      },
-      {
-        src: "/icon.svg",
-        sizes: "any",
-        type: "image/svg+xml",
-        purpose: "maskable",
-      },
-    ],
+    icons,
     shortcuts: [
       {
         name: "Sign in",
